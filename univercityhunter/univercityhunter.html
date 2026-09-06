@@ -1,0 +1,3012 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>UniverCityHunter</title>
+<style>
+  :root{
+    --bg:#1B1726;--panel:#2A2340;--panel2:#352C4E;--line:#4A3F69;
+    --ink:#EAE6F2;--dim:#968CB0;--gate:#D8477E;--mark:#F2D74E;--ok:#6BD98F;--cy:#4FC3D9;--bad:#C87878;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{background:var(--bg);color:var(--ink);min-height:100vh;display:flex;justify-content:center;
+    font-family:'Pretendard','Apple SD Gothic Neo',system-ui,'Malgun Gothic',sans-serif;
+    padding:12px 12px calc(14px + env(safe-area-inset-bottom));}
+  #app{width:100%;max-width:440px;display:flex;flex-direction:column;gap:10px}
+  .logo{font-size:19px;font-weight:800;letter-spacing:-.03em}
+  .logo em{font-style:normal;color:var(--gate)}
+  .bar{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .tag{font-size:12px;color:var(--dim)}
+  .tag b{color:var(--mark)}
+  button{font-family:inherit;font-size:14px;font-weight:700;background:transparent;color:var(--mark);
+    border:1px solid var(--mark);border-radius:3px;padding:10px 16px;cursor:pointer;transition:background .12s}
+  button:hover:not(:disabled),button:focus-visible{background:var(--mark);color:var(--bg)}
+  button.ghost{color:var(--dim);border-color:var(--line);font-weight:600}
+  button.ghost:hover:not(:disabled),button.ghost:focus-visible{background:var(--line);color:var(--ink)}
+  button:disabled{opacity:.3;cursor:not-allowed;background:transparent!important;color:var(--dim)!important;border-color:var(--line)!important}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:15px}
+  .card h2{font-size:17px;font-weight:800;margin-bottom:7px}
+  .card p{font-size:13.5px;color:var(--dim);line-height:1.75}
+
+  /* 오프닝 — 배경 그림 위에 나레이션이 쌓입니다. 그림은 INTRO_ART에 경로만 넣으면 됩니다 */
+  #intro{position:relative;min-height:330px;display:flex;flex-direction:column;justify-content:flex-end;
+    background:var(--panel);background-size:cover;background-position:center;
+    border:1px solid var(--line);border-radius:4px;padding:20px;overflow:hidden}
+  #intro .scrim{position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(180deg,rgba(27,23,38,.10) 0%,rgba(27,23,38,.55) 45%,rgba(27,23,38,.93) 100%)}
+  #intro .artslot{position:absolute;top:10px;left:12px;font-size:10.5px;color:var(--dim);
+    border:1px dashed var(--line);border-radius:3px;padding:3px 7px}
+  #intro .artslot b{color:var(--gate)}
+  #intro .lines{position:relative;display:flex;flex-direction:column;gap:13px}
+  #intro .ln{font-size:14.5px;line-height:1.9;text-shadow:0 1px 4px rgba(0,0,0,.8)}
+  #intro .ln.q{color:var(--dim);font-size:13.5px}
+  .cursor{display:inline-block;width:7px;height:16px;background:var(--gate);vertical-align:-2px;animation:bl 1s steps(2) infinite}
+  @keyframes bl{50%{opacity:0}}
+
+  .stat{display:flex;align-items:center;gap:9px;background:var(--panel2);border:1px solid var(--line);
+    border-radius:3px;padding:9px 11px;margin-bottom:5px}
+  .stat.locked{opacity:.5}
+  .stat .nm{flex:1;font-size:13.5px;font-weight:700}
+  .stat .nm span{display:block;font-size:11px;font-weight:400;color:var(--dim);margin-top:2px}
+  .stat .vl{font-size:16px;font-weight:800;color:var(--mark);min-width:28px;text-align:center}
+  .stat button{padding:5px 11px;font-size:15px;line-height:1}
+  .derived{font-size:12px;color:var(--dim);line-height:1.8;padding:2px}
+  .derived b{color:var(--ink);font-weight:700}
+
+  .place{width:100%;text-align:left;font-family:inherit;color:var(--ink);
+    background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--gate);
+    border-radius:3px;padding:13px;margin-bottom:7px;cursor:pointer;font-weight:400}
+  .place:hover,.place:focus-visible{background:var(--panel2);color:var(--ink)}
+  .place h3{font-size:15px;font-weight:800;margin-bottom:4px}
+  .place p{font-size:12.5px;color:var(--dim);line-height:1.6}
+  .place .risk{font-size:11.5px;color:var(--mark);margin-top:5px;display:block}
+
+  .loot{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px}
+  .item{flex:1 1 30%;min-width:100px;background:var(--panel2);border:1px solid var(--line);border-radius:3px;
+    padding:9px;font-size:12.5px;font-weight:700;text-align:left;line-height:1.4;color:var(--dim)}
+  .item small{display:block;font-weight:400;font-size:11px;color:var(--dim);margin-top:3px}
+  .item.equip{cursor:pointer;border-color:var(--cy);color:var(--ink);font-family:inherit}
+  .item.equip.on{border-color:var(--mark);background:#463A5F}
+
+  .fac{display:flex;align-items:center;gap:11px;background:var(--panel);border:1px solid var(--line);
+    border-radius:3px;padding:12px;margin-bottom:6px;width:100%;text-align:left;
+    font-family:inherit;color:var(--ink);cursor:pointer}
+  .fac.lock{opacity:.45;cursor:not-allowed}
+  .fac.hot{border-color:var(--mark)}
+  .fac .ic{width:34px;height:34px;border-radius:3px;background:var(--panel2);border:1px solid var(--line);
+    display:grid;place-items:center;font-size:15px;flex:0 0 auto}
+  .fac .tx{flex:1}
+  .fac .tx b{display:block;font-size:14.5px;font-weight:800}
+  .fac .tx span{font-size:11.5px;color:var(--dim);font-weight:400}
+  .fac .tx i{font-style:normal;color:var(--mark)}
+
+  .app{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--cy);
+    border-radius:3px;padding:12px;margin-bottom:7px}
+  .app.out{border-left-color:var(--line);opacity:.5}
+  .app.sel{border-left-color:var(--mark)}
+  .app .hd{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:8px}
+  .app .hd b{font-size:15px;font-weight:800}
+  .app .hd span{font-size:11.5px;color:var(--dim)}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+  .g{background:var(--panel2);border-radius:3px;padding:6px 7px;font-size:11px;color:var(--dim);line-height:1.4}
+  .g b{display:block;font-size:14px;font-weight:800;color:var(--ink);margin-top:1px}
+  .g.hi b{color:var(--mark)} .g.lo b{color:var(--bad)} .g.off b{color:var(--dim)}
+  .expb{height:5px;background:#221C30;border-radius:3px;overflow:hidden;margin-top:7px}
+  .expb i{display:block;height:100%;background:var(--cy)}
+  .hpb{height:6px;background:#221C30;border-radius:3px;overflow:hidden;margin-top:6px}
+  .hpb i{display:block;height:100%;background:var(--ok)}
+  .hpb.low i{background:var(--bad)}
+  .gearline{font-size:11.5px;color:var(--dim);margin-top:7px;line-height:1.6}
+  .gearline b{color:var(--ink)}
+  .skl{width:100%;text-align:left;font-family:inherit;color:var(--ink);font-weight:400;
+    background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:12px;margin-bottom:7px;cursor:pointer}
+  .skl:hover,.skl:focus-visible{border-color:var(--mark);background:#463A5F;color:var(--ink)}
+  .skl b{display:block;font-size:14.5px;font-weight:800;margin-bottom:3px}
+  .skl span{font-size:12px;color:var(--dim)}
+  .chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+  .chip{font-size:11px;background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:3px 9px;color:var(--mark)}
+
+  .buyrow{display:flex;justify-content:space-between;align-items:center;gap:10px;
+    background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:10px;margin-top:8px}
+  .buyrow b{font-size:14px}
+  .buyrow button{padding:7px 12px;font-size:12.5px;white-space:nowrap}
+  .pickb{font-size:12px;font-weight:600;padding:6px 11px;border-radius:3px;
+    border:1px solid var(--line);background:var(--panel2);color:var(--dim);cursor:pointer;font-family:inherit}
+  .rec{font-size:11.5px;color:var(--dim);line-height:1.75;margin-top:4px}
+  .pickb.on{border-color:var(--mark);color:var(--mark);background:#463A5F}
+  .kd{font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:99px;vertical-align:1px}
+  .kd.perm{background:#28402F;color:var(--ok)} .kd.inst{background:#4A2438;color:#F08AB0}
+  .kd.junk{background:#3A3450;color:var(--dim)}
+  .inv{margin-top:9px} .invh{font-size:11px;color:var(--dim);font-weight:700;margin:8px 0 4px}
+  .slot{display:flex;align-items:center;gap:7px;background:var(--panel2);border:1px solid var(--line);
+    border-radius:3px;padding:7px 9px;margin-bottom:4px}
+  .slot.pick{border-color:var(--mark)}
+  .slot .sn{font-size:10.5px;color:var(--dim);min-width:44px;flex:0 0 auto}
+  .slot .si{flex:1;font-size:12.5px;font-weight:700;line-height:1.35;min-width:0}
+  .slot .si small{display:block;font-weight:400;font-size:10.5px;color:var(--dim);margin-top:1px}
+  .slot:not(.has) .si{color:var(--dim);font-weight:400}
+  .mv{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px}
+  .mv .mini{font-size:10.5px;padding:3px 7px;color:var(--cy);border-color:#3C5566}
+  .mini{font-size:11px;font-weight:600;padding:5px 9px;border-radius:3px;
+    border:1px solid var(--line);background:transparent;color:var(--dim);cursor:pointer;font-family:inherit;flex:0 0 auto}
+  .mini:disabled{opacity:.3} .mini.bad{color:#C87878;border-color:#5A3F4A}
+  button.ghost.bad{color:#C87878;border-color:#5A3F4A}
+  /* 제목 그림 — 지금은 캔버스로 그립니다. TITLE_ART에 경로를 넣으면 그 그림이 깔립니다 */
+  /* 제목 화면 — 세로 그림을 화면 높이에 맞추고 버튼을 그 위에 얹습니다 */
+  /* 그림 조각 — art 표에 이름을 적으면 이 자리에 들어갑니다 */
+  .ico{width:17px;height:17px;object-fit:contain;vertical-align:-3px;margin-right:5px}
+  .bigico{width:26px;height:26px;object-fit:contain;display:block}
+  .face.img{padding:0;background:#221C33}
+  .face.img img{width:100%;height:100%;object-fit:cover;border-radius:3px;display:block}
+  #titlewrap{position:relative;border:1px solid var(--line);border-radius:5px;overflow:hidden;
+    background:#0E1830;height:calc(100vh - 26px - env(safe-area-inset-bottom));max-height:820px}
+  #timg{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 32%}
+  #tcv{display:block;width:100%;height:100%}
+  #titlewrap .tshade{position:absolute;left:0;right:0;bottom:0;height:34%;pointer-events:none;
+    background:linear-gradient(180deg,rgba(8,12,26,0) 0%,rgba(8,12,26,.55) 55%,rgba(8,12,26,.88) 100%)}
+  #titlewrap .cap{position:absolute;left:0;right:0;bottom:82px;padding:0 18px;text-align:center;pointer-events:none}
+  #titlewrap .cap b{display:block;font-size:21px;font-weight:800;letter-spacing:.3px;
+    text-shadow:0 2px 8px rgba(0,0,0,.9)}
+  #titlewrap .cap span{font-size:11.5px;color:#C8C2D8;text-shadow:0 1px 4px rgba(0,0,0,.9)}
+  #play{position:absolute;left:50%;bottom:28px;transform:translateX(-50%);
+    padding:14px 46px;font-size:16px;font-weight:800;letter-spacing:.6px;color:#fff;
+    border-radius:999px;border:1.5px solid rgba(255,255,255,.6);
+    background:rgba(16,26,54,.66);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);
+    box-shadow:0 5px 22px rgba(0,0,0,.55);animation:playpulse 2.4s ease-in-out infinite}
+  #play:active{transform:translateX(-50%) scale(.96);animation:none}
+  @keyframes playpulse{
+    0%,100%{box-shadow:0 5px 22px rgba(0,0,0,.55),0 0 0 0 rgba(255,255,255,.30)}
+    55%{box-shadow:0 5px 22px rgba(0,0,0,.55),0 0 0 11px rgba(255,255,255,0)}
+  }
+  .cmp{font-size:11px;color:var(--dim);line-height:1.7;margin-top:6px;
+    border-top:1px dashed var(--line);padding-top:5px}
+  .cmp b{color:var(--ink)}
+  .du{color:var(--ok);font-weight:700} .dd{color:var(--bad);font-weight:700}
+  /* ── NPC · 얼굴 자리는 .face 하나뿐입니다. 나중에 <img>나 <canvas>로 갈아끼우면 됩니다 ── */
+  .npc{display:flex;align-items:center;gap:12px;margin-bottom:11px}
+  .face{width:74px;height:74px;flex:0 0 auto;border-radius:4px;border:1px solid var(--line);
+    background:linear-gradient(160deg,#3B3157,#2A2340);display:grid;place-items:center;font-size:32px}
+  .face.sm{width:38px;height:38px;font-size:18px;border-radius:3px}
+  .npc .who b{display:block;font-size:15.5px;font-weight:800}
+  .npc .who span{font-size:11.5px;color:var(--dim)}
+  .say{font-size:14px;line-height:1.85;color:var(--ink)}
+  .say:before{content:'\201C';color:var(--gate);margin-right:2px}
+  .say:after{content:'\201D';color:var(--gate);margin-left:2px}
+  .npcbar{display:flex;align-items:center;gap:9px;background:var(--panel);border:1px solid var(--line);
+    border-left:3px solid var(--gate);border-radius:3px;padding:9px 11px}
+  .npcbar .line{flex:1;min-width:0}
+  .npcbar .line b{display:block;font-size:12px;font-weight:800;color:var(--mark)}
+  .npcbar .line span{font-size:12px;color:var(--dim);line-height:1.5}
+  #acv{cursor:crosshair;user-select:none;-webkit-user-select:none;touch-action:none}
+  #jump{touch-action:manipulation;user-select:none}
+  canvas{width:100%;display:block;background:#12101A;border:1px solid var(--line);border-radius:4px;touch-action:manipulation}
+  #feed{font-size:12px;color:var(--dim);line-height:1.7;min-height:56px}
+  #feed div:last-child{color:var(--ink)}
+  :focus-visible{outline:2px solid var(--mark);outline-offset:2px}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+"use strict";
+
+/* ═════════════════════════════════════════════════════
+   ▼▼▼ 개발용 스위치 — 정식 배포 전에 false로 바꾸세요 ▼▼▼ */
+const DEV_SHOW_UNLOCK=true;
+/* ▲▲▲ 여기까지 ▲▲▲ */
+
+const L1=1,L2=2,L3=4;
+const HUMAN=L1|L2, CRAWL=L1, HOP=L1|L2, TALL=L1|L2|L3, FLY=L3;
+
+/* 오프닝 — bg는 배경 그림의 열쇳말입니다. 줄이 넘어갈 때마다 배경이 바뀝니다. */
+const INTRO=[
+  {bg:"gate",   t:"갑자기 대학 정문에 다른 세계로 연결되는 문이 나타났다."},
+  {bg:"crowd",  t:"처음 사흘은 다들 설치미술인 줄 알았다. 사진을 찍고, 손을 넣어보고, 웃었다."},
+  {bg:"missing",t:"나흘째 되던 날, 안으로 들어간 사람들이 돌아오지 않았다."},
+  {bg:"power",  t:"돌아온 소수에게는 이상한 힘이 생겨 있었다. 하나같이, 자기 전공을 닮은 힘이었다."},
+  {bg:"closed", t:"학교는 폐쇄됐다. 문 앞에 남은 건 우리뿐이다."},
+];
+/* 그림이 준비되면 여기에 경로만 채우면 됩니다. 파일이든 data URL이든 상관없습니다.
+   비워 두면 배경 없이 자리만 잡아둔 채로 진행합니다. */
+const INTRO_ART={gate:"",crowd:"",missing:"",power:"",closed:""};
+const STATS=[
+  {k:"vit",n:"체력",d:"최대 체력",need:1},{k:"maj",n:"전공활용",d:"스킬 위력",need:3},
+  {k:"str",n:"힘",d:"공격력",need:1},{k:"spd",n:"속도",d:"이동 속도",need:1},
+  {k:"agi",n:"순발력",d:"공격 속도",need:1},{k:"luk",n:"운",d:"치명타",need:2},
+];
+const openAt=(s,lvl)=>lvl>=s.need;
+/* 전공 — Lv 3부터 도서관에서 정합니다. 총기는 군인·경찰대학생만 다룹니다. */
+const MAJOR_LV=2;
+const MAJORS=[
+  {id:"soldier",n:"군인",        d:"총기를 다룰 수 있습니다"},
+  {id:"police", n:"경찰대학생",   d:"총기를 다룰 수 있습니다"},
+  {id:"chem",   n:"화학과",      d:"약품에 밝습니다"},
+  {id:"phil",   n:"철학과",      d:"파티의 의욕을 끌어올립니다"},
+  {id:"pe",     n:"체육교육과",   d:"몸으로 버팁니다"},
+  {id:"med",    n:"의예과",      d:"응급처치를 압니다"},
+  {id:"cs",     n:"컴퓨터공학과", d:"기계를 다룹니다"},
+  {id:"dance",  n:"무용과",      d:"몸놀림이 빠릅니다"},
+  {id:"arch",   n:"건축학과",    d:"구조를 읽습니다"},
+  {id:"lib",    n:"문헌정보학과", d:"약점을 찾아냅니다"},
+];
+const majorOf=id=>MAJORS.find(m=>m.id===id)||null;
+const GUN_MAJORS=["soldier","police"];
+const canUse=(p,it)=>!it.req||it.req.includes(p.major);
+const SURNAME="김이박최정강조윤장임한오서신권황안송류전홍".split("");
+const GIVEN=["서준","하은","도윤","유나","민재","지우","시현","채원","태오","나린","은비","재혁","수아","건우","다인","시우","예린","준서"];
+const randName=()=>SURNAME[(Math.random()*SURNAME.length)|0]+GIVEN[(Math.random()*GIVEN.length)|0];
+const pick=a=>a[(Math.random()*a.length)|0];
+
+/* ═══════════ 장비 슬롯 ═══════════ */
+const SLOTS=[
+  {k:"rh",n:"오른손"},{k:"lh",n:"왼손"},{k:"head",n:"머리"},
+  {k:"top",n:"상의"},{k:"bottom",n:"하의"},{k:"shoes",n:"신발"},
+];
+const BAG_MAX=5;
+const BED_MAX=4;
+const BED_COST=[40,100,300];   /* 2번째, 3번째, 4번째 침상 값 */
+const bedCost=()=>BED_COST[(G.beds||1)-1];
+
+const DMG={THRUST:"찌르기",SLASH:"베기",PIERCE:"관통",CHEM:"화학",BITE:"깨물기",BLAST:"폭발",BLUNT:"타격"};
+
+/* kind — perm: 살아서 나가야 지킨다 / inst: 게이트를 나가면 사라진다 / junk: 팔아서 골드 */
+const ITEMS={
+  /* ── 오른손 ── */
+  ladle:{n:"국자",slot:"rh",kind:"perm",atk:4,dmg:DMG.SLASH,style:"swing",price:0,d:"공격력 +4 · 베기"},
+  pen:{n:"만년필",slot:"rh",kind:"perm",atk:4,aspdM:1.30,dmg:DMG.THRUST,style:"thrust",price:5,d:"공격력 +4, 공속 +30% · 찌르기"},
+  weight:{n:"벼려진 문진",slot:"rh",kind:"perm",atk:6,dmg:DMG.BLUNT,style:"swing",d:"공격력 +6 · 타격"},
+  bat:{n:"야구 배트",slot:"rh",kind:"perm",atk:8,aspdM:0.86,dmg:DMG.BLUNT,style:"swing",d:"공격력 +8, 공속 −14% · 타격"},
+  bottle:{n:"깨진 소주병",slot:"rh",kind:"inst",atk:7,dmg:DMG.SLASH,style:"swing",d:"공격력 +7 · 베기"},
+  cutter:{n:"커터칼",slot:"rh",kind:"inst",atk:4,aspdM:1.40,dmg:DMG.THRUST,style:"thrust",d:"공격력 +4, 공속 +40% · 찌르기"},
+  tongs:{n:"연탄집게",slot:"rh",kind:"inst",atk:6,aspdM:1.10,rng:2,dmg:DMG.THRUST,style:"thrust",d:"공격력 +6, 공속 +10%, 사거리 +2 · 찌르기"},
+  mic:{n:"마이크",slot:"rh",kind:"inst",atk:4,aspdM:1.15,dmg:DMG.BLUNT,style:"swing",d:"공격력 +4, 공속 +15% · 타격"},
+  spray:{n:"헤어스프레이",slot:"rh",kind:"perm",atk:4,aspdM:1.25,rng:2,dmg:DMG.CHEM,style:"thrust",price:8,d:"공격력 +4, 공속 +25%, 사거리 +2 · 화학"},
+  /* ── 왼손 ── */
+  lid:{n:"냄비뚜껑",slot:"lh",kind:"perm",guard:3,hp:6,price:0,frail:{[DMG.BLAST]:0.5},d:"피해 −3, 체력 +6 · 폭발에 약함"},
+  book:{n:"전공책",slot:"lh",kind:"perm",guard:4,hp:8,price:5,frail:{[DMG.SLASH]:0.05,[DMG.BLAST]:1.0},d:"피해 −4, 체력 +8"},
+  tray:{n:"쟁반",slot:"lh",kind:"inst",guard:2,aspdM:1.05,d:"피해 −2, 공속 +5%"},
+  signboard:{n:"입간판",slot:"lh",kind:"inst",guard:5,spdM:0.90,d:"피해 −5, 이동 −10%"},
+  doorpanel:{n:"자동차 문짝",slot:"lh",kind:"inst",guard:8,hp:10,spdM:0.78,d:"피해 −8, 체력 +10, 이동 −22%"},
+  /* ── 머리 ── */
+  helmet:{n:"공사장 헬멧",slot:"head",kind:"inst",guard:2,d:"피해 −2"},
+  cap:{n:"학과 야구모자",slot:"head",kind:"perm",guard:1,d:"피해 −1"},
+  hairband:{n:"헤어밴드",slot:"head",kind:"perm",aspdM:1.06,d:"공속 +6%"},
+  /* ── 상의 ── */
+  apron:{n:"앞치마",slot:"top",kind:"inst",guard:1,hp:4,d:"피해 −1, 체력 +4"},
+  vest:{n:"역무원 방검조끼",slot:"top",kind:"perm",guard:4,hp:8,d:"피해 −4, 체력 +8"},
+  hoodie:{n:"후드티",slot:"top",kind:"perm",guard:1,hp:6,d:"피해 −1, 체력 +6"},
+  /* ── 하의 ── */
+  jeans:{n:"청바지",slot:"bottom",kind:"perm",guard:1,hp:4,d:"피해 −1, 체력 +4"},
+  track:{n:"트레이닝 바지",slot:"bottom",kind:"perm",spdM:1.12,d:"이동 +12%"},
+  workpants:{n:"작업복 바지",slot:"bottom",kind:"inst",guard:2,d:"피해 −2"},
+  /* ── 신발 ── */
+  boots:{n:"안전화",slot:"shoes",kind:"perm",guard:1,spdM:1.08,d:"피해 −1, 이동 +8%"},
+  sneakers:{n:"운동화",slot:"shoes",kind:"perm",spdM:1.14,d:"이동 +14%"},
+  slippers:{n:"삼선 슬리퍼",slot:"shoes",kind:"inst",spdM:1.20,d:"이동 +20%"},
+  /* ── 총기 · 군인/경찰대학생 전용 ── */
+  pistol:{n:"권총",slot:"rh",kind:"perm",atk:8,aspdM:1.25,rng:9,dmg:DMG.PIERCE,style:"gun",
+          req:GUN_MAJORS,ammo:"pistol",d:"공격력 +8, 공속 +25%, 사거리 +9 · 관통 · 군인·경찰대학생 전용"},
+  shotgun:{n:"진압용 산탄총",slot:"rh",kind:"perm",atk:16,aspdM:0.70,rng:6,dmg:DMG.PIERCE,style:"gun",
+          req:GUN_MAJORS,ammo:"shotgun",d:"공격력 +16, 공속 −30%, 사거리 +6 · 관통 · 군인·경찰대학생 전용"},
+  rifle:{n:"소총",slot:"rh",kind:"perm",atk:12,aspdM:1.0,rng:12,dmg:DMG.PIERCE,style:"gun",
+          req:GUN_MAJORS,ammo:"rifle",d:"공격력 +12, 사거리 +12 · 관통 · 군인·경찰대학생 전용"},
+  /* ── 탄약 · 가방 칸을 차지하지 않고 본부에 쌓입니다 ── */
+  ammoP:{n:"권총 탄약",kind:"ammo",ammo:"pistol",qty:12,price:15,d:"권총 12발"},
+  ammoS:{n:"산탄총 탄약",kind:"ammo",ammo:"shotgun",qty:6,price:18,d:"산탄총 6발"},
+  ammoR:{n:"소총 탄약",kind:"ammo",ammo:"rifle",qty:20,price:26,d:"소총 20발"},
+  baton:{n:"경찰봉",slot:"rh",kind:"perm",atk:5,aspdM:1.10,dmg:DMG.BLUNT,style:"swing",
+          d:"공격력 +5, 공속 +10% · 타격"},
+  vestp:{n:"방탄조끼",slot:"top",kind:"perm",guard:6,hp:10,d:"피해 −6, 체력 +10"},
+  jacket:{n:"학과 점퍼",slot:"top",kind:"perm",guard:1,hp:8,price:10,d:"피해 −1, 체력 +8"},
+  /* ── 잡화 ── */
+  tuna:{n:"참치캔",kind:"junk",price:25,use:{hp:10},d:"먹으면 체력 10 회복 · 팔면 25 골드"},
+  soju:{n:"소주",kind:"junk",price:30,d:"팔면 30 골드"},
+  oldbook:{n:"헌책",kind:"junk",price:15,d:"팔면 15 골드"},
+  balm:{n:"립밤",kind:"junk",price:20,d:"팔면 20 골드"},
+  tcard:{n:"교통카드",kind:"junk",price:40,d:"팔면 40 골드"},
+  ballpen:{n:"볼펜",kind:"junk",price:10,d:"팔면 10 골드"},
+  coin:{n:"동전 뭉치",kind:"junk",price:12,d:"팔면 12 골드"},
+  battery:{n:"보조배터리",kind:"junk",price:45,d:"팔면 45 골드"},
+  snack:{n:"과자",kind:"junk",price:8,use:{hp:5},d:"먹으면 체력 5 회복 · 팔면 8 골드"},
+  mug:{n:"머그컵",kind:"junk",price:14,d:"팔면 14 골드"},
+  lighter:{n:"라이터",kind:"junk",price:9,d:"팔면 9 골드"},
+  earphone:{n:"이어폰",kind:"junk",price:22,d:"팔면 22 골드"},
+  planner:{n:"다이어리",kind:"junk",price:18,d:"팔면 18 골드"},
+  cuffs:{n:"수갑",kind:"junk",price:22,d:"팔면 22 골드"},
+  radio:{n:"무전기",kind:"junk",price:18,d:"팔면 18 골드"},
+  /* ── 지하철역 · 위험도에 값을 맞추기 위한 고가 잡화 ── */
+  lost:{n:"누군가의 유실물",kind:"junk",price:55,d:"찾아갈 사람이 없다 · 팔면 55 골드"},
+  /* 'mystery'가 붙은 물건은 값이 정해져 있지 않습니다.
+     게이트 안에서는 범위만 보이고, 행정실에서 감정해야 into 중 하나로 확정됩니다. */
+  brief:{n:"알 수 없는 서류가방",kind:"junk",price:0,
+         mystery:{lo:15,hi:180,into:[["brief0",40],["brief1",40],["brief2",20]]},
+         d:"잠겨 있어 열리지 않는다 · 감정 전 · 15~180 골드"},
+  brief0:{n:"빈 서류가방",kind:"junk",price:15,d:"안에 아무것도 없었다 · 팔면 15 골드"},
+  brief1:{n:"서류가 든 가방",kind:"junk",price:70,d:"게이트 관측 기록으로 보인다 · 팔면 70 골드"},
+  brief2:{n:"현금이 든 가방",kind:"junk",price:180,d:"누군가 급히 챙겨 나오다 놓쳤다 · 팔면 180 골드"},
+};
+Object.keys(ITEMS).forEach(k=>ITEMS[k].id=k);
+const SHOP=["jacket","pen","book","spray"];
+const SHOP_AMMO=["ammoP","ammoS","ammoR"];
+const AMMO_KIND={pistol:"권총",shotgun:"산탄총",rifle:"소총"};
+/* 해당 총기를 한 번이라도 손에 넣어야 매점에서 그 탄약을 팝니다 */
+function seenGun(type){
+  if(G.gunSeen&&G.gunSeen[type])return true;
+  for(const r of G.roster){
+    for(const sl of SLOTS){const it=ITEMS[r.gear[sl.k]];if(it&&it.ammo===type){G.gunSeen[type]=true;return true}}
+    for(const id of r.bag){const it=ITEMS[id];if(it&&it.ammo===type){G.gunSeen[type]=true;return true}}
+  }
+  return false;
+}
+const kindTag=it=>it.kind==="inst"?'<span class="kd inst">현장</span>'
+  :it.kind==="junk"?'<span class="kd junk">잡화</span>':'<span class="kd perm">반출</span>';
+
+/* ═══════════ 장소와 전리품 ═══════════ */
+const PLACES=[
+  {n:"음식점",room:"in",d:"식은 기름 냄새가 난다",risk:0,junk:["tuna"],gear:["tray","apron"]},
+  {n:"주점",room:"in",d:"엎어진 잔이 그대로 놓여 있다",risk:1,junk:["soju","lighter"],gear:["bottle"]},
+  {n:"지하 노래방",room:"under",d:"복도 끝에서 잡음이 새어 나온다",risk:1,junk:["earphone","mug"],gear:["mic"]},
+  {n:"포장마차",room:"street",d:"천막이 반쯤 내려앉았다",risk:0,junk:["lighter","tuna"],gear:["tongs","signboard"]},
+  {n:"서점",room:"in",d:"책이 바닥에 쏟아져 있다",risk:0,junk:["oldbook","planner"],gear:["cap"]},
+  {n:"문구점",room:"in",d:"진열대가 텅 비어 있다",risk:0,junk:["ballpen"],gear:["cutter"]},
+  {n:"골목길",room:"street",d:"어디로도 이어지지 않는 것 같다",risk:0,junk:["snack","coin"],gear:["helmet","track"]},
+  {n:"대로",room:"street",d:"차들이 그대로 멈춰 서 있다",risk:1,junk:["coin"],gear:["doorpanel","workpants","boots"]},
+  {n:"지하철역",room:"under",d:"개찰구 너머가 캄캄하다",risk:2,junk:["tcard","lost","brief","coin"],gear:["vest"]},
+  {n:"버스 정류장",room:"street",d:"전광판에 아무것도 뜨지 않는다",risk:0,junk:["coin","snack"],gear:["sneakers"]},
+  {n:"독서실",room:"under",d:"칸막이마다 스탠드가 켜져 있다",risk:1,junk:["planner","mug"],gear:["weight"]},
+  {n:"원룸빌라",room:"in",d:"현관문이 전부 열려 있다",risk:1,junk:["battery","tuna"],gear:["bat","hoodie","jeans","slippers"]},
+  {n:"화장품가게",room:"in",d:"거울에 아무것도 비치지 않는다",risk:1,junk:["balm"],gear:["spray","hairband"]},
+  {n:"경찰 본부",room:"under",d:"유리문이 안쪽에서 깨져 있다",risk:2,
+   junk:["cuffs","radio"],gear:["baton","vestp"],
+   special:{ids:["pistol","shotgun","rifle"],chance:0.70},
+   /* 골드는 박하지만 탄약이 쌓입니다. 총을 든 파티에게는 여기가 보급소입니다. */
+   ammo:{ids:["ammoP","ammoS","ammoR"],base:2,extra:[0.60,0.35]}},
+];
+function rollLoot(place,day){
+  const out=[];
+  const jn=1+((Math.random()<0.45)?1:0);
+  for(let i=0;i<jn;i++) out.push(pick(place.junk));
+  let gn=(Math.random()<0.55?1:0)+(Math.random()<0.25+place.risk*0.1?1:0)+(day>=3&&Math.random()<0.3?1:0);
+  for(let i=0;i<gn;i++) out.push(pick(place.gear));
+  if(place.special&&Math.random()<place.special.chance) out.push(pick(place.special.ids));
+  if(place.ammo){
+    const a=place.ammo, ids=a.ids||a;
+    let n=(a.base!==undefined)?a.base:1;
+    for(const q of (a.extra||[0.5])) if(Math.random()<q) n++;
+    for(let i=0;i<n;i++) out.push(pick(ids));
+  }
+  return out;
+}
+
+/* ═══════════ 방 배치 ═══════════ */
+function chairs(t,lv){
+  const c=5.5,g=1.8,y1=t.y+t.h*0.26-c/2,y2=t.y+t.h*0.74-c/2;
+  return[{x:t.x-c-g,y:y1,w:c,h:c,lv},{x:t.x-c-g,y:y2,w:c,h:c,lv},
+         {x:t.x+t.w+g,y:y1,w:c,h:c,lv},{x:t.x+t.w+g,y:y2,w:c,h:c,lv}];
+}
+const TA={x:20,y:30,w:13,h:34,l:"식탁",lv:L1};
+const TB={x:60,y:38,w:13,h:34,l:"식탁",lv:L1};
+const ROOMS={
+  in:{obs:[{x:5,y:7,w:40,h:11,l:"주방",lv:L1|L2},{x:74,y:5,w:21,h:17,l:"냉장고",lv:TALL},
+      TA,...chairs(TA,L2),TB,...chairs(TB,L2)]},
+  street:{obs:[{x:4,y:8,w:17,h:42,l:"건물",lv:TALL},{x:79,y:12,w:17,h:40,l:"건물",lv:TALL},
+      {x:34,y:16,w:18,h:10,l:"쓰레기",lv:L1|L2},{x:38,y:52,w:28,h:13,l:"차",lv:L1|L2},
+      {x:28,y:76,w:15,h:7,l:"화단",lv:L1},{x:57,y:76,w:15,h:7,l:"화단",lv:L1},
+      {x:66,y:30,w:5,h:5,l:"",lv:TALL}]},
+  under:{obs:[{x:4,y:4,w:15,h:14,l:"계단",lv:L1|L2},
+      {x:22,y:22,w:8,h:8,l:"",lv:TALL},{x:70,y:22,w:8,h:8,l:"",lv:TALL},
+      {x:22,y:62,w:8,h:8,l:"",lv:TALL},{x:70,y:62,w:8,h:8,l:"",lv:TALL},
+      {x:37,y:30,w:26,h:12,l:"소파",lv:L1},{x:42,y:52,w:18,h:10,l:"테이블",lv:L1},
+      {x:84,y:44,w:10,h:16,l:"칸막이",lv:L2}]},
+};
+let ROOM=ROOMS.in;
+const DOOR={x:43,y:95,w:14,h:4};
+
+const ENEMIES={
+  worm:{n:"애벌레",lvm:CRAWL,hp:44,atk:8,aspd:.6,speed:20,range:6,r:2.8,c:"#9BC24A",exp:14,dmg:DMG.BITE},
+  hopper:{n:"메뚜기",lvm:HOP,hp:36,atk:12,aspd:.8,speed:42,range:6,r:2.9,c:"#D9B84A",exp:22,dmg:DMG.BITE},
+  mantis:{n:"사마귀",lvm:TALL,hp:180,atk:16,aspd:.65,speed:13,range:9,r:5.2,c:"#5FC49A",exp:90,boss:true,dmg:DMG.SLASH},
+  /* 거미는 다리가 길어 낮은 지형(식탁·화단)을 넘어 다닙니다. 대신 의자와 벽에는 막힙니다. */
+  spider:{n:"거미",lvm:L2|L3,hp:250,atk:26,aspd:.8,speed:24,range:16,r:5.8,c:"#8E6BD9",exp:150,boss:true,dmg:DMG.PIERCE},
+  /* 10일차 보스. 눈알 덩어리. 매우 빠르고 시선이 닿은 자리가 터진다 */
+  bloodeyes:{n:"Blood Eyes",lvm:TALL,hp:560,atk:50,aspd:2.857,speed:46,range:11,r:6.6,
+             c:"#8E1F2E",exp:400,boss:true,dmg:DMG.BLAST},
+  /* 25일차 보스. 절뚝거리며 다가오고, 이것에게 죽은 사람은 일어나 적이 된다 */
+  zombie:{n:"좀비",lvm:TALL,hp:900,atk:100,aspd:100,speed:15,range:8,r:6.2,
+          c:"#4E9E43",exp:900,boss:true,dmg:DMG.BITE},
+  zomb:{n:"좀비",lvm:HUMAN,hp:170,atk:45,aspd:.5,speed:17,range:6,r:3.4,
+        c:"#5BB04A",exp:60,dmg:DMG.BITE,noScale:true},
+};
+/* 보스 일정 — 해당 일차에 100% 등장합니다. 여기에 줄을 더하면 보스가 늘어납니다. */
+const BOSS_DAY={3:"mantis",5:"spider",10:"bloodeyes",25:"zombie"};
+/* 보스가 데리고 나오는 것들. 좀비는 무리로 몰려옵니다. */
+const BOSS_ADDS={zombie:{key:"zomb",count:5}};
+/* 무엇이 나오는지는 알려주지 않습니다. 공기만 바뀝니다. */
+const bossHint=day=>{
+  if(BOSS_DAY[day])return ` <b style="color:var(--gate)">오늘은 공기가 다릅니다.</b> 큰 것이 이미 움직이고 있습니다.`;
+  if(BOSS_DAY[day+1])return ` 회색이 한 겹 더 짙어졌습니다. <b style="color:var(--gate)">내일은 무언가 깨어날 것 같습니다.</b>`;
+  return "";
+};
+
+/* 인스턴트 스킬
+   maj 없음 = 일반 스킬 (누구나 등장)
+   maj 있음 = 전공 스킬 (해당 전공을 가진 대원이 파티에 있을 때만 등장) */
+const INSTANTS=[
+  {n:"각성",     d:"공격 속도 +15%",            f:u=>u.aspd*=1.15},
+  {n:"집중",     d:"공격력 +12%",               f:u=>u.atk*=1.12},
+  {n:"단련",     d:"최대 체력 +15",             f:u=>{u.maxHp+=15;u.hp+=15}},
+  {n:"질주",     d:"이동 속도 +25%",            f:u=>u.vspeed*=1.25},
+  {n:"방비",     d:"받는 피해 −2",              f:u=>u.guard+=2},
+  {n:"회복",     d:"전투 시작마다 체력 12 회복",  f:u=>u.hp=Math.min(u.maxHp,u.hp+12)},
+  {n:"반사 신경", d:"공격 속도·이동 속도 +8%",    f:u=>{u.aspd*=1.08;u.vspeed*=1.08}},
+  {n:"무기 손질", d:"공격력 +2",                 f:u=>u.atk+=2},
+  {n:"인내",     d:"최대 체력 +8, 받는 피해 −1", f:u=>{u.maxHp+=8;u.hp+=8;u.guard+=1}},
+  {n:"숙련",     d:"공격력·공격 속도 +8%",       f:u=>{u.atk*=1.08;u.aspd*=1.08}},
+  {n:"간격",     d:"공격 사거리 +2",            f:u=>u.range+=2},
+  {n:"지구력",   d:"최대 체력 +12, 이동 +10%",   f:u=>{u.maxHp+=12;u.hp+=12;u.vspeed*=1.1}},
+  /* ── 전공 스킬 ── */
+  {maj:"soldier",n:"정조준",   d:"공격력 +20%",              f:u=>u.atk*=1.20},
+  {maj:"police", n:"진압 훈련", d:"받는 피해 −3",             f:u=>u.guard+=3},
+  {maj:"chem",   n:"약품 조제", d:"공격력·공격 속도 +10%",     f:u=>{u.atk*=1.10;u.aspd*=1.10}},
+  {maj:"phil",   n:"설득",     d:"최대 체력 +20",            f:u=>{u.maxHp+=20;u.hp+=20}},
+  {maj:"pe",     n:"기초 체력", d:"최대 체력 +25",            f:u=>{u.maxHp+=25;u.hp+=25}},
+  {maj:"med",    n:"응급 처치", d:"전투 시작마다 체력 25 회복", f:u=>u.hp=Math.min(u.maxHp,u.hp+25)},
+  {maj:"cs",     n:"조준 보정", d:"공격 사거리 +3",           f:u=>u.range+=3},
+  {maj:"dance",  n:"스텝",     d:"이동 속도 +35%",           f:u=>u.vspeed*=1.35},
+  {maj:"arch",   n:"구조 파악", d:"받는 피해 −2, 이동 +10%",   f:u=>{u.guard+=2;u.vspeed*=1.1}},
+  {maj:"lib",    n:"약점 기록", d:"공격력 +14%",              f:u=>u.atk*=1.14},
+];
+/* 파티에 있는 전공만 전공 스킬이 나옵니다 */
+function skillPool(){
+  const majs=new Set((G.mode==="tutorial"?[G.player]:party()).map(r=>r.major).filter(Boolean));
+  return INSTANTS.filter(s=>!s.maj||majs.has(s.maj));
+}
+const EXP_TABLE=[0,90,700,1500,2800,4600];   /* Lv2는 사마귀를 만나기 직전에 오도록 낮췄습니다 */
+const nextExp=l=>EXP_TABLE[l]!==undefined?EXP_TABLE[l]:9999;
+
+/* ═══════════ 파생 스탯 ═══════════ */
+function worn(p){return SLOTS.map(s=>ITEMS[p.gear[s.k]]).filter(Boolean)}
+function derive(p){
+  const s=p.stats;
+  let atk=2+s.str*0.6,guard=0,hpAdd=0,aspdM=1,spdM=1;
+  for(const it of worn(p)){
+    atk+=it.atk||0;guard+=it.guard||0;hpAdd+=it.hp||0;
+    aspdM*=it.aspdM||1;spdM*=it.spdM||1;
+  }
+  const rh=ITEMS[p.gear.rh];
+  return{maxHp:Math.round(20+s.vit*6+hpAdd),atk:+atk.toFixed(1),
+    aspd:+((0.50+s.agi*0.05)*aspdM).toFixed(2),
+    speed:Math.round((14+s.spd*3)*spdM),guard,crit:+(s.luk*0.5).toFixed(1),
+    style:rh?rh.style:"swing",dmg:rh?rh.dmg:DMG.BLUNT,rng:rh&&rh.rng?rh.rng:0};
+}
+function emptyGear(){const g={};SLOTS.forEach(s=>g[s.k]=null);return g}
+/* 착용한 것을 전부 벗겨 매점 창고로 보냅니다. 배낭은 5칸뿐이라 창고로 갑니다. */
+function stripGear(p){
+  let n=0,kept=0;
+  for(const sl of SLOTS){
+    const id=p.gear[sl.k];
+    if(!id)continue;
+    /* 체력이 모자라 못 벗는 것은 그대로 둡니다 */
+    if(!tryGear(p,()=>{p.gear[sl.k]=null})){kept++;continue}
+    G.store[id]=(G.store[id]||0)+1;n++;
+  }
+  return{moved:n,kept:kept};
+}
+function logAdd(p,t){if(!p.log)p.log=[];p.log.push(t);if(p.log.length>24)p.log.shift()}
+
+function rollStudent(){
+  const keys=STATS.map(s=>s.k),st={};
+  keys.forEach(k=>st[k]=10);
+  for(let i=0;i<14;i++){
+    const a=keys[(Math.random()*6)|0],b=keys[(Math.random()*6)|0];
+    if(a!==b&&st[a]>6&&st[b]<15){st[a]--;st[b]++}
+  }
+  const d=[-1,0,0,0,1][(Math.random()*5)|0];
+  if(d){const k=keys[(Math.random()*6)|0];st[k]=Math.max(6,Math.min(15,st[k]+d))}
+  const s={name:randName(),lvl:1,exp:0,major:null,stats:st,gear:emptyGear(),bag:[],
+           points:0,inParty:true,log:[]};
+  s.hp=derive(s).maxHp;
+  return s;
+}
+
+const FACILITIES=[
+  {id:"office",ic:"💰",n:"행정실",d:"주워온 잡화를 골드로 바꿉니다",
+   cond:g=>g.explores>=1,prog:g=>`탐색 ${Math.min(g.explores,1)} / 1회`,
+   msg:"행정실에 불이 켜졌습니다. 게이트에서 가져온 물건을 학교가 값을 쳐서 사들이겠다고 합니다."},
+  {id:"shop",ic:"🏪",n:"교내매점",d:"학생회가 돈 되는 물건은 다 팝니다",
+   cond:g=>g.goldEarned>=25,prog:g=>`누적 골드 ${Math.min(g.goldEarned,25)} / 25`,
+   msg:"학생회가 매점 셔터를 올렸습니다.<br><br>매점은 생각보다 다양한 물품을 팔고 있습니다. 학생회는 돈 되는 물건이면 무엇이든 팔 생각입니다."},
+  {id:"adm",ic:"📋",n:"입학처",d:"신입생을 모집합니다",
+   cond:g=>g.explores>=2,prog:g=>`탐색 ${Math.min(g.explores,2)} / 2회`,
+   msg:"소문이 돌았는지 입학처에 지원서가 쌓이기 시작했습니다.<br><br>혼자 들어가지 않아도 됩니다."},
+  {id:"union",ic:"🏛",n:"학생회관",d:"파티 편성과 장비 정리",
+   cond:g=>g.explores>=3,prog:g=>`탐색 ${Math.min(g.explores,3)} / 3회`,
+   msg:"학생회관이 정리됐습니다.<br><br>누구를 데리고 들어갈지, 무엇을 들려 보낼지 여기서 정합니다."},
+  {id:"work",ic:"🔧",n:"실습동",d:"주운 물건으로 장비 제작",
+   cond:g=>g.goldEarned>=200,prog:g=>`누적 골드 ${Math.min(g.goldEarned,200)} / 200`,
+   msg:"실습동에 전기가 들어왔습니다.<br><br>주워온 것들로 뭔가 만들어 볼 수 있을 것 같습니다."},
+  {id:"clinic",ic:"🏥",n:"보건소",d:"입원 치료 · 침상 증설",
+   cond:g=>!!g.woundedReturn,prog:g=>`체력 절반 이하로 돌아온 사람이 생기면 열림`,
+   msg:"보건소가 문을 열었습니다.<br><br>절반도 남지 않은 몸으로 돌아온 사람을 보고서야 누군가 열쇠를 찾아냈습니다.",
+   onUnlock:()=>{                       // 다친 사람을 대신할 지원자가 무료로 합류한다
+     const v=rollStudent();
+     logAdd(v,"자원 입학");
+     G.roster.push(v);G.recruited++;G.freeRecruit=v;
+   }},
+  {id:"arcade",ic:"🕹",n:"게임장",d:"거미 잡기와 별 줍기 · 상금 있음",
+   cond:g=>g.explores>=1,prog:g=>`탐색 ${Math.min(g.explores,1)} / 1회`,
+   msg:"학생회관 지하 오락실에 전원이 들어왔습니다.<br><br>누군가 게이트 안의 것들을 본떠 만든 기계가 한 대 놓여 있습니다. 거미 잡기와 별 줍기, 두 대가 있습니다.<br><br>기계마다 탐색을 다녀올 때마다 한 번씩 상금을 받을 수 있습니다."},
+  {id:"tower",ic:"🗿",n:"메모리얼 타워",d:"돌아오지 못한 사람들의 기록",
+   cond:g=>g.deaths>=1,prog:g=>`첫 사망자가 나오면 열림`,
+   msg:"운동장 한쪽에 이름을 새길 자리를 만들었습니다.<br><br>돌아오지 못한 사람들의 기록이 여기 남습니다."},
+  {id:"lib",ic:"📚",n:"도서관",d:"전공 선택 · Lv 3부터",
+   cond:g=>g.recruited>=3,prog:g=>`입학생 ${Math.min(g.recruited,3)} / 3명`,
+   msg:"도서관 서고가 열렸습니다.<br><br>Lv 3이 된 학생부터 전공을 정할 수 있습니다. 군인과 경찰대학생만 총을 다룰 수 있습니다."},
+];
+const FAC_SCENE={office:"office",shop:"shop",adm:"admissions",union:"union",clinic:"clinic",tower:"tower",arcade:"arcade",lib:"library"};
+
+/* ═══════════ 시설 담당자 ═══════════
+   first — 그 시설에 처음 들어갈 때 한 번. 줄 단위로 넘깁니다.
+   again — 두 번째 방문부터, 시설 화면 위에 한 줄로 붙습니다.
+   ic    — 지금은 이모지. 얼굴 그림이 생기면 npcFace()만 고치면 됩니다. */
+const NPCS={
+  office:{n:"행정실장",role:"행정실",ic:"🧾",
+    first:["그 게이트에서 살아 돌아온 건가?",
+           "게이트에서 얻은 모든 물품들은 현재 연구 대상으로 고가에 팔리고 있네.",
+           "혹시 가져온 것이 있다면 무엇이든지 우리가 매입하도록 하지.",
+           "아, 값을 알 수 없는 물건은 따로 두게. 여기서 열어보면 되니까."],
+    again:["가져온 게 있나. 값은 쳐주지.",
+           "요즘은 안쪽 물건이라면 뭐든 팔린다네.",
+           "장부는 내가 맞출 테니 자네는 들고 오기만 하게."]},
+  shop:{n:"매점 총무",role:"교내매점",ic:"🏪",
+    first:["학생회에서 나왔습니다. 재고는 제가 관리해요.",
+           "돈 되는 물건이면 뭐든 들여옵니다. 총알도요.",
+           "외상은 안 됩니다. 그건 학생회장이 정한 겁니다."],
+    again:["오늘은 뭐 필요하세요?","재고는 그때그때 다릅니다.","골드부터 확인하고 오세요."]},
+  adm:{n:"입학처 직원",role:"입학처",ic:"📋",
+    first:["지원서가 계속 들어옵니다. 밖이 더 무서운 모양이에요.",
+           "한 명 받는 데 20골드입니다. 서류값이라고 해 두죠.",
+           "누가 오래 버틸지는… 저도 모릅니다."],
+    again:["오늘 들어온 지원서입니다.","마음에 안 들면 새로 받아 오죠.","이름부터 적게 하세요."]},
+  union:{n:"학생회장",role:"학생회관",ic:"🏛",
+    first:["누구를 데려갈지는 여기서 정합니다.",
+           "네 명이 한계예요. 그 이상은 문이 못 버팁니다.",
+           "장비는 나눠 쓰세요. 아까워하다 죽습니다."],
+    again:["편성 바꾸실 겁니까?","장비부터 챙기세요.","넷을 넘길 수는 없습니다."]},
+  clinic:{n:"보건 교사",role:"보건소",ic:"🩺",
+    first:["절반도 안 남은 몸으로 들어오는 걸 보고 열었습니다.",
+           "침대는 하나뿐입니다. 한 명만 눕힐 수 있어요.",
+           "탐색 한 번에 10골드. 낫는 만큼만 받겠습니다."],
+    again:["누굴 눕히시겠습니까?","침대는 하나입니다.","무리해서 넣지 마세요. 돈 나갑니다."]},
+  arcade:{n:"오락실 주인",role:"게임장",ic:"🕹",
+    first:["안쪽 것들을 본떠 만든 기계입니다. 무섭죠? 재밌기도 하고.",
+           "기계마다 다녀올 때 한 번씩만 상금이 나갑니다.",
+           "돈 딸 생각은 마세요. 그 정도는 아닙니다."],
+    again:["한 판 하시게요?","오늘 상금은 아직 남아 있습니다.","기록은 갱신하셨습니까?"]},
+  lib:{n:"사서",role:"도서관",ic:"📚",
+    first:["Lv 3이 되면 전공을 정할 수 있습니다.",
+           "한 번 정하면 못 바꿉니다. 신중히 고르세요.",
+           "총을 들고 싶다면 군인이나 경찰대학생이어야 합니다."],
+    again:["전공 정하실 분 있습니까?","한 번 정하면 끝입니다.","서고는 늘 열려 있습니다."]},
+  tower:{n:"관리인",role:"메모리얼 타워",ic:"🕯",
+    first:["여기 이름을 새깁니다.",
+           "돌아오지 못한 사람들의 기록만 남습니다.",
+           "…읽고 가세요. 그게 전부입니다."],
+    again:["오늘도 오셨군요.","이름은 지워지지 않습니다.","천천히 보고 가세요."]},
+  work:{n:"실습동 조교",role:"실습동",ic:"🔧",
+    first:["전기는 들어왔는데 장비가 아직입니다.",
+           "주워오신 걸로 뭔가 만들어 볼 생각이에요. 조금만 기다리세요."],
+    again:["아직 준비 중입니다.","곧 될 겁니다. 아마도요."]},
+};
+const npcFace=(id,sm)=>NPC_ART[id]
+  ?`<div class="face${sm?" sm":""} img"><img src="${artUrl(NPC_ART[id])}" alt=""></div>`
+  :`<div class="face${sm?" sm":""}">${NPCS[id]?NPCS[id].ic:"❓"}</div>`;
+const npcHead=id=>`<div class="npc">${npcFace(id)}<div class="who"><b>${NPCS[id].n}</b><span>${NPCS[id].role}</span></div></div>`;
+function npcBar(id){
+  if(!NPCS[id]||G.npcSayFor!==id||!G.npcSay)return "";
+  return `<div class="npcbar">${npcFace(id,1)}<div class="line"><b>${NPCS[id].n}</b><span>${G.npcSay}</span></div></div>`;
+}
+/* 시설은 전부 이 함수를 거칩니다. 첫 방문이면 대사 화면, 이후엔 한 줄 인사만 붙습니다. */
+function openFacility(id){
+  const dest=FAC_SCENE[id]||"soon";
+  G.soonName=id;G.appraisal=null;G.stripMsg=null;
+  if(!NPCS[id]){G.scene=dest;render();return}
+  if(G.metNpc[id]){
+    G.npcSay=pick(NPCS[id].again);G.npcSayFor=id;G.scene=dest;render();return;
+  }
+  G.talkFor=id;G.talkLine=0;G.talkNext=dest;G.scene="talk";render();
+}
+const CAMPUS_SCENES=["campus","office","shop","admissions","union","gates","soon","tower","clinic","arcade","spidergame","stargame","huntgame","spiderend","starend","huntend","library"];
+
+/* ═══════════ 그림 ═══════════
+   그림은 전부 art 폴더에 둡니다. 빈 칸("")이면 지금처럼 이모지나 글자로 나옵니다.
+   파일을 만들어 넣고 아래 표에 이름만 적으면 그 자리에 바로 붙습니다. */
+const ART="art/";
+const NPC_ART={office:"",shop:"",adm:"",union:"",clinic:"",arcade:"",lib:"",tower:"",work:""};
+const FAC_ART={office:"",shop:"",adm:"",union:"",clinic:"",arcade:"",lib:"",tower:"",work:"",gate:""};
+const ITEM_ART={};      /* 예 — ladle 칸에 item/ladle.webp 를 적으면 국자 아이콘이 붙습니다 */
+const artUrl=v=>v?ART+v:"";
+const itemIcon=id=>ITEM_ART[id]?`<img class="ico" src="${artUrl(ITEM_ART[id])}" alt="">`:"";
+const facIcon=(id,fb)=>FAC_ART[id]?`<img class="bigico" src="${artUrl(FAC_ART[id])}" alt="">`:fb;
+
+/* ═══════════ 제목 그림 ═══════════
+   그림이 준비되면 TITLE_ART에 경로만 넣으면 됩니다. 비어 있으면 아래 코드로 그립니다. */
+const TITLE_ART=ART+"title.webp";
+let traf=null,tcv=null,tctx=null,timg=null;
+function titleStop(){if(traf)cancelAnimationFrame(traf);traf=null}
+function titleStart(){
+  titleStop();
+  tcv=document.getElementById("tcv");
+  if(!tcv)return;
+  try{tctx=tcv.getContext("2d")}catch(e){tctx=null}
+  if(!tctx)return;
+  if(TITLE_ART&&!timg){timg=new Image();timg.src=TITLE_ART}
+  const dpr=window.devicePixelRatio||1;
+  const W=tcv.clientWidth||360,H=230;
+  tcv.width=W*dpr;tcv.height=H*dpr;
+  tctx.setTransform(dpr,0,0,dpr,0,0);
+  let last=0,t=0;
+  const loop=ts=>{
+    const dt=last?Math.min(.05,(ts-last)/1000):0;last=ts;t+=dt;
+    drawTitle(W,H,t);
+    traf=requestAnimationFrame(loop);
+  };
+  traf=requestAnimationFrame(loop);
+}
+/* 달리는 사람 — 다리와 팔을 사인파로 흔듭니다 */
+function drawRunner(c,x,y,s,t){
+  const ph=t*11, bob=Math.abs(Math.sin(ph))*s*0.07;
+  c.save();c.translate(x,y-bob);
+  c.lineCap="round";c.lineJoin="round";
+  const hipY=-s*0.52, shY=-s*1.02;
+  // 뒤쪽 다리
+  const legs=(a,col)=>{
+    const knee=[Math.sin(a)*s*0.42, hipY+s*0.34-Math.abs(Math.cos(a))*s*0.10];
+    const foot=[Math.sin(a-0.9)*s*0.60, hipY+s*0.74];
+    c.strokeStyle=col;c.lineWidth=s*0.17;
+    c.beginPath();c.moveTo(0,hipY);c.lineTo(knee[0],knee[1]);c.lineTo(foot[0],foot[1]);c.stroke();
+  };
+  const arms=(a,col)=>{
+    const el2=[Math.sin(a)*s*0.34, shY+s*0.28];
+    const hd=[Math.sin(a+0.7)*s*0.50, shY+s*0.16];
+    c.strokeStyle=col;c.lineWidth=s*0.14;
+    c.beginPath();c.moveTo(0,shY);c.lineTo(el2[0],el2[1]);c.lineTo(hd[0],hd[1]);c.stroke();
+    return hd;
+  };
+  legs(ph+Math.PI,"#2B4A5E");
+  arms(ph,"#2E6F82");
+  // 몸통
+  c.strokeStyle="#4FC3D9";c.lineWidth=s*0.30;
+  c.beginPath();c.moveTo(-s*0.03,shY);c.lineTo(s*0.03,hipY);c.stroke();
+  legs(ph,"#3A6480");
+  const hand=arms(ph+Math.PI,"#4FC3D9");
+  // 손에 들린 국자
+  c.save();c.translate(hand[0],hand[1]);c.rotate(-0.5+Math.sin(ph)*0.35);
+  c.strokeStyle="#C9C2D8";c.lineWidth=s*0.08;
+  c.beginPath();c.moveTo(0,0);c.lineTo(s*0.46,-s*0.10);c.stroke();
+  c.beginPath();c.arc(s*0.54,-s*0.12,s*0.11,0,7);c.fillStyle="#D8D2E4";c.fill();
+  c.restore();
+  // 머리
+  c.beginPath();c.arc(s*0.07,shY-s*0.24,s*0.20,0,7);
+  c.fillStyle="#E8C9A8";c.fill();
+  c.beginPath();c.arc(s*0.05,shY-s*0.30,s*0.20,3.5,6.4);
+  c.fillStyle="#2A2436";c.fill();
+  c.restore();
+}
+function drawTitle(W,H,t){
+  const c=tctx;
+  if(TITLE_ART&&timg&&timg.complete&&timg.naturalWidth){
+    const r=Math.max(W/timg.naturalWidth,H/timg.naturalHeight);
+    const w=timg.naturalWidth*r,h=timg.naturalHeight*r;
+    c.drawImage(timg,(W-w)/2,(H-h)/2,w,h);return;
+  }
+  const sky=c.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,"#251F38");sky.addColorStop(1,"#14111E");
+  c.fillStyle=sky;c.fillRect(0,0,W,H);
+  const gnd=H*0.80;
+  // 게이트 빛무리
+  const gx=W*0.76,gy=gnd-H*0.16;
+  const pulse=0.50+0.14*Math.sin(t*1.7);
+  const gl=c.createRadialGradient(gx,gy,3,gx,gy,H*0.62);
+  gl.addColorStop(0,`rgba(158,116,242,${pulse})`);
+  gl.addColorStop(.45,"rgba(124,91,217,.20)");
+  gl.addColorStop(1,"rgba(124,91,217,0)");
+  c.fillStyle=gl;c.fillRect(0,0,W,H);
+  // 건물 실루엣
+  c.fillStyle="#1B1728";
+  const bl=[[0.02,.30],[0.14,.44],[0.29,.26],[0.42,.38],[0.55,.22],[0.90,.34]];
+  for(const b of bl){
+    const bw=W*0.13,bh=H*b[1],bx=W*b[0];
+    c.fillRect(bx,gnd-bh,bw,bh);
+    c.fillStyle="rgba(242,215,78,.13)";
+    for(let i=0;i<3;i++)for(let j=0;j<2;j++)
+      c.fillRect(bx+bw*(.20+j*.42),gnd-bh+bh*(.16+i*.24),bw*.18,bh*.10);
+    c.fillStyle="#1B1728";
+  }
+  // 게이트
+  c.save();c.translate(gx,gy);
+  c.beginPath();
+  c.moveTo(-30,H*0.16);c.lineTo(-30,-H*0.10);
+  c.quadraticCurveTo(0,-H*0.30,30,-H*0.10);c.lineTo(30,H*0.16);c.closePath();
+  const gg=c.createLinearGradient(0,-H*0.28,0,H*0.16);
+  gg.addColorStop(0,`rgba(198,168,255,${0.30+0.10*Math.sin(t*2.3)})`);
+  gg.addColorStop(1,"rgba(90,62,160,.55)");
+  c.fillStyle=gg;c.fill();
+  c.strokeStyle=`rgba(206,180,255,${0.55+0.20*Math.sin(t*2.3)})`;c.lineWidth=2.4;c.stroke();
+  c.restore();
+  // 지면
+  c.fillStyle="#100D18";c.fillRect(0,gnd,W,H-gnd);
+  c.strokeStyle="rgba(234,230,242,.16)";c.lineWidth=2;
+  const off=(t*210)%56;
+  for(let x=-56;x<W+56;x+=56){
+    c.beginPath();c.moveTo(x-off,gnd+11);c.lineTo(x-off+26,gnd+11);c.stroke();
+  }
+  // 달리는 이경호
+  drawRunner(c,W*0.31,gnd+2,H*0.30,t);
+  // 발밑 먼지
+  c.fillStyle="rgba(234,230,242,.10)";
+  for(let i=0;i<4;i++){
+    const d=((t*180+i*30)%90);
+    c.beginPath();c.arc(W*0.31-d,gnd-1-i*2,2.4+i*0.5,0,7);c.fill();
+  }
+}
+
+/* ═══════════ 저장 ═══════════
+   G 안에는 함수를 물고 있는 것(스킬)과 표의 원본을 가리키는 것(장소)이 섞여 있어
+   그대로 JSON으로 만들 수 없습니다. 저장할 때 번호로 바꾸고, 불러올 때 되돌립니다.
+   전투 중에는 저장하지 않습니다. B(전투판)는 저장 대상이 아니라서,
+   안전한 화면에서만 자동으로 기록합니다. */
+const SAVE_SLOTS=3, SAVE_VER=2;
+const OLD_KEY="ucw.save.v1";
+const saveKey=i=>`ucw.save.v2.${i}`;
+const curSlot=()=>(G&&G.slot!==undefined&&G.slot!==null)?G.slot:0;
+const SAVE_SCENES=CAMPUS_SCENES.concat(["briefing","confirm","instant"]);
+
+function storageOk(){
+  try{localStorage.setItem("ucw.t","1");localStorage.removeItem("ucw.t");return true}
+  catch(e){return false}
+}
+function packSave(){
+  const d=JSON.parse(JSON.stringify({...G,
+    player:null,instants:null,skillOffer:null,offer:null,here:null,lastGain:null}));
+  const pi=G.roster.indexOf(G.player);
+  d.playerIdx=pi;
+  d.playerRaw=pi<0?JSON.parse(JSON.stringify(G.player)):null;
+  d.instants=G.instants.map(x=>INSTANTS.indexOf(x)).filter(i=>i>=0);
+  d.skillOffer=G.skillOffer?G.skillOffer.map(x=>INSTANTS.indexOf(x)).filter(i=>i>=0):null;
+  d.offer=G.offer?G.offer.map(x=>PLACES.indexOf(x)).filter(i=>i>=0):null;
+  d.here=G.here?PLACES.indexOf(G.here):null;
+  return{v:SAVE_VER,t:Date.now(),g:d};
+}
+function unpackSave(sv){
+  const d=sv.g;
+  d.player=d.playerIdx>=0?d.roster[d.playerIdx]:d.playerRaw;
+  d.instants=(d.instants||[]).map(i=>INSTANTS[i]).filter(Boolean);
+  d.skillOffer=d.skillOffer?d.skillOffer.map(i=>INSTANTS[i]).filter(Boolean):null;
+  d.offer=d.offer?d.offer.map(i=>PLACES[i]).filter(Boolean):null;
+  d.here=(d.here===null||d.here===undefined)?null:PLACES[d.here];
+  d.lastGain=null;
+  delete d.playerIdx;delete d.playerRaw;
+  return d;
+}
+function saveGame(){
+  try{localStorage.setItem(saveKey(curSlot()),JSON.stringify(packSave()));return true}
+  catch(e){return false}
+}
+function readSave(i){
+  try{
+    const t=localStorage.getItem(saveKey(i));
+    if(!t)return null;
+    const sv=JSON.parse(t);
+    return(sv&&sv.v===SAVE_VER&&sv.g&&sv.g.roster)?sv:null;
+  }catch(e){return null}
+}
+function deleteSave(i){try{localStorage.removeItem(saveKey(i))}catch(e){}}
+function anySave(){for(let i=0;i<SAVE_SLOTS;i++)if(readSave(i))return true;return false}
+/* 파일이 하나뿐이던 시절의 기록을 1번 자리로 옮겨 줍니다 */
+function migrateSave(){
+  try{
+    const t=localStorage.getItem(OLD_KEY);
+    if(!t)return;
+    if(!localStorage.getItem(saveKey(0))){
+      const sv=JSON.parse(t);
+      if(sv&&sv.g&&sv.g.roster){sv.v=SAVE_VER;sv.g.slot=0;
+        localStorage.setItem(saveKey(0),JSON.stringify(sv))}
+    }
+    localStorage.removeItem(OLD_KEY);
+  }catch(e){}
+}
+function saveLabel(sv){
+  const g=sv.g;
+  const where=g.scene==="instant"?`게이트 ${g.day}일차 진행 중`:g.mode==="tutorial"?"튜토리얼":"본진";
+  return `${where} · 대원 ${g.roster.length}명 · 골드 ${g.gold} · 탐색 ${g.explores}회`;
+}
+function saveTime(sv){
+  const d=new Date(sv.t),z=n=>String(n).padStart(2,"0");
+  return `${d.getFullYear()}.${z(d.getMonth()+1)}.${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`;
+}
+
+/* ═══════════ 상태 ═══════════ */
+let G,feed=[];
+function bootGame(){migrateSave();G={scene:"title"};feed=[];render()}
+function newGame(slot){
+  const base={vit:10,maj:10,str:10,spd:10,agi:10,luk:10};
+  const p={name:"이경호",lvl:1,exp:0,major:null,stats:{...base},base:{...base},
+           gear:emptyGear(),bag:[],points:1,inParty:true,log:["첫 게이트 진입"]};
+  p.hp=derive(p).maxHp;
+  G={slot:(slot===undefined?curSlot():slot),scene:"intro",introLine:0,gold:0,mode:"tutorial",
+     explores:0,goldEarned:0,deaths:0,recruited:0,woundedReturn:false,
+     day:1,instants:[],offer:null,here:null,fought:false,announced:[],
+     store:{},loot:{},ground:[],memorial:[],sel:null,ammo:{pistol:0,shotgun:0,rifle:0},gunSeen:{pistol:false,shotgun:false,rifle:false},arcadeBest:0,starBest:0,huntBest:0,
+     beds:1,shopWho:0,stripMsg:null,metNpc:{},npcSay:null,npcSayFor:null,talkFor:null,talkLine:0,talkNext:null,appraisal:null,
+     player:p,roster:[],applicants:null,lastGain:null};
+  feed=[];render();
+}
+const party=()=>{
+  const av=G.roster.filter(r=>!r.resting);
+  const s=av.filter(r=>r.inParty);
+  return (s.length?s:av).slice(0,4);
+};
+
+/* ═══════════ 전투 ═══════════ */
+let cv,ctx,W=400,H=340,raf=null,last=0,B=null;
+const SWING={up:.30,down:.10,rec:.22};
+const SWING_TOTAL=SWING.up+SWING.down+SWING.rec;
+const THRUST={up:.18,go:.07,rec:.20};
+const THRUST_TOTAL=THRUST.up+THRUST.go+THRUST.rec;
+const GUNA={up:.13,go:.05,rec:.17};            // 총 — 겨누고 쏘고 반동
+const GUN_TOTAL=GUNA.up+GUNA.go+GUNA.rec;
+const HOP_AIR=0.26;
+const SPLASH_RATE=0.5;   // 휘두르기가 주변에 주는 피해 비율
+const SPLASH_PAD=2;      // 주 대상보다 조금 더 넓게 훑는다
+
+function blocked(x,y,r,mask){
+  if(x<r||x>100-r||y<r||y>100-r)return true;
+  for(const o of ROOM.obs){
+    if(!(o.lv&mask))continue;
+    const cx=Math.max(o.x,Math.min(x,o.x+o.w)),cy=Math.max(o.y,Math.min(y,o.y+o.h));
+    if((x-cx)**2+(y-cy)**2<r*r)return true;
+  }
+  return false;
+}
+function freeSpot(x,y,r,mask){
+  if(!blocked(x,y,r,mask))return{x,y};
+  for(let k=1;k<90;k++){
+    const a=k*1.1,rad=1+k*0.7;
+    const nx=Math.max(r,Math.min(100-r,x+Math.cos(a)*rad));
+    const ny=Math.max(r,Math.min(100-r,y+Math.sin(a)*rad));
+    if(!blocked(nx,ny,r,mask))return{x:nx,y:ny};
+  }
+  return{x,y};
+}
+/* ═══════════ 길찾기 ═══════════
+   방을 25×25 칸으로 나누고, 목표 칸에서 BFS로 거리 지도를 만듭니다.
+   목표가 직선으로 보이면 그냥 직진하고, 막혀 있으면 지도를 따라 돌아갑니다.
+   층(lvm)마다 지나갈 수 있는 칸이 다르므로 마스크별로 따로 계산합니다. */
+const GN=25, CELL=100/GN;
+let PASS_CACHE=new Map(), FIELD_CACHE=new Map();
+function clearPaths(){PASS_CACHE.clear();FIELD_CACHE.clear()}
+const cIdx=(cx,cy)=>cy*GN+cx;
+const toCell=v=>Math.max(0,Math.min(GN-1,Math.floor(v/CELL)));
+function passGrid(mask){
+  let p=PASS_CACHE.get(mask);
+  if(p)return p;
+  p=new Uint8Array(GN*GN);
+  for(let cy=0;cy<GN;cy++)for(let cx=0;cx<GN;cx++){
+    const x=cx*CELL+CELL/2,y=cy*CELL+CELL/2;
+    p[cIdx(cx,cy)]=blocked(x,y,3.0,mask)?0:1;
+  }
+  PASS_CACHE.set(mask,p);
+  return p;
+}
+function distField(mask,tx,ty){
+  const tcx=toCell(tx),tcy=toCell(ty);
+  const key=mask+":"+tcx+","+tcy;
+  let d=FIELD_CACHE.get(key);
+  if(d)return d;
+  const pass=passGrid(mask);
+  d=new Int16Array(GN*GN).fill(-1);
+  let s=cIdx(tcx,tcy);
+  if(!pass[s]){                       // 목표가 막힌 칸이면 가장 가까운 빈 칸을 쓴다
+    let best=-1,bd=1e9;
+    for(let cy=0;cy<GN;cy++)for(let cx=0;cx<GN;cx++){
+      if(!pass[cIdx(cx,cy)])continue;
+      const dd=(cx-tcx)**2+(cy-tcy)**2;
+      if(dd<bd){bd=dd;best=cIdx(cx,cy)}
+    }
+    if(best<0)return d;
+    s=best;
+  }
+  d[s]=0;
+  const q=[s];
+  for(let h=0;h<q.length;h++){
+    const cur=q[h],cx=cur%GN,cy=(cur/GN)|0,nd=d[cur]+1;
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+      if(!dx&&!dy)continue;
+      const nx=cx+dx,ny=cy+dy;
+      if(nx<0||ny<0||nx>=GN||ny>=GN)continue;
+      const ni=cIdx(nx,ny);
+      if(!pass[ni]||d[ni]>=0)continue;
+      if(dx&&dy&&(!pass[cIdx(cx+dx,cy)]||!pass[cIdx(cx,cy+dy)]))continue;  // 모서리 통과 금지
+      d[ni]=nd;q.push(ni);
+    }
+  }
+  if(FIELD_CACHE.size>80)FIELD_CACHE.clear();
+  FIELD_CACHE.set(key,d);
+  return d;
+}
+function clearLine(x0,y0,x1,y1,r,mask){
+  const dx=x1-x0,dy=y1-y0,len=Math.hypot(dx,dy);
+  const steps=Math.max(1,Math.ceil(len/2));
+  for(let i=1;i<=steps;i++){
+    const q=i/steps;
+    if(blocked(x0+dx*q,y0+dy*q,r,mask))return false;
+  }
+  return true;
+}
+/* 목표까지 직선이 막혔으면 다음에 밟을 칸을 골라 준다 */
+function nextStep(u,tx,ty){
+  if(clearLine(u.x,u.y,tx,ty,u.r*0.9,u.lvm))return null;
+  const d=distField(u.lvm,tx,ty);
+  const cx=toCell(u.x),cy=toCell(u.y);
+  let best=null,bv=d[cIdx(cx,cy)];
+  if(bv<0)bv=1e9;
+  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+    if(!dx&&!dy)continue;
+    const nx=cx+dx,ny=cy+dy;
+    if(nx<0||ny<0||nx>=GN||ny>=GN)continue;
+    const v=d[cIdx(nx,ny)];
+    if(v<0)continue;
+    if(v<bv){bv=v;best=[nx,ny]}
+  }
+  if(!best)return null;
+  return{x:best[0]*CELL+CELL/2,y:best[1]*CELL+CELL/2};
+}
+
+function moveTo(u,tx,ty,dt){
+  const way=nextStep(u,tx,ty);
+  if(way){tx=way.x;ty=way.y}
+  const ox=u.x,oy=u.y;
+  const vx=tx-u.x,vy=ty-u.y,d=Math.hypot(vx,vy)||1,st=u.vspeed*dt;
+  u.face=Math.atan2(vy,vx);
+  const nx=u.x+vx/d*st,ny=u.y+vy/d*st;
+  if(!blocked(nx,u.y,u.r,u.lvm))u.x=nx;
+  if(!blocked(u.x,ny,u.r,u.lvm))u.y=ny;
+  if(Math.hypot(u.x-ox,u.y-oy)<st*0.35){
+    u.stuck=(u.stuck||0)+dt;
+    if(u.stuck>0.18){
+      if(u.slide===undefined)u.slide=Math.random()<.5?1:-1;
+      const a=u.face+u.slide*Math.PI/2;
+      const sx=u.x+Math.cos(a)*st*1.3,sy=u.y+Math.sin(a)*st*1.3;
+      if(!blocked(sx,sy,u.r,u.lvm)){u.x=sx;u.y=sy}else u.slide*=-1;
+    }
+  }else u.stuck=0;
+}
+function separate(){
+  const all=[...B.allies,...B.foes].filter(u=>u.hp>0);
+  for(let i=0;i<all.length;i++)for(let j=i+1;j<all.length;j++){
+    const a=all[i],b=all[j];
+    if(!(a.lvm&b.lvm))continue;
+    const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||0.01,min=a.r+b.r;
+    if(d<min){
+      const p=(min-d)/2,ux=dx/d*p,uy=dy/d*p;
+      if(!blocked(a.x-ux,a.y-uy,a.r,a.lvm)){a.x-=ux;a.y-=uy}
+      if(!blocked(b.x+ux,b.y+uy,b.r,b.lvm)){b.x+=ux;b.y+=uy}
+    }
+  }
+}
+const D=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+
+function makeFighter(p,i,n){
+  const d=derive(p);
+  const u={ref:p,name:p.name,side:"a",face:-1.57,r:3.2,lvm:HUMAN,
+    hp:Math.min(p.hp,d.maxHp),maxHp:d.maxHp,atk:d.atk,aspd:d.aspd,vspeed:d.speed*0.42,
+    range:7+d.rng,guard:d.guard,cool:.3+i*.15,anim:null,color:"#4FC3D9",
+    style:d.style,dmgType:d.dmg,broken:[],wid:p.gear.rh,
+    wearing:SLOTS.map(s=>({slot:s.k,it:ITEMS[p.gear[s.k]]})).filter(w=>w.it),
+    hasW:!!p.gear.rh,hasS:!!p.gear.lh};
+  for(const s of G.instants)s.f(u);
+  u.hp=Math.min(u.hp,u.maxHp);
+  const rh=ITEMS[p.gear.rh];
+  if(rh&&rh.ammo){                       // 총을 든 사람은 탄약이 떨어지면 맨손으로 싸운다
+    u.gun={type:rh.ammo,range:u.range,style:"gun",dmg:rh.dmg,n:rh.n};
+    u.atkFull=u.atk;
+    u.meleeAtk=Math.max(1,+(u.atk-rh.atk).toFixed(1));
+  }
+  const sp=freeSpot(50+(i-(n-1)/2)*9,90,u.r,u.lvm);
+  u.x=sp.x;u.y=sp.y;
+  return u;
+}
+function makeEnemy(key,i,day){
+  const E=ENEMIES[key];
+  /* 보스는 등장 일차에 맞춰 이미 세게 잡혀 있으므로 날짜 배율을 태우지 않습니다 */
+  const hs=(E.boss||E.noScale)?1:Math.pow(1.30,day-1), as=(E.boss||E.noScale)?1:Math.pow(1.20,day-1);
+  const spots=[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]];
+  const s=spots[i%spots.length];
+  /* 튜토리얼에서는 한 대가 1만큼 덜 아픕니다 */
+  const soft=G.mode==="tutorial"?1:0;
+  const u={key,name:E.n,side:"e",face:1.57,r:E.r,lvm:E.lvm,boss:!!E.boss,exp:E.exp,dmgType:E.dmg,
+    hp:Math.round(E.hp*hs),maxHp:Math.round(E.hp*hs),atk:Math.max(1,+(E.atk*as).toFixed(1)-soft),
+    aspd:E.aspd,vspeed:E.speed,range:E.range,guard:0,cool:1+i*.5,color:E.c,wig:i*1.3};
+  const sp=freeSpot(s[0],s[1],u.r,u.lvm);
+  u.x=sp.x;u.y=sp.y;
+  return u;
+}
+/* 좀비에게 물려 죽은 대원이 그 자리에서 일어선다 */
+function makeZombieOf(a){
+  const E=ENEMIES.zomb;
+  return{key:"zomb",name:"좀비 "+a.name,side:"e",face:a.face,r:E.r,lvm:E.lvm,
+    exp:E.exp,dmgType:E.dmg,turned:true,
+    hp:Math.round(a.maxHp*0.7),maxHp:Math.round(a.maxHp*0.7),
+    atk:+(a.atk*0.8).toFixed(1),aspd:E.aspd,vspeed:E.speed,range:E.range,
+    guard:0,cool:1.4,color:E.c,wig:0,cp:0,x:a.x,y:a.y};
+}
+function rollEncounter(day,risk,party){
+  /* 적 수는 데려간 인원에 맞춰 조정합니다.
+     혼자 들어갔는데 넷이 갈 물량이 나오면 손쓸 방법이 없기 때문입니다. */
+  const size=Math.max(1,Math.min(4,party||4));
+  const base=2+Math.floor(day/2)+risk;
+  const n=Math.max(1,Math.min(6,Math.round(base*(0.42+0.58*size/4)))),out=[];
+  const boss=BOSS_DAY[day];
+  if(boss){
+    out.push(boss);
+    const esc=BOSS_ADDS[boss];
+    if(esc){for(let i=0;i<esc.count;i++)out.push(esc.key)}
+    else for(let i=1;i<Math.max(2,n-1);i++)out.push(Math.random()<.5?"worm":"hopper");
+  }else for(let i=0;i<n;i++)out.push(day>=2&&Math.random()<.45?"hopper":"worm");
+  return out;
+}
+function startBattle(list,keys){
+  G.fought=true;
+  clearPaths();
+  B={ammo:{...G.ammo},allies:list.map((p,i)=>makeFighter(p,i,list.length)),
+     foes:keys.map((k,i)=>makeEnemy(k,i,G.day)),fx:[],shots:[],fallen:[],over:false};
+  feed=[];
+  const bs=B.foes.find(f=>f.boss);
+  say(bs?`${bs.name}이(가) 천천히 몸을 일으킨다. 적 ${keys.length}체.`:`적 ${keys.length}체가 다가온다.`);
+}
+function say(t){feed.push(t);if(feed.length>3)feed.shift();
+  const f=document.getElementById("feed");if(f)f.innerHTML=feed.map(x=>`<div>${x}</div>`).join("")}
+function hurt(t,amt,c,type,src){
+  if(src)t.lastHitBy=src;
+  if(t.wearing&&type){
+    for(const w of t.wearing.slice()){
+      const ch=w.it.frail&&w.it.frail[type];
+      if(ch&&Math.random()<ch){
+        say(`${t.name}의 ${w.it.n}이(가) ${type}에 부서졌다.`);
+        B.fx.push({x:t.x,y:t.y,t:"파손",c:"#C87878",life:1.1,off:0});
+        t.guard=Math.max(0,t.guard-(w.it.guard||0));
+        t.broken.push(w.slot);
+        t.wearing=t.wearing.filter(x=>x!==w);
+        if(w.slot==="lh")t.hasS=false;
+      }
+    }
+  }
+  amt=Math.max(1,amt-(t.guard||0));
+  t.hp=Math.max(0,t.hp-amt);t.flash=.18;
+  B.fx.push({x:t.x,y:t.y,t:Math.round(amt),c,life:.85,off:0});
+}
+function tick(dt){
+  const live=B.foes.filter(f=>f.hp>0),lifeA=B.allies.filter(a=>a.hp>0);
+  for(const u of lifeA){
+    if(u.gun){                            // 남은 탄약에 따라 총/맨손을 오간다
+      const has=(B.ammo[u.gun.type]||0)>0;
+      if(has){u.style="gun";u.range=u.gun.range;u.atk=u.atkFull;u.dmgType=u.gun.dmg;u.hasW=true}
+      else{
+        if(!u.dry){u.dry=true;say(`${u.name}의 ${u.gun.n} 탄약이 떨어졌다.`)}
+        u.style="swing";u.range=7;u.atk=u.meleeAtk;u.dmgType=DMG.BLUNT;u.hasW=false;
+      }
+    }
+    if(u.anim){
+      const a=u.anim,prev=a.t;a.t+=dt;
+      const th=u.style==="thrust",gn=u.style==="gun";
+      const imp=gn?GUNA.up+GUNA.go*.4:th?THRUST.up+THRUST.go*.9:SWING.up+SWING.down*.7;
+      const total=gn?GUN_TOTAL:th?THRUST_TOTAL:SWING_TOTAL;
+      if(!a.hit&&prev<imp&&a.t>=imp){
+        a.hit=true;
+        if(a.tgt&&a.tgt.hp>0&&D(u,a.tgt)<u.range+a.tgt.r){
+          hurt(a.tgt,u.atk,"#F2D74E",u.dmgType);
+          let swept=0;
+          if(u.style==="swing"){        // 휘두르면 곁에 있던 것들도 절반씩 맞는다
+            for(const o of B.foes){
+              if(o===a.tgt||o.hp<=0)continue;
+              if(D(u,o)<u.range+o.r+SPLASH_PAD){
+                hurt(o,u.atk*SPLASH_RATE,"#E9C46A",u.dmgType);swept++;
+              }
+            }
+          }
+          say(`${u.name}이(가) ${a.tgt.name}을(를) ${u.style==="gun"?"쐈다":u.dmgType==="찌르기"?"찔렀다":"때렸다"}.`
+            +(swept?` 옆에 있던 ${swept}체도 휩쓸렸다.`:""));
+        }else say(`${u.name}의 공격이 빗나갔다.`);
+      }
+      if(a.t>=total)u.anim=null;
+      continue;
+    }
+    if(!live.length)continue;
+    const t=live.reduce((b,o)=>D(u,o)<D(u,b)?o:b);
+    if(D(u,t)>u.range+t.r-1)moveTo(u,t.x,t.y,dt);
+    else{u.face=Math.atan2(t.y-u.y,t.x-u.x);u.cool-=dt*u.aspd;
+      if(u.cool<=0){
+        if(u.gun&&u.style==="gun")B.ammo[u.gun.type]--;   // 한 발 소모
+        u.cool=1;u.anim={t:0,hit:false,tgt:t};
+      }}
+  }
+  for(const f of live){
+    f.wig+=dt*3;
+    if(!lifeA.length)continue;
+    const t=lifeA.reduce((b,o)=>D(f,o)<D(f,b)?o:b);
+    // 서로 밀어내는 거리(반지름 합)보다 사거리가 짧으면 영영 못 때린다. 상대 덩치를 더해준다.
+    const reach=f.range+t.r;
+    if(D(f,t)>reach){
+      if(f.key==="hopper"){
+        f.face=Math.atan2(t.y-f.y,t.x-f.x);
+        if(f.air>0){f.air-=dt;moveTo(f,t.x,t.y,dt)}
+        else{f.hopCd=(f.hopCd||0)-dt;
+          if(f.hopCd<=0){f.air=HOP_AIR;f.hopCd=HOP_AIR+.5+Math.random()*.35}}
+      }else if(f.key==="zombie"||f.key==="zomb"){
+        // 성한 다리로 밀 때만 앞으로 나가고, 절뚝이는 쪽에서는 거의 멈춘다
+        f.cp=(f.cp||0)+dt*2.3;
+        f.limp=Math.sin(f.cp);
+        const base=f.vspeed;
+        f.vspeed=base*(f.limp>0?1.75:0.30);
+        moveTo(f,t.x,t.y,dt);
+        f.vspeed=base;
+      }else if(f.key==="worm"){
+        f.cp=(f.cp||0)+dt*3.1;
+        const s=Math.max(0,Math.sin(f.cp));f.surge=s*s;
+        const base=f.vspeed;f.vspeed=base*(0.12+1.85*f.surge);
+        moveTo(f,t.x,t.y,dt);f.vspeed=base;
+      }else moveTo(f,t.x,t.y,dt);
+    }
+    else{f.face=Math.atan2(t.y-f.y,t.x-f.x);f.air=0;f.cool-=dt*f.aspd;
+      if(f.cool<=0){f.cool=1;f.strike=.24;
+        if(f.key==="spider")B.shots.push({x0:f.x,y0:f.y,x1:t.x,y1:t.y,life:.42,max:.42});
+        hurt(t,f.atk,"#F25C5C",f.dmgType,f);
+        say(`${f.name}이(가) ${t.name}을(를) 공격했다.`)}}
+  }
+  separate();
+  for(const a of B.allies)if(a.hp<=0&&!a.dead){
+    a.dead=true;B.fallen.push(a);
+    const by=a.lastHitBy;
+    if(by&&(by.key==="zombie"||by.key==="zomb")){
+      B.foes.push(makeZombieOf(a));
+      say(`${a.name}이(가) 다시 일어선다. 더 이상 우리 편이 아니다.`);
+    }else say(`${a.name}이(가) 쓰러졌다. 돌아오지 못한다.`);
+  }
+  for(const u of [...B.allies,...B.foes]){if(u.flash>0)u.flash-=dt;if(u.strike>0)u.strike-=dt}
+  B.fx=B.fx.filter(p=>{p.life-=dt;p.off+=26*dt;return p.life>0});
+  if(B.shots)B.shots=B.shots.filter(w=>{w.life-=dt;return w.life>0});
+  if(!B.over){
+    if(!lifeA.length){B.over=1;stopLoop();setTimeout(()=>{G.scene="fail";render()},600)}
+    else if(!live.length){B.over=1;stopLoop();setTimeout(finishBattle,700)}
+  }
+}
+
+/* ═══════════ 그리기 ═══════════ */
+let SX=4,SY=4;
+function paint(){
+  ctx.clearRect(0,0,W,H);SX=W/100;SY=H/100;
+  const px=v=>v*SX,py=v=>v*SY;
+  ctx.fillStyle="#22212A";ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle="rgba(255,255,255,.045)";ctx.lineWidth=1;
+  for(let i=1;i<10;i++){
+    ctx.beginPath();ctx.moveTo(px(i*10),0);ctx.lineTo(px(i*10),H);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(0,py(i*10));ctx.lineTo(W,py(i*10));ctx.stroke();
+  }
+  ctx.strokeStyle="rgba(216,71,126,.35)";ctx.lineWidth=3;ctx.strokeRect(1.5,1.5,W-3,H-3);
+  ctx.fillStyle="rgba(216,71,126,.30)";ctx.fillRect(px(DOOR.x),py(DOOR.y),px(DOOR.w),py(DOOR.h));
+  ctx.fillStyle="rgba(234,230,242,.6)";ctx.font="700 9px system-ui";ctx.textAlign="center";
+  ctx.fillText("입구",px(DOOR.x+DOOR.w/2),py(DOOR.y)-3);
+  for(const o of ROOM.obs){
+    const high=(o.lv&L3)!==0,mid=(o.lv&L2)!==0,low=(o.lv&L1)!==0;
+    ctx.fillStyle=high?"#43414F":mid&&low?"#3A3948":"rgba(120,112,140,.32)";
+    ctx.fillRect(px(o.x),py(o.y),px(o.w),py(o.h));
+    if(!high&&!(mid&&low))ctx.setLineDash([3,3]);
+    ctx.strokeStyle="rgba(255,255,255,.26)";ctx.lineWidth=1;
+    ctx.strokeRect(px(o.x)+.5,py(o.y)+.5,px(o.w)-1,py(o.h)-1);
+    ctx.setLineDash([]);
+    if(o.l){ctx.fillStyle="rgba(234,230,242,.5)";ctx.font="700 10px system-ui";ctx.textAlign="center";
+      ctx.fillText(o.l,px(o.x+o.w/2),py(o.y+o.h/2)+3.5)}
+  }
+  for(const f of B.foes)if(f.hp>0)drawFoe(f);
+  for(const a of B.allies)if(a.hp>0)drawAlly(a);
+  if(B.shots)for(const w of B.shots)drawWeb(w);
+  ctx.textAlign="center";ctx.font="800 13px system-ui";
+  for(const p of B.fx){ctx.globalAlpha=Math.min(1,p.life*1.6);ctx.fillStyle=p.c;
+    ctx.fillText(p.t,px(p.x),py(p.y)-10-p.off)}
+  ctx.globalAlpha=1;
+}
+function drawAlly(u){
+  const x=u.x*SX,y=u.y*SY,r=u.r*Math.min(SX,SY);
+  ctx.save();ctx.translate(x,y);ctx.save();ctx.rotate(u.face);
+  if(u.hasS){ctx.beginPath();ctx.arc(-r*.5,-r*.9,r*.85,0,7);
+    ctx.fillStyle="#8F87A6";ctx.fill();ctx.strokeStyle="#B9B2CC";ctx.lineWidth=1.5;ctx.stroke()}
+  if(u.hasW&&u.wid==="spray"){
+    // 분무기 — 손에 들린 통, 누를 때 앞으로 안개가 퍼진다
+    const t=u.anim?u.anim.t:-1;
+    const firing=t>=THRUST.up&&t<THRUST.up+THRUST.go+.14;
+    const push=u.anim?(t<THRUST.up?-r*.25*(t/THRUST.up):r*.35):0;
+    ctx.fillStyle="#C9C2D8";
+    ctx.fillRect(r*.55+push,-r*.42,r*.85,r*.84);          // 통
+    ctx.fillStyle="#8F87A6";
+    ctx.fillRect(r*1.4+push,-r*.2,r*.3,r*.4);             // 노즐
+    ctx.fillStyle="#F2D74E";
+    ctx.fillRect(r*.6+push,-r*.6,r*.5,r*.2);              // 누름 버튼
+    if(firing){
+      const g=ctx.createLinearGradient(r*1.7+push,0,r*3.4+push,0);
+      g.addColorStop(0,"rgba(180,230,190,.75)");g.addColorStop(1,"rgba(180,230,190,0)");
+      ctx.fillStyle=g;
+      ctx.beginPath();ctx.moveTo(r*1.7+push,-r*.18);
+      ctx.lineTo(r*3.5+push,-r*1.05);ctx.lineTo(r*3.5+push,r*1.05);
+      ctx.lineTo(r*1.7+push,r*.18);ctx.closePath();ctx.fill();
+      ctx.fillStyle="rgba(200,240,210,.85)";
+      for(let i=0;i<5;i++){
+        const d2=r*(2+Math.random()*1.4)+push, sp=(Math.random()-.5)*r*1.7;
+        ctx.beginPath();ctx.arc(d2,sp,r*.13,0,7);ctx.fill();
+      }
+    }
+  }else if(u.hasW&&u.style==="thrust"){
+    let ext=0;
+    if(u.anim){const t=u.anim.t;
+      if(t<THRUST.up)ext=-r*.55*(t/THRUST.up);
+      else if(t<THRUST.up+THRUST.go){const p=(t-THRUST.up)/THRUST.go;ext=-r*.55+r*2.6*(p*p)}
+      else{const p=(t-THRUST.up-THRUST.go)/THRUST.rec;ext=r*2.05*(1-p*p)}}
+    if(u.anim&&u.anim.t>THRUST.up&&u.anim.t<THRUST.up+THRUST.go+.06){
+      ctx.strokeStyle="rgba(242,215,78,.5)";ctx.lineWidth=r*.5;ctx.lineCap="round";
+      ctx.beginPath();ctx.moveTo(r*.6,0);ctx.lineTo(r*2.3+ext,0);ctx.stroke();}
+    ctx.strokeStyle="#C9C2D8";ctx.lineWidth=2;ctx.lineCap="round";
+    ctx.beginPath();ctx.moveTo(r*.4+ext,0);ctx.lineTo(r*1.7+ext,0);ctx.stroke();
+    ctx.strokeStyle="#F2D74E";ctx.lineWidth=1.4;
+    ctx.beginPath();ctx.moveTo(r*1.7+ext,0);ctx.lineTo(r*2.15+ext,0);ctx.stroke();
+  }else if(u.hasW){
+    let ang=-0.5;
+    if(u.anim){const t=u.anim.t;
+      if(t<SWING.up){const p=t/SWING.up;ang=-0.5-1.25*(p*p*(3-2*p))}
+      else if(t<SWING.up+SWING.down){const p=(t-SWING.up)/SWING.down;ang=-1.75+3.1*(p*p)}
+      else{const p=(t-SWING.up-SWING.down)/SWING.rec;ang=1.35-1.85*p}}
+    ctx.save();ctx.rotate(ang);
+    ctx.strokeStyle="#C9C2D8";ctx.lineWidth=2.4;ctx.lineCap="round";
+    ctx.beginPath();ctx.moveTo(r*.5,0);ctx.lineTo(r*2.1,0);ctx.stroke();
+    ctx.beginPath();ctx.arc(r*2.4,0,r*.42,0,7);ctx.fillStyle="#D8D2E4";ctx.fill();
+    ctx.restore();
+    if(u.anim&&u.anim.t>SWING.up&&u.anim.t<SWING.up+SWING.down+.05){
+      ctx.strokeStyle="rgba(242,215,78,.55)";ctx.lineWidth=r*.7;ctx.lineCap="round";
+      ctx.beginPath();ctx.arc(0,0,r*2.1,-1.4,1.1);ctx.stroke();}
+  }
+  ctx.restore();
+  ctx.beginPath();ctx.arc(0,0,r,0,7);
+  ctx.fillStyle=u.flash>0?"#fff":u.color;ctx.fill();
+  ctx.lineWidth=2;ctx.strokeStyle="rgba(255,255,255,.85)";ctx.stroke();
+  ctx.restore();
+  bar(u,x,y-r-7,"#6BD98F",r);
+  ctx.fillStyle="rgba(234,230,242,.7)";ctx.font="600 8.5px system-ui";ctx.textAlign="center";
+  ctx.fillText(u.name,x,y+r+10);
+}
+function drawFoe(f){
+  const x=f.x*SX,y=f.y*SY,r=f.r*Math.min(SX,SY);
+  const bx=Math.cos(f.face),by=Math.sin(f.face);
+  const col=f.flash>0?"#fff":f.color;
+  if(f.key==="worm"){
+    const su=f.surge||0,gap=r*(.55+.55*su),fat=1+(1-su)*.22;
+    for(let i=2;i>=0;i--){
+      const w=Math.sin((f.wig||0)-i*.7)*1.5*(0.4+su);
+      ctx.beginPath();
+      ctx.arc(x-bx*i*gap-by*w,y-by*i*gap+bx*w,(r-i*r*.15)*fat,0,7);
+      ctx.fillStyle=f.flash>0?"#fff":(i===0?f.color:"#7E9E3C");ctx.fill();
+    }
+    ctx.fillStyle=f.flash>0?"#fff":"#3A4A22";
+    ctx.beginPath();ctx.arc(x+bx*r*.45-by*r*.3,y+by*r*.45+bx*r*.3,r*.16,0,7);ctx.fill();
+  }else if(f.key==="hopper"){
+    const j=f.air>0?Math.sin((1-f.air/HOP_AIR)*Math.PI):0;
+    const crouch=f.air>0?0:Math.max(0,1-(f.hopCd||0)/.35);
+    if(j>0.02){ctx.fillStyle="rgba(0,0,0,.35)";
+      ctx.beginPath();ctx.ellipse(x,y,r*.9*(1-j*.3),r*.5*(1-j*.3),0,0,7);ctx.fill()}
+    ctx.save();ctx.translate(x,y-j*r*1.6);ctx.rotate(f.face);ctx.scale(1+j*.12,1+j*.12);
+    const spread=j>0?r*.9:-crouch*r*.35;
+    ctx.strokeStyle=col;ctx.lineWidth=2.2;ctx.lineCap="round";
+    ctx.beginPath();ctx.moveTo(-r*.3,-r*.5);ctx.lineTo(-r*1.2,-r*1.0-spread);ctx.lineTo(-r*.3,-r*1.5-spread*.5);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(-r*.3,r*.5);ctx.lineTo(-r*1.2,r*1.0+spread);ctx.lineTo(-r*.3,r*1.5+spread*.5);ctx.stroke();
+    ctx.beginPath();ctx.ellipse(0,0,r*1.15*(1-crouch*.12),r*.72*(1+crouch*.15),0,0,7);
+    ctx.fillStyle=col;ctx.fill();
+    ctx.beginPath();ctx.arc(r*.8,0,r*.3,0,7);ctx.fillStyle=f.flash>0?"#fff":"#EFD98A";ctx.fill();
+    ctx.restore();
+  }else if(f.key==="spider"){
+    ctx.save();ctx.translate(x,y);ctx.rotate(f.face);
+    ctx.strokeStyle=col;ctx.lineWidth=2.1;ctx.lineCap="round";
+    for(let i=0;i<8;i++){                       // 긴 다리 여덟 개
+      const side=i<4?1:-1,k=i%4;
+      const a=(0.45+k*0.62)*side+Math.sin(f.wig*2.2+i*1.3)*0.11;
+      const kx=Math.cos(a)*r*1.45,ky=Math.sin(a)*r*1.45;
+      const ex=Math.cos(a)*r*2.5,ey=Math.sin(a)*r*2.5;
+      ctx.beginPath();ctx.moveTo(0,0);
+      ctx.lineTo(kx-Math.abs(Math.sin(a))*r*0.4,ky);ctx.lineTo(ex,ey);ctx.stroke();
+    }
+    if(f.strike>0){          // 뿜을 때 배를 들어올리고 앞을 낮춘다
+      const e=Math.sin((1-Math.max(0,f.strike)/.24)*Math.PI);
+      ctx.save();ctx.rotate(-e*0.28);
+      ctx.beginPath();ctx.ellipse(-r*1.0-e*r*0.3,0,r*0.5,r*0.42,0,0,7);
+      ctx.fillStyle="rgba(238,238,252,.9)";ctx.fill();   // 방적돌기에 맺힌 실
+      ctx.restore();
+    }
+    ctx.beginPath();ctx.ellipse(-r*.55,0,r*1.05,r*.9,0,0,7);ctx.fillStyle=col;ctx.fill();
+    ctx.beginPath();ctx.arc(r*.55,0,r*.55,0,7);
+    ctx.fillStyle=f.flash>0?"#fff":"#B79BEA";ctx.fill();
+    ctx.fillStyle="#2A2A30";
+    for(const e of [-.28,-.1,.1,.28]){ctx.beginPath();ctx.arc(r*.85,e*r,r*.1,0,7);ctx.fill()}
+    ctx.restore();
+    ctx.fillStyle="rgba(242,215,78,.9)";ctx.font="800 9px system-ui";ctx.textAlign="center";
+    ctx.fillText("BOSS",x,y-r-12);
+  }else if(f.key==="zombie"||f.key==="zomb"){
+    const lp=f.limp||0, tilt=lp*0.20;
+    ctx.save();ctx.translate(x,y);ctx.rotate(f.face+tilt);
+    // 끌리는 다리
+    ctx.strokeStyle="#2F6B2A";ctx.lineWidth=r*0.30;ctx.lineCap="round";
+    ctx.beginPath();ctx.moveTo(-r*0.2,r*0.45);
+    ctx.lineTo(-r*1.35-Math.max(0,-lp)*r*0.5,r*0.75);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(-r*0.2,-r*0.45);
+    ctx.lineTo(-r*0.95+lp*r*0.35,-r*0.8);ctx.stroke();
+    // 앞으로 뻗은 팔 — 길이가 다르다
+    ctx.strokeStyle=f.flash>0?"#fff":"#6FC25C";ctx.lineWidth=r*0.26;
+    ctx.beginPath();ctx.moveTo(r*0.2,-r*0.55);
+    ctx.lineTo(r*1.55+lp*r*0.2,-r*0.62);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(r*0.2,r*0.55);
+    ctx.lineTo(r*1.15-lp*r*0.25,r*0.72);ctx.stroke();
+    // 몸통과 머리
+    ctx.beginPath();ctx.ellipse(-r*0.15,0,r*0.82,r*0.62,0,0,7);
+    ctx.fillStyle=f.flash>0?"#fff":f.color;ctx.fill();
+    ctx.strokeStyle="rgba(20,50,18,.75)";ctx.lineWidth=1.4;ctx.stroke();
+    ctx.beginPath();ctx.arc(r*0.62,lp*r*0.10,r*0.46,0,7);
+    ctx.fillStyle=f.flash>0?"#fff":"#7FCB6B";ctx.fill();ctx.stroke();
+    ctx.fillStyle="#1E3A1A";
+    ctx.beginPath();ctx.arc(r*0.85,-r*0.16,r*0.09,0,7);ctx.fill();
+    ctx.beginPath();ctx.arc(r*0.85,r*0.16,r*0.09,0,7);ctx.fill();
+    ctx.restore();
+    if(f.boss){ctx.fillStyle="rgba(242,215,78,.9)";ctx.font="800 9px system-ui";
+      ctx.textAlign="center";ctx.fillText("BOSS",x,y-r-12)}
+    else{ctx.fillStyle="rgba(140,220,120,.85)";ctx.font="600 8.5px system-ui";
+      ctx.textAlign="center";ctx.fillText(f.name,x,y+r+11)}
+  }else if(f.key==="bloodeyes"){
+    // 빠르게 움직이므로 잔상을 깐다
+    ctx.globalAlpha=.22;ctx.fillStyle=f.color;
+    ctx.beginPath();ctx.arc(x-Math.cos(f.face)*r*.7,y-Math.sin(f.face)*r*.7,r*.85,0,7);ctx.fill();
+    ctx.globalAlpha=1;
+    ctx.save();ctx.translate(x,y);ctx.rotate(f.face);
+    ctx.beginPath();                                  // 꿈틀대는 덩어리
+    for(let i=0;i<=28;i++){
+      const a=i/28*Math.PI*2;
+      const rr=r*(0.94+Math.sin(a*3+f.wig*2.2)*0.11+Math.sin(a*5-f.wig*1.4)*0.06);
+      const px2=Math.cos(a)*rr,py2=Math.sin(a)*rr;
+      i?ctx.lineTo(px2,py2):ctx.moveTo(px2,py2);
+    }
+    ctx.closePath();ctx.fillStyle=f.flash>0?"#fff":f.color;ctx.fill();
+    ctx.strokeStyle="rgba(40,8,14,.9)";ctx.lineWidth=1.5;ctx.stroke();
+    const eyes=[[0.18,0,.44],[-0.42,-0.42,.30],[-0.38,0.46,.30],[0.44,-0.46,.25],
+                [0.48,0.42,.25],[-0.06,-0.68,.21],[0.02,0.70,.21],[-0.72,0.04,.24]];
+    for(let i=0;i<eyes.length;i++){
+      const [ex,ey,es]=eyes[i];
+      const blink=Math.sin(f.wig*1.7+i*2.1);
+      const open=blink<-0.86?0.12:1;                  // 가끔 깜빡인다
+      const cx2=ex*r,cy2=ey*r,rr=es*r;
+      ctx.save();ctx.translate(cx2,cy2);ctx.scale(1,open);
+      ctx.beginPath();ctx.arc(0,0,rr,0,7);
+      ctx.fillStyle=f.flash>0?"#fff":"#F2E9E4";ctx.fill();
+      ctx.beginPath();ctx.arc(rr*.34,0,rr*.55,0,7);ctx.fillStyle="#C2312F";ctx.fill();
+      ctx.beginPath();ctx.arc(rr*.44,0,rr*.26,0,7);ctx.fillStyle="#1A0A0E";ctx.fill();
+      ctx.restore();
+    }
+    if(f.strike>0){                                   // 시선이 터진다
+      const e=Math.sin((1-Math.max(0,f.strike)/.24)*Math.PI);
+      ctx.globalAlpha=e*.85;
+      ctx.strokeStyle="#F25C5C";ctx.lineWidth=2.4;
+      ctx.beginPath();ctx.arc(r*1.6,0,r*(0.5+e*1.1),0,7);ctx.stroke();
+      ctx.globalAlpha=1;
+    }
+    ctx.restore();
+    ctx.fillStyle="rgba(242,215,78,.9)";ctx.font="800 9px system-ui";ctx.textAlign="center";
+    ctx.fillText("BOSS",x,y-r-12);
+  }else{
+    ctx.save();ctx.translate(x,y);ctx.rotate(f.face);
+    const sw=Math.sin(f.wig*1.1)*0.28;
+    ctx.strokeStyle=col;ctx.lineWidth=3;ctx.lineCap="round";
+    for(const s of [-1,1]){ctx.save();ctx.rotate(s*(0.5+sw));
+      ctx.beginPath();ctx.moveTo(r*.4,0);ctx.lineTo(r*1.5,0);ctx.lineTo(r*1.9,-s*r*.7);ctx.stroke();
+      ctx.restore()}
+    ctx.beginPath();ctx.ellipse(-r*.2,0,r*1.05,r*.66,0,0,7);ctx.fillStyle=col;ctx.fill();
+    ctx.beginPath();ctx.arc(r*.75,0,r*.42,0,7);ctx.fillStyle=f.flash>0?"#fff":"#8FE0BC";ctx.fill();
+    ctx.restore();
+    ctx.fillStyle="rgba(242,215,78,.9)";ctx.font="800 9px system-ui";ctx.textAlign="center";
+    ctx.fillText("BOSS",x,y-r-12);
+  }
+  const lift=(f.key==="hopper"&&f.air>0)?Math.sin((1-f.air/HOP_AIR)*Math.PI)*r*1.6:0;
+  bar(f,x,y-r-6-lift,"#F25C5C",r);
+}
+function drawWeb(w){
+  const p=Math.min(1,(w.max-w.life)/(w.max*0.42));      // 뻗어 나가는 진행도
+  const fade=Math.min(1,w.life/w.max*2.2);
+  const ex=w.x0+(w.x1-w.x0)*p, ey=w.y0+(w.y1-w.y0)*p;
+  let nx=-(w.y1-w.y0), ny=(w.x1-w.x0);
+  const nl=Math.hypot(nx,ny)||1; nx/=nl; ny/=nl;
+  ctx.strokeStyle=`rgba(232,232,248,${fade*0.95})`;
+  ctx.lineWidth=1.7;ctx.lineCap="round";
+  ctx.beginPath();
+  for(let i=0;i<=10;i++){                                // 지그재그로 흔들리는 실
+    const q=i/10;
+    const wob=Math.sin(q*Math.PI*3.2)*1.7*(1-q*0.6);
+    const bx=w.x0+(ex-w.x0)*q+nx*wob, by=w.y0+(ey-w.y0)*q+ny*wob;
+    i?ctx.lineTo(bx*SX,by*SY):ctx.moveTo(bx*SX,by*SY);
+  }
+  ctx.stroke();
+  if(p>=1){                                              // 착탄 — 들러붙은 거미줄
+    const cx=w.x1*SX, cy=w.y1*SY, rr=7+(1-fade)*4;
+    ctx.strokeStyle=`rgba(238,238,252,${fade*0.9})`;ctx.lineWidth=1.2;
+    for(let i=0;i<6;i++){
+      const a=i*Math.PI/3+0.3;
+      ctx.beginPath();ctx.moveTo(cx,cy);
+      ctx.lineTo(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr);ctx.stroke();
+    }
+    for(const ring of [0.45,0.85]){
+      ctx.beginPath();
+      for(let i=0;i<=6;i++){
+        const a=i*Math.PI/3+0.3;
+        const px2=cx+Math.cos(a)*rr*ring, py2=cy+Math.sin(a)*rr*ring;
+        i?ctx.lineTo(px2,py2):ctx.moveTo(px2,py2);
+      }
+      ctx.stroke();
+    }
+  }
+}
+function bar(u,x,y,c,r){
+  const w=Math.max(22,r*2.4);
+  ctx.fillStyle="rgba(0,0,0,.6)";ctx.fillRect(x-w/2,y,w,3);
+  ctx.fillStyle=c;ctx.fillRect(x-w/2,y,w*Math.max(0,u.hp/u.maxHp),3);
+}
+function loop(ts){
+  if(!last)last=ts;
+  const dt=Math.min(.05,(ts-last)/1000);last=ts;
+  if(B&&!B.over)tick(dt);
+  if(B)paint();
+  raf=requestAnimationFrame(loop);
+}
+function startLoop(){if(raf)return;last=0;raf=requestAnimationFrame(loop)}
+function stopLoop(){if(raf)cancelAnimationFrame(raf);raf=null}
+function fitCanvas(){
+  cv=document.getElementById("cv");ctx=cv.getContext("2d");
+  const dpr=window.devicePixelRatio||1;
+  W=cv.clientWidth;H=Math.round(W*0.92);
+  cv.width=W*dpr;cv.height=H*dpr;cv.style.height=H+"px";
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+
+/* ═══════════ 정산 ═══════════ */
+function grantExp(list,amount){
+  const out=[];
+  for(const p of list){
+    const b=p.lvl;p.exp+=amount;
+    while(p.lvl<5&&p.exp>=nextExp(p.lvl)){p.exp-=nextExp(p.lvl);p.lvl++;p.points+=1;
+      logAdd(p,`Lv ${p.lvl} 달성`)}
+    out.push({p,up:p.lvl-b});
+  }
+  return out;
+}
+function finishBattle(){
+  const exp=B.foes.reduce((s,f)=>s+f.exp,0);
+  const dead=B.fallen.map(f=>f.ref);
+  const alive=B.allies.filter(a=>a.hp>0);
+  const broke=[];
+  for(const a of alive){
+    a.ref.hp=Math.round(a.hp);
+    for(const slot of a.broken){
+      const it=ITEMS[a.ref.gear[slot]];
+      if(it){broke.push(`${a.ref.name}의 ${it.n}`);logAdd(a.ref,`${it.n} 파손`);a.ref.gear[slot]=null}
+    }
+  }
+  /* 유품 — 사망자의 장비와 배낭이 바닥에 남는다 */
+  const relic=[];
+  if(dead.length){
+    G.deaths+=dead.length;
+    for(const d of dead){
+      logAdd(d,`${G.day}일차 ${G.here?G.here.n:"게이트"}에서 사망`);
+      G.memorial.push({name:d.name,lvl:d.lvl,stats:{...d.stats},
+        gear:{...d.gear},where:G.here?G.here.n:"게이트",day:G.day,
+        gate:G.gateName||"정문 게이트",log:(d.log||[]).slice()});
+      for(const s of SLOTS)if(d.gear[s.k]){relic.push(d.gear[s.k]);d.gear[s.k]=null}
+      for(const id of d.bag)relic.push(id);
+      d.bag=[];
+    }
+    G.roster=G.roster.filter(r=>!dead.includes(r));
+  }
+  if(B.ammo)G.ammo={...B.ammo};                    // 쓴 만큼 줄어든 채로 돌아온다
+  const rawFound=G.mode==="tutorial"?[]:rollLoot(G.here,G.day);
+  const ammoGot=[];
+  const found=rawFound.filter(id=>{
+    const it=ITEMS[id];
+    if(it.kind==="ammo"){G.ammo[it.ammo]=(G.ammo[it.ammo]||0)+it.qty;
+      ammoGot.push(`${it.n} ${it.qty}발`);return false}
+    return true;
+  });
+  G.ground=[...found.map(id=>({id,src:"수확"})),...relic.map(id=>({id,src:"유품"}))];
+  G.lastGain={exp,results:grantExp(alive.map(a=>a.ref),exp),dead,broke,
+              boss:(B.foes.find(f=>f.boss)||{}).name||null,found:found.length,relic:relic.length,ammoGot};
+  G.scene="reward";render();
+}
+
+/* ═══════════ 배낭·장비 조작 ═══════════ */
+const bagRoom=p=>BAG_MAX-p.bag.length;
+function giveItem(p,id){
+  if(bagRoom(p)<=0)return false;
+  const it=ITEMS[id];
+  if(it.ammo)G.gunSeen[it.ammo]=true;
+  p.bag.push(id);return true;
+}
+function takeAllGround(list){
+  for(const p of list){
+    while(bagRoom(p)>0&&G.ground.length){
+      giveItem(p,G.ground[0].id);G.ground.shift();
+    }
+  }
+  G.sel=null;
+}
+function eatFromGround(p,idx){
+  const it=ITEMS[G.ground[idx].id];
+  if(!it.use)return;
+  const m=derive(p).maxHp;
+  if(p.hp>=m)return;
+  p.hp=Math.min(m,p.hp+it.use.hp);
+  G.ground.splice(idx,1);G.sel=null;
+}
+function takeToBag(p,idx){
+  if(bagRoom(p)<=0)return false;
+  const id=G.ground[idx].id, it=ITEMS[id];
+  if(it.ammo)G.gunSeen[it.ammo]=true;      // 총을 손에 넣은 시점부터 탄약을 살 수 있다
+  p.bag.push(id);G.ground.splice(idx,1);G.sel=null;return true;
+}
+/* 장비를 바꾸면 최대 체력만큼 현재 체력도 같이 오르내립니다.
+   80/100에 체력 +4를 끼면 84/104가 되고, 벗으면 80/100으로 돌아옵니다.
+   벗어서 체력이 0 이하가 되는 경우에는 아예 벗지 못하게 막습니다. */
+function tryGear(p,fn){
+  const g={...p.gear},bag=p.bag.slice(),hp0=p.hp,before=derive(p).maxHp;
+  fn();
+  const after=derive(p).maxHp,nhp=hp0+(after-before);
+  if(nhp<1){p.gear=g;p.bag=bag;p.hp=hp0;return false}
+  p.hp=Math.min(nhp,after);
+  return true;
+}
+const GEAR_LOW="체력이 적어 아이템을 해제할 수 없습니다";
+function equipFromBag(p,bagIdx){
+  const id=p.bag[bagIdx],it=ITEMS[id];
+  if(!it.slot)return true;
+  if(!canUse(p,it))return true;     // 전공이 맞아야 든다
+  return tryGear(p,()=>{
+    const old=p.gear[it.slot];
+    p.bag.splice(bagIdx,1);
+    p.gear[it.slot]=id;
+    if(old)p.bag.push(old);
+  });
+}
+function useItem(p,bi){
+  const it=ITEMS[p.bag[bi]];
+  if(!it||!it.use)return;
+  const m=derive(p).maxHp;
+  if(p.hp>=m)return;
+  p.hp=Math.min(m,p.hp+it.use.hp);
+  p.bag.splice(bi,1);
+}
+function unequip(p,slot){
+  const id=p.gear[slot];
+  if(!id||bagRoom(p)<=0)return true;
+  return tryGear(p,()=>{p.gear[slot]=null;p.bag.push(id)});
+}
+
+
+/* ═══════════ 미니게임 · 거미 잡기 ═══════════
+   줄을 타고 내려오는 거미를 화면에서 눌러 잡습니다. 세 마리를 놓치면 끝. */
+let AR=null,araf=null,arlast=0,acv,actx,AW=380,AH=470;
+/* 요금을 못 내면 기계가 돌지 않습니다 */
+function payFee(kind){
+  const f=ARCADE_FEE[kind];
+  if(G.gold<f)return false;
+  G.gold-=f;return true;
+}
+function arcadeStop(){if(araf)cancelAnimationFrame(araf);araf=null}
+function arcadeStart(){
+  AR={kind:"spider",score:0,miss:0,t:0,spawn:.5,list:[],pops:[],over:false};
+  acv=document.getElementById("acv");actx=acv.getContext("2d");
+  const dpr=window.devicePixelRatio||1;
+  AW=acv.clientWidth;AH=Math.round(AW*1.22);
+  acv.width=AW*dpr;acv.height=AH*dpr;acv.style.height=AH+"px";
+  actx.setTransform(dpr,0,0,dpr,0,0);
+  const grab=ev=>{
+    if(!AR||AR.over)return;
+    ev.preventDefault();
+    const rc=acv.getBoundingClientRect();
+    const pt=ev.touches?ev.touches[0]:ev;
+    const mx=pt.clientX-rc.left,my=pt.clientY-rc.top;
+    let best=null,bd=1e9;
+    for(const s of AR.list){
+      const d=Math.hypot(s.x-mx,s.y-my);
+      if(d<s.r+16&&d<bd){bd=d;best=s}
+    }
+    if(best){
+      AR.list=AR.list.filter(s=>s!==best);
+      AR.score++;
+      AR.pops.push({x:best.x,y:best.y,life:.5,t:"+1"});
+    }else AR.pops.push({x:mx,y:my,life:.3,t:"헛손질"});
+  };
+  acv.onmousedown=grab;acv.ontouchstart=grab;
+  arlast=0;arloop();
+}
+function arloop(ts){
+  if(!AR){return}
+  if(!arlast)arlast=ts||0;
+  const dt=Math.min(.05,((ts||0)-arlast)/1000);arlast=ts||0;
+  if(AR.kind==="star"){if(!AR.over)starStep(dt);starPaint()}
+  else if(AR.kind==="hunt"){if(!AR.over)huntStep(dt);huntPaint()}
+  else{if(!AR.over)arstep(dt);arpaint()}
+  araf=requestAnimationFrame(arloop);
+}
+function arstep(dt){
+  AR.t+=dt;
+  AR.spawn-=dt;
+  const gap=Math.max(0.34,0.95-AR.score*0.022);
+  if(AR.spawn<=0){
+    AR.spawn=gap;
+    AR.list.push({x:24+Math.random()*(AW-48),y:-16,
+      vy:66+AR.score*2.6+Math.random()*26,r:15,ph:Math.random()*6,sw:0.6+Math.random()*0.9});
+  }
+  for(const s of AR.list){s.y+=s.vy*dt;s.ph+=dt*3}
+  const gone=AR.list.filter(s=>s.y>AH-14);
+  if(gone.length){
+    AR.miss+=gone.length;
+    for(const g of gone)AR.pops.push({x:g.x,y:AH-24,life:.6,t:"놓침"});
+    AR.list=AR.list.filter(s=>s.y<=AH-14);
+  }
+  AR.pops=AR.pops.filter(p=>{p.life-=dt;p.y-=26*dt;return p.life>0});
+  if(AR.miss>=3){AR.over=true;setTimeout(()=>{G.scene="spiderend";render()},700)}
+}
+function arpaint(){
+  actx.clearRect(0,0,AW,AH);
+  const g=actx.createLinearGradient(0,0,0,AH);
+  g.addColorStop(0,"#241E36");g.addColorStop(1,"#15121F");
+  actx.fillStyle=g;actx.fillRect(0,0,AW,AH);
+  actx.strokeStyle="rgba(216,71,126,.35)";actx.lineWidth=3;actx.strokeRect(1.5,1.5,AW-3,AH-3);
+  // 바닥선
+  actx.strokeStyle="rgba(200,120,120,.5)";actx.setLineDash([5,5]);actx.lineWidth=2;
+  actx.beginPath();actx.moveTo(0,AH-14);actx.lineTo(AW,AH-14);actx.stroke();actx.setLineDash([]);
+  for(const s of AR.list)arSpider(s);
+  actx.textAlign="center";actx.font="800 14px system-ui";
+  for(const p of AR.pops){
+    actx.globalAlpha=Math.min(1,p.life*2.2);
+    actx.fillStyle=p.t==="+1"?"#6BD98F":p.t==="놓침"?"#F25C5C":"#968CB0";
+    actx.fillText(p.t,p.x,p.y);
+  }
+  actx.globalAlpha=1;
+  actx.textAlign="left";actx.font="800 15px system-ui";actx.fillStyle="#F2D74E";
+  actx.fillText(`잡은 수 ${AR.score}`,12,24);
+  actx.textAlign="right";actx.fillStyle="#F25C5C";
+  actx.fillText(`놓침 ${AR.miss} / 3`,AW-12,24);
+}
+function arSpider(s){
+  const x=s.x,y=s.y,r=s.r,sway=Math.sin(s.ph)*s.sw*4;
+  actx.strokeStyle="rgba(255,255,255,.30)";actx.lineWidth=1;
+  actx.beginPath();actx.moveTo(x-sway*0.5,0);actx.lineTo(x,y-r*0.9);actx.stroke();
+  actx.save();actx.translate(x+sway*0.15,y);
+  actx.strokeStyle="#8E6BD9";actx.lineWidth=2.2;actx.lineCap="round";
+  // 다리 여덟 개 — 왼쪽 넷, 오른쪽 넷. 무릎을 위로 세웠다가 바깥으로 내린다
+  for(const side of [-1,1]){
+    for(let k=0;k<4;k++){
+      const yo=(-1.15+k*0.75)*r*0.42;
+      const w=Math.sin(s.ph*2.4+k*0.9+(side>0?0:1.6))*r*0.18;
+      actx.beginPath();
+      actx.moveTo(side*r*0.4,yo);
+      actx.lineTo(side*r*1.25,yo-r*0.55+w);
+      actx.lineTo(side*r*2.0,yo+r*0.40+w);
+      actx.stroke();
+    }
+  }
+  actx.beginPath();actx.arc(0,-r*0.15,r*0.85,0,7);actx.fillStyle="#8E6BD9";actx.fill();
+  actx.beginPath();actx.arc(0,r*0.6,r*0.5,0,7);actx.fillStyle="#B79BEA";actx.fill();
+  actx.fillStyle="#2A2A30";
+  for(const e of [-.3,-.1,.1,.3]){actx.beginPath();actx.arc(e*r,r*0.52,r*0.1,0,7);actx.fill()}
+  actx.restore();
+}
+/* 상금은 잡은 만큼. 대신 판마다 요금을 냅니다 */
+const ARCADE_FEE={spider:10,star:10,hunt:20};
+const arcadePrize=sc=>sc*3;
+
+/* ═══════════ 미니게임 · 별 줍기 ═══════════
+   화면을 손가락으로 끌어 좌우로 움직이고, 점프 버튼으로 발판을 오르며 별을 모읍니다. */
+const STAR_TIME=45;
+function starStart(){
+  acv=document.getElementById("acv");actx=acv.getContext("2d");
+  const dpr=window.devicePixelRatio||1;
+  AW=acv.clientWidth;AH=Math.round(AW*1.28);
+  acv.width=AW*dpr;acv.height=AH*dpr;acv.style.height=AH+"px";
+  actx.setTransform(dpr,0,0,dpr,0,0);
+  const F=AH-18;
+  const plat=[
+    {x:0,y:F,w:AW},
+    {x:22,y:F-104,w:AW*0.30},
+    {x:AW-22-AW*0.32,y:F-104,w:AW*0.32},
+    {x:AW/2-AW*0.19,y:F-196,w:AW*0.38},
+    {x:16,y:F-288,w:AW*0.27},
+    {x:AW-16-AW*0.29,y:F-288,w:AW*0.29},
+    {x:AW/2-AW*0.16,y:F-378,w:AW*0.32},
+  ];
+  AR={kind:"star",score:0,t:STAR_TIME,over:false,plat,stars:[],pops:[],
+      p:{x:AW/2,y:F-20,vx:0,vy:0,w:15,h:22,ground:true,face:1,squash:0},
+      touch:null};
+  for(let i=0;i<3;i++)spawnStar();
+  let downT=0,downX=0,downY=0,moved=0;
+  const at=ev=>{
+    const rc=acv.getBoundingClientRect();
+    const pt=ev.touches&&ev.touches[0]?ev.touches[0]:ev;
+    return{x:pt.clientX-rc.left,y:pt.clientY-rc.top};
+  };
+  const start=ev=>{
+    if(!AR||AR.over)return;
+    if(ev.cancelable)ev.preventDefault();
+    const q=at(ev);downT=Date.now();downX=q.x;downY=q.y;moved=0;
+    AR.drag=true;AR.touch=q.x;
+  };
+  const move=ev=>{
+    if(!AR||AR.over||!AR.drag)return;
+    if(ev.cancelable)ev.preventDefault();
+    const q=at(ev);
+    moved=Math.max(moved,Math.hypot(q.x-downX,q.y-downY));
+    AR.touch=q.x;
+  };
+  const end=ev=>{
+    if(!AR||AR.over)return;
+    // 짧게 톡 치면 점프. 끌었으면 이동으로만 친다
+    if(Date.now()-downT<260&&moved<14)starJump();
+    AR.drag=false;AR.touch=null;
+  };
+  acv.addEventListener("touchstart",start,{passive:false});
+  acv.addEventListener("touchmove",move,{passive:false});
+  acv.addEventListener("touchend",end);
+  acv.addEventListener("touchcancel",end);
+  acv.addEventListener("mousedown",start);
+  acv.addEventListener("mousemove",move);
+  acv.addEventListener("mouseup",end);
+  acv.addEventListener("mouseleave",end);
+  arlast=0;arloop();
+}
+function spawnStar(){
+  const pl=AR.plat[1+((Math.random()*(AR.plat.length-1))|0)];
+  AR.stars.push({x:pl.x+12+Math.random()*Math.max(10,pl.w-24),y:pl.y-20,ph:Math.random()*6});
+}
+let lastJump=0;
+function starJump(){
+  if(!AR||AR.kind!=="star"||AR.over)return;
+  const now=Date.now();
+  if(now-lastJump<130)return;              // 같은 탭이 두 번 들어오는 것 방지
+  // 발판을 막 벗어난 직후에도 잠깐은 뛸 수 있게 (코요테 타임)
+  if(AR.p.ground||AR.p.coyote>0){
+    lastJump=now;
+    AR.p.vy=-700;AR.p.ground=false;AR.p.coyote=0;AR.p.squash=-0.25;
+  }
+}
+/* 점프 입력을 여러 경로로 받습니다. 기기마다 들어오는 이벤트가 달라서입니다. */
+function bindJump(btn){
+  if(!btn)return;
+  const fire=e=>{if(e&&e.cancelable)e.preventDefault();starJump()};
+  btn.addEventListener("touchstart",fire,{passive:false});
+  btn.addEventListener("pointerdown",fire);
+  btn.addEventListener("mousedown",fire);
+  btn.addEventListener("click",fire);
+}
+function onKeyJump(e){
+  if(G.scene!=="stargame")return;
+  if(e.code==="Space"||e.code==="ArrowUp"||e.key===" "){e.preventDefault();starJump()}
+}
+function starStep(dt){
+  const p=AR.p;
+  AR.t-=dt;
+  if(AR.t<=0){AR.t=0;AR.over=true;setTimeout(()=>{G.scene="starend";render()},600);return}
+  // 좌우 이동 — 손가락 위치를 따라간다
+  if(AR.touch!==null){
+    const d=AR.touch-p.x;
+    p.vx=Math.max(-300,Math.min(300,d*7));
+    if(Math.abs(d)>3)p.face=d>0?1:-1;
+  }else p.vx*=0.82;
+  p.x=Math.max(p.w,Math.min(AW-p.w,p.x+p.vx*dt));
+  // 중력
+  p.vy+=1750*dt;
+  const py=p.y;
+  p.y+=p.vy*dt;
+  p.ground=false;
+  for(const pl of AR.plat){
+    if(p.vy>=0 && py<=pl.y+1 && p.y>=pl.y && p.x>pl.x-6 && p.x<pl.x+pl.w+6){
+      p.y=pl.y;p.vy=0;p.ground=true;
+      if(p.squash<0)p.squash=0.3;
+    }
+  }
+  p.coyote=p.ground?0.12:Math.max(0,(p.coyote||0)-dt);
+  if(p.y>AH+60){p.x=AW/2;p.y=AH-40;p.vy=0}
+  p.squash*=Math.pow(0.02,dt);
+  // 별 획득
+  for(const st of AR.stars.slice()){
+    st.ph+=dt*3;
+    if(Math.hypot(st.x-p.x,st.y-(p.y-p.h*0.6))<26){
+      AR.stars=AR.stars.filter(x=>x!==st);
+      AR.score++;AR.pops.push({x:st.x,y:st.y,life:.6,t:"+1"});
+      spawnStar();
+    }
+  }
+  AR.pops=AR.pops.filter(q=>{q.life-=dt;q.y-=28*dt;return q.life>0});
+}
+function starPaint(){
+  const p=AR.p;
+  actx.clearRect(0,0,AW,AH);
+  const g=actx.createLinearGradient(0,0,0,AH);
+  g.addColorStop(0,"#1E1B33");g.addColorStop(1,"#14121D");
+  actx.fillStyle=g;actx.fillRect(0,0,AW,AH);
+  actx.strokeStyle="rgba(216,71,126,.35)";actx.lineWidth=3;actx.strokeRect(1.5,1.5,AW-3,AH-3);
+  // 발판
+  for(const pl of AR.plat){
+    actx.fillStyle="#3A3550";actx.fillRect(pl.x,pl.y,pl.w,9);
+    actx.fillStyle="#5A5178";actx.fillRect(pl.x,pl.y,pl.w,2.5);
+  }
+  // 별
+  for(const st of AR.stars){
+    const b=1+Math.sin(st.ph)*0.12;
+    actx.save();actx.translate(st.x,st.y+Math.sin(st.ph)*3);actx.scale(b,b);
+    actx.beginPath();
+    for(let i=0;i<10;i++){
+      const rr=i%2?4.5:11,a=-Math.PI/2+i*Math.PI/5;
+      actx[i?"lineTo":"moveTo"](Math.cos(a)*rr,Math.sin(a)*rr);
+    }
+    actx.closePath();actx.fillStyle="#F2D74E";actx.fill();
+    actx.restore();
+  }
+  // 캐릭터
+  const sq=1+p.squash, wq=1-p.squash*0.6;
+  actx.save();actx.translate(p.x,p.y);
+  actx.fillStyle="rgba(0,0,0,.3)";
+  actx.beginPath();actx.ellipse(0,-1,p.w*0.9,3.5,0,0,7);actx.fill();
+  actx.scale(wq,sq);
+  actx.fillStyle="#4FC3D9";
+  actx.beginPath();actx.roundRect?actx.roundRect(-p.w/2,-p.h,p.w,p.h,5):actx.rect(-p.w/2,-p.h,p.w,p.h);
+  actx.fill();
+  actx.beginPath();actx.arc(0,-p.h-6,8,0,7);actx.fillStyle="#4FC3D9";actx.fill();
+  actx.strokeStyle="rgba(255,255,255,.85)";actx.lineWidth=1.6;actx.stroke();
+  actx.fillStyle="#16203A";
+  actx.beginPath();actx.arc(p.face*3,-p.h-7,1.7,0,7);actx.fill();
+  actx.restore();
+  // HUD
+  actx.textAlign="center";actx.font="800 14px system-ui";
+  for(const q of AR.pops){actx.globalAlpha=Math.min(1,q.life*2);actx.fillStyle="#F2D74E";
+    actx.fillText(q.t,q.x,q.y)}
+  actx.globalAlpha=1;
+  actx.textAlign="left";actx.font="800 15px system-ui";actx.fillStyle="#F2D74E";
+  actx.fillText(`별 ${AR.score}`,12,24);
+  actx.textAlign="right";
+  actx.fillStyle=AR.t<10?"#F25C5C":"#968CB0";
+  actx.fillText(`${AR.t.toFixed(1)}초`,AW-12,24);
+}
+const starPrize=sc=>sc*4;
+
+/* ═══════════ 미니게임 · 좀비 헌터 ═══════════
+   좌우로 움직이며 위에서 내려오는 좀비를 쏩니다. 총알은 0.95초마다 한 발. 한 방이면 죽습니다. */
+const GUN_COOL=0.11;
+const TANK_EVERY=25;   // 이만큼 잡을 때마다 보라 좀비가 나온다
+const TANK_HP=10;      // 열 방을 맞아야 쓰러진다
+function huntStart(){
+  acv=document.getElementById("acv");actx=acv.getContext("2d");
+  const dpr=window.devicePixelRatio||1;
+  AW=acv.clientWidth;AH=Math.round(AW*1.26);
+  acv.width=AW*dpr;acv.height=AH*dpr;acv.style.height=AH+"px";
+  actx.setTransform(dpr,0,0,dpr,0,0);
+  AR={kind:"hunt",score:0,life:3,t:0,spawn:.7,over:false,tankAt:TANK_EVERY,
+      z:[],b:[],pops:[],cool:0.35,
+      h:{x:AW/2,y:AH-34,w:16},touch:null,drag:false};
+  const at=ev=>{const rc=acv.getBoundingClientRect();
+    const pt=ev.touches&&ev.touches[0]?ev.touches[0]:ev;return pt.clientX-rc.left};
+  const start=ev=>{if(!AR||AR.over)return;if(ev.cancelable)ev.preventDefault();
+    AR.drag=true;AR.touch=at(ev)};
+  const move=ev=>{if(!AR||AR.over||!AR.drag)return;if(ev.cancelable)ev.preventDefault();
+    AR.touch=at(ev)};
+  const end=()=>{if(AR)AR.drag=false};
+  acv.addEventListener("touchstart",start,{passive:false});
+  acv.addEventListener("touchmove",move,{passive:false});
+  acv.addEventListener("touchend",end);
+  acv.addEventListener("mousedown",start);
+  acv.addEventListener("mousemove",move);
+  acv.addEventListener("mouseup",end);
+  acv.addEventListener("mouseleave",end);
+  arlast=0;arloop();
+}
+function huntStep(dt){
+  const h=AR.h;
+  AR.t+=dt;
+  // 손가락 따라 좌우 이동
+  if(AR.touch!==null&&AR.drag){
+    const d=AR.touch-h.x;
+    h.x=Math.max(h.w,Math.min(AW-h.w,h.x+Math.max(-360,Math.min(360,d*8))*dt));
+  }
+  // 자동 사격
+  AR.cool-=dt;
+  if(AR.cool<=0){AR.cool=GUN_COOL;AR.b.push({x:h.x,y:h.y-20,vy:-700})}
+  for(const b of AR.b)b.y+=b.vy*dt;
+  AR.b=AR.b.filter(b=>b.y>-20);
+  // 좀비 등장
+  AR.spawn-=dt;
+  if(AR.spawn<=0){
+    AR.spawn=Math.max(0.42,1.15-AR.score*0.022);
+    AR.z.push({x:26+Math.random()*(AW-52),y:-18,r:14,hp:1,
+      vy:34+AR.score*1.5+Math.random()*18,ph:Math.random()*6});
+  }
+  // 25마리마다 보라 좀비
+  if(AR.score>=AR.tankAt){
+    AR.tankAt+=TANK_EVERY;
+    AR.z.push({x:40+Math.random()*(AW-80),y:-30,r:23,hp:TANK_HP,maxHp:TANK_HP,tank:true,
+      vy:26+AR.score*0.5,ph:Math.random()*6});
+    AR.pops.push({x:AW/2,y:60,life:1.3,t:"보라 좀비 등장",c:"#B79BEA"});
+  }
+  for(const z of AR.z){z.ph+=dt*4;z.y+=z.vy*dt;if(z.flash>0)z.flash-=dt}
+  // 명중 — 한 방이면 죽는다
+  for(const b of AR.b.slice()){
+    for(const z of AR.z.slice()){
+      if(Math.hypot(z.x-b.x,z.y-b.y)<z.r+6){
+        AR.b=AR.b.filter(x=>x!==b);
+        z.hp=(z.hp||1)-1;
+        z.flash=.12;
+        if(z.hp<=0){
+          AR.z=AR.z.filter(x=>x!==z);
+          AR.score+=z.tank?5:1;
+          AR.pops.push({x:z.x,y:z.y,life:.6,t:z.tank?"+5":"+1",c:z.tank?"#B79BEA":"#6BD98F"});
+        }
+        break;
+      }
+    }
+  }
+  // 방어선 돌파
+  const through=AR.z.filter(z=>z.y>AR.h.y-24);
+  if(through.length){
+    AR.life-=through.length;
+    for(const z of through)AR.pops.push({x:z.x,y:AR.h.y-30,life:.7,t:"물렸다",c:"#F25C5C"});
+    AR.z=AR.z.filter(z=>z.y<=AR.h.y-24);
+  }
+  AR.pops=AR.pops.filter(p=>{p.life-=dt;p.y-=26*dt;return p.life>0});
+  if(AR.life<=0){AR.life=0;AR.over=true;setTimeout(()=>{G.scene="huntend";render()},700)}
+}
+function huntPaint(){
+  const h=AR.h;
+  actx.clearRect(0,0,AW,AH);
+  const g=actx.createLinearGradient(0,0,0,AH);
+  g.addColorStop(0,"#1C2418");g.addColorStop(1,"#12121A");
+  actx.fillStyle=g;actx.fillRect(0,0,AW,AH);
+  actx.strokeStyle="rgba(216,71,126,.35)";actx.lineWidth=3;actx.strokeRect(1.5,1.5,AW-3,AH-3);
+  // 방어선
+  actx.strokeStyle="rgba(242,92,92,.5)";actx.setLineDash([6,5]);actx.lineWidth=2;
+  actx.beginPath();actx.moveTo(0,h.y-24);actx.lineTo(AW,h.y-24);actx.stroke();actx.setLineDash([]);
+  // 총알
+  actx.fillStyle="#F2D74E";
+  for(const b of AR.b){actx.fillRect(b.x-1.6,b.y-8,3.2,11)}
+  // 좀비
+  for(const z of AR.z)huntZombie(z);
+  // 헌터
+  actx.save();actx.translate(h.x,h.y);
+  actx.fillStyle="#4FC3D9";
+  actx.beginPath();actx.ellipse(0,0,h.w*0.75,h.w*0.62,0,0,7);actx.fill();
+  actx.lineWidth=1.8;actx.strokeStyle="rgba(255,255,255,.85)";actx.stroke();
+  actx.beginPath();actx.arc(0,-h.w*0.75,h.w*0.5,0,7);actx.fillStyle="#4FC3D9";actx.fill();actx.stroke();
+  actx.strokeStyle="#C9C2D8";actx.lineWidth=4;actx.lineCap="round";   // 총
+  actx.beginPath();actx.moveTo(0,-h.w*0.4);actx.lineTo(0,-h.w*1.5);actx.stroke();
+  const flash=AR.cool>GUN_COOL-0.09;
+  if(flash){actx.fillStyle="rgba(255,225,140,.95)";
+    actx.beginPath();actx.arc(0,-h.w*1.7,6,0,7);actx.fill()}
+  actx.restore();
+  // 재장전 표시
+  const pct=1-AR.cool/GUN_COOL;
+  actx.fillStyle="rgba(0,0,0,.5)";actx.fillRect(h.x-22,h.y+16,44,5);
+  actx.fillStyle=pct>=1?"#6BD98F":"#F2D74E";actx.fillRect(h.x-22,h.y+16,44*Math.min(1,pct),5);
+  // 표시
+  actx.textAlign="center";actx.font="800 14px system-ui";
+  for(const p of AR.pops){actx.globalAlpha=Math.min(1,p.life*2);actx.fillStyle=p.c;
+    actx.fillText(p.t,p.x,p.y)}
+  actx.globalAlpha=1;
+  actx.textAlign="left";actx.font="800 15px system-ui";actx.fillStyle="#F2D74E";
+  actx.fillText(`처치 ${AR.score}`,12,24);
+  actx.textAlign="right";actx.fillStyle="#F25C5C";
+  actx.fillText("♥".repeat(AR.life)||"—",AW-12,24);
+}
+function huntZombie(z){
+  const lp=Math.sin(z.ph),r=z.r;
+  const body=z.flash>0?"#fff":(z.tank?"#7B4FC4":"#4E9E43");
+  const head=z.flash>0?"#fff":(z.tank?"#B79BEA":"#7FCB6B");
+  const limb=z.tank?"#5B3796":"#2F6B2A";
+  const arm =z.tank?"#9B78D9":"#6FC25C";
+  actx.save();actx.translate(z.x,z.y);actx.rotate(Math.PI/2+lp*0.18);
+  actx.strokeStyle=limb;actx.lineWidth=r*0.28;actx.lineCap="round";
+  actx.beginPath();actx.moveTo(-r*0.2,r*0.45);
+  actx.lineTo(-r*1.3-Math.max(0,-lp)*r*0.45,r*0.72);actx.stroke();
+  actx.beginPath();actx.moveTo(-r*0.2,-r*0.45);
+  actx.lineTo(-r*0.9+lp*r*0.3,-r*0.78);actx.stroke();
+  actx.strokeStyle=arm;actx.lineWidth=r*0.25;
+  actx.beginPath();actx.moveTo(r*0.2,-r*0.5);actx.lineTo(r*1.5+lp*r*0.18,-r*0.6);actx.stroke();
+  actx.beginPath();actx.moveTo(r*0.2,r*0.5);actx.lineTo(r*1.1-lp*r*0.22,r*0.7);actx.stroke();
+  actx.beginPath();actx.ellipse(-r*0.15,0,r*0.8,r*0.6,0,0,7);
+  actx.fillStyle=body;actx.fill();
+  actx.strokeStyle=z.tank?"rgba(40,20,70,.8)":"rgba(20,50,18,.75)";actx.lineWidth=1.3;actx.stroke();
+  actx.beginPath();actx.arc(r*0.6,lp*r*0.1,r*0.44,0,7);
+  actx.fillStyle=head;actx.fill();actx.stroke();
+  actx.fillStyle=z.tank?"#2A1240":"#1E3A1A";
+  actx.beginPath();actx.arc(r*0.82,-r*0.15,r*0.09,0,7);actx.fill();
+  actx.beginPath();actx.arc(r*0.82,r*0.15,r*0.09,0,7);actx.fill();
+  actx.restore();
+  if(z.tank){                       // 남은 타격 수
+    const w=r*1.8;
+    actx.fillStyle="rgba(0,0,0,.55)";actx.fillRect(z.x-w/2,z.y-r-11,w,5);
+    actx.fillStyle="#B79BEA";actx.fillRect(z.x-w/2,z.y-r-11,w*(z.hp/z.maxHp),5);
+    actx.textAlign="center";actx.font="800 11px system-ui";actx.fillStyle="#D9C7F5";
+    actx.fillText(z.hp,z.x,z.y-r-15);
+  }
+}
+const huntPrize=sc=>sc*3;
+
+
+
+/* ═══════════ 화면 ═══════════ */
+const el=document.getElementById("app");
+const logo=`<div class="logo">Univer<em>City</em>Hunter</div>`;
+
+function statGrid(w){
+  return `<div class="grid">${STATS.map(s=>{
+    const v=w.stats[s.k],on=openAt(s,w.lvl||1);
+    return `<div class="g ${!on?"off":v>=13?"hi":v<=8?"lo":""}">${s.n}<b>${v}</b></div>`;
+  }).join("")}</div>`;
+}
+function expBar(p){
+  const n=nextExp(p.lvl);
+  return `<div class="expb"><i style="width:${p.lvl>=5?100:Math.min(100,p.exp/n*100)}%"></i></div>
+    <div class="tag" style="margin-top:4px">Lv ${p.lvl} · 경험치 ${p.exp}${p.lvl<5?` / ${n}`:""}</div>`;
+}
+function hpLine(p){
+  const m=derive(p).maxHp,pct=Math.max(0,p.hp/m*100);
+  return `<div class="hpb ${pct<35?"low":""}"><i style="width:${pct}%"></i></div>
+    <div class="tag" style="margin-top:4px">체력 ${Math.round(p.hp)} / ${m}</div>`;
+}
+const ammoLine=()=>Object.entries(AMMO_KIND).map(([k,n])=>`${n} <b>${G.ammo[k]||0}</b>`).join(" · ");
+/* 지금 입은 것을 슬롯별로 펼쳐 보여줍니다 (보기 전용) */
+function wornPanel(p){
+  return `<div class="inv">${SLOTS.map(sl=>{const it=ITEMS[p.gear[sl.k]];
+    return `<div class="slot ${it?"has":""}"><span class="sn">${sl.n}</span>
+      <span class="si">${it?`${it.n} ${kindTag(it)}<small>${it.d}</small>`:"비어 있음"}</span></div>`}).join("")}</div>`;
+}
+/* 그 사람이 이걸 끼면 무엇이 달라지는가 — 실제로 한 번 끼워보고 derive를 비교합니다 */
+function compareLine(p,id){
+  const it=ITEMS[id];
+  if(!it.slot)return "";
+  if(it.req&&(!p.major||it.req.indexOf(p.major)<0))
+    return `<div class="cmp"><span class="dd">${p.name}은(는) 다룰 수 없습니다</span> · ${it.req.join(" / ")} 전용</div>`;
+  const cur=ITEMS[p.gear[it.slot]];
+  if(cur&&cur.id===id)return `<div class="cmp">${p.name}이(가) 이미 끼고 있습니다</div>`;
+  const ghost={stats:p.stats,gear:{...p.gear}};
+  ghost.gear[it.slot]=id;
+  const a=derive(p),b=derive(ghost),out=[];
+  for(const f of [["atk","공격력"],["guard","피해감소"],["aspd","공속"],["speed","이동"],["maxHp","체력"]]){
+    if(a[f[0]]===b[f[0]])continue;
+    out.push(`${f[1]} ${a[f[0]]} <span class="${b[f[0]]>a[f[0]]?"du":"dd"}">→ ${b[f[0]]}</span>`);
+  }
+  if(it.slot==="rh"){
+    if(a.dmg!==b.dmg)out.push(`피해 ${a.dmg} → <b>${b.dmg}</b>`);
+    if(a.rng!==b.rng)out.push(`사거리 ${7+a.rng} <span class="${b.rng>a.rng?"du":"dd"}">→ ${7+b.rng}</span>`);
+  }
+  return `<div class="cmp">지금 <b>${cur?cur.n:"맨몸"}</b> 자리 · ${out.length?out.join(" · "):"수치는 그대로"}</div>`;
+}
+function gearLine(p){
+  const d=derive(p);
+  return `<div class="gearline">공격력 <b>${d.atk}</b> · 피해감소 <b>${d.guard}</b> ·
+    공속 <b>${d.aspd}</b> · 이동 <b>${d.speed}</b> · 체력 <b>${d.maxHp}</b></div>`;
+}
+/* 장비 6칸 + 배낭 5칸 패널.
+   mode: "manage"(정비 가능) | "view"(보기만)
+   group: 물건을 넘겨줄 수 있는 동료 목록 */
+function invPanel(p,pi,mode,group){
+  const warn=G.gearMsg&&G.gearMsg.pi===pi?`<div class="tag" style="margin-top:8px;color:var(--bad)">${G.gearMsg.t}</div>`:"";
+  const atBase=CAMPUS_SCENES.indexOf(G.scene)>=0;   // 창고는 본진에서만 닿습니다
+  const mates=(group||[]).filter(r=>r!==p);
+  const slots=SLOTS.map(s=>{
+    const it=ITEMS[p.gear[s.k]];
+    return `<div class="slot ${it?"has":""}">
+      <span class="sn">${s.n}</span>
+      <span class="si">${it?`${itemIcon(p.gear[s.k])}${it.n} ${kindTag(it)}`:"—"}</span>
+      ${mode==="manage"&&it?`<button class="mini" data-un="${pi}|${s.k}" ${bagRoom(p)<=0?"disabled":""}>내림</button>
+        <button class="mini bad" data-dr="${pi}|slot|${s.k}">버림</button>`:""}
+    </div>`}).join("");
+  const bag=p.bag.map((id,bi)=>{
+    const it=ITEMS[id];
+    const canWear=!!it.slot;
+    return `<div class="slot has">
+      <span class="sn">${it.slot?SLOTS.find(s=>s.k===it.slot).n:"잡화"}</span>
+      <span class="si">${itemIcon(id)}${it.n} ${kindTag(it)}<small>${it.d}</small>
+        ${mode==="manage"&&mates.length?`<span class="mv">${mates.map(o=>
+          `<button class="mini" data-mv="${pi}|${bi}|${G.roster.indexOf(o)}" ${bagRoom(o)<=0?"disabled":""}>${o.name} ▸</button>`).join("")}</span>`:""}
+      </span>
+      ${mode==="manage"?`${canWear?`<button class="mini" data-eq="${pi}|${bi}">착용</button>`:""}
+        ${atBase?`<button class="mini" data-st="${pi}|${bi}">창고</button>`:""}
+        <button class="mini bad" data-dr="${pi}|bag|${bi}">버림</button>`:""}
+    </div>`}).join("");
+  return `<div class="inv"><div class="invh">장비</div>${slots}
+    <div class="invh">배낭 ${p.bag.length} / ${BAG_MAX}</div>
+    ${bag||'<div class="slot"><span class="si" style="color:var(--dim)">비어 있음</span></div>'}</div>${warn}`;
+}
+function bindInv(){
+  el.querySelectorAll("[data-un]").forEach(b=>b.onclick=()=>{
+    const [pi,slot]=b.dataset.un.split("|");
+    G.gearMsg=unequip(G.roster[+pi],slot)?null:{pi:+pi,t:GEAR_LOW};render()});
+  el.querySelectorAll("[data-eq]").forEach(b=>b.onclick=()=>{
+    const [pi,bi]=b.dataset.eq.split("|");
+    G.gearMsg=equipFromBag(G.roster[+pi],+bi)?null:{pi:+pi,t:GEAR_LOW};render()});
+  el.querySelectorAll("[data-mv]").forEach(b=>b.onclick=()=>{
+    const [fi,bi,ti]=b.dataset.mv.split("|");
+    const from=G.roster[+fi],to=G.roster[+ti];
+    if(bagRoom(to)<=0)return;
+    to.bag.push(from.bag.splice(+bi,1)[0]);
+    from.hp=Math.min(from.hp,derive(from).maxHp);render()});
+  el.querySelectorAll("[data-st]").forEach(b=>b.onclick=()=>{
+    const [pi,bi]=b.dataset.st.split("|");const p=G.roster[+pi];
+    const id=p.bag.splice(+bi,1)[0];
+    G.store[id]=(G.store[id]||0)+1;G.gearMsg=null;render()});
+  el.querySelectorAll("[data-use]").forEach(b=>b.onclick=()=>{
+    const [pi,bi]=b.dataset.use.split("|");useItem(G.roster[+pi],+bi);render()});
+  el.querySelectorAll("[data-dr]").forEach(b=>b.onclick=()=>{
+    const [pi,where,key]=b.dataset.dr.split("|");const p=G.roster[+pi];
+    if(where!=="slot"){p.bag.splice(+key,1);G.gearMsg=null;render();return}
+    G.gearMsg=tryGear(p,()=>{p.gear[key]=null})?null:{pi:+pi,t:GEAR_LOW};render()});
+}
+function allocScreen(p,title,note,after){
+  const d=derive(p);
+  el.innerHTML=logo+`
+    <div class="card"><h2>${title}</h2><p>${note}</p></div>
+    <div>${STATS.map(s=>{
+      const v=p.stats[s.k],on=openAt(s,p.lvl),sp=p.spent&&p.spent[s.k];
+      return `<div class="stat ${on?"":"locked"}">
+        <span class="nm">${s.n}<span>${on?s.d:`${s.d} · Lv ${s.need}부터`}</span></span>
+        <span class="vl">${v}</span>
+        <button class="ghost" data-dn="${s.k}" ${sp?"":"disabled"}>−</button>
+        <button data-up="${s.k}" ${on&&p.points>0?"":"disabled"}>+</button></div>`}).join("")}</div>
+    <div class="derived">최대 체력 <b>${d.maxHp}</b> · 공격력 <b>${d.atk}</b> · 공격속도 <b>${d.aspd}</b> · 이동 <b>${d.speed}</b> · 치명타 <b>${d.crit}%</b></div>
+    <div class="bar"><span class="tag">남은 포인트 <b>${p.points}</b></span>
+    <button id="ok" ${p.points>0?"disabled":""}>확정</button></div>`;
+  el.querySelectorAll("[data-up]").forEach(b=>b.onclick=()=>{
+    const k=b.dataset.up;p.stats[k]++;p.points--;p.spent=p.spent||{};p.spent[k]=(p.spent[k]||0)+1;
+    if(k==="vit")p.hp+=6;render()});
+  el.querySelectorAll("[data-dn]").forEach(b=>b.onclick=()=>{
+    const k=b.dataset.dn;p.stats[k]--;p.points++;p.spent[k]--;
+    p.hp=Math.min(derive(p).maxHp,p.hp);render()});
+  document.getElementById("ok").onclick=()=>{delete p.spent;after()};
+}
+const chips=()=>G.instants.length?`<div class="chips">${G.instants.map(s=>`<span class="chip">${s.n}</span>`).join("")}</div>`:"";
+function pendingUnlock(){return FACILITIES.find(f=>f.cond(G)&&!G.announced.includes(f.id))}
+const lootTotal=()=>Object.entries(G.loot).reduce((s,[id,n])=>s+ITEMS[id].price*n,0);
+/* 감정 — 가중치대로 하나를 뽑아 확정 물건으로 바꿉니다 */
+function appraise(id){
+  const t=ITEMS[id].mystery.into;
+  let r=Math.random()*t.reduce((a,x)=>a+x[1],0);
+  for(const e of t){if((r-=e[1])<0)return e[0]}
+  return t[t.length-1][0];
+}
+
+function render(){
+  stopLoop();
+  let S=G.scene;
+  if(S!=="spidergame"&&S!=="stargame"&&S!=="huntgame")arcadeStop();
+  if(S!=="title")titleStop();
+  if(CAMPUS_SCENES.includes(S)){
+    const nf=pendingUnlock();
+    if(nf){G.unlockFrom=S;G.unlockId=nf.id;S=G.scene="unlocked"}
+  }
+  const p=G.player;
+
+  if(S==="title"){
+    el.innerHTML=`
+      <div id="titlewrap">
+        ${TITLE_ART?`<img id="timg" src="${TITLE_ART}" alt="UniverCityHunter">`
+          :`<canvas id="tcv"></canvas>
+            <div class="cap"><b>UniverCityHunter</b>
+            <span>대학 정문에 문이 열렸다. 남은 건 우리뿐이다.</span></div>`}
+        <div class="tshade"></div>
+        <button id="play">게임 시작</button>
+      </div>`;
+    if(!TITLE_ART)titleStart();
+    document.getElementById("play").onclick=()=>{G={scene:"slots"};render()};
+    return;
+  }
+  if(S==="slots"){
+    const ok=storageOk();
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">저장 파일</span>
+      <button class="ghost" id="bk">제목으로</button></div>
+      ${ok?"":`<div class="card" style="border-color:var(--bad)"><h2>저장을 쓸 수 없습니다</h2>
+        <p>이 환경에서는 기록을 남길 수 없어, 창을 닫으면 진행이 사라집니다.
+        파일을 내려받아 브라우저에서 열거나 앱으로 설치하면 저장됩니다.</p></div>`}
+      ${Array.from({length:SAVE_SLOTS},(_,i)=>{
+        const sv=readSave(i);
+        return `<div class="card" ${sv?'style="border-color:var(--mark)"':""}>
+          <h2>${i+1}번 파일</h2>
+          ${sv?`<p>${saveLabel(sv)}</p>
+            <div class="bar" style="margin-top:10px"><span class="tag">기록 ${saveTime(sv)}</span>
+            <button class="ghost bad" data-del="${i}">삭제</button>
+            <button data-ld="${i}">이어한다</button></div>
+            ${G.delAsk===i?`<div class="bar" style="margin-top:9px;border-top:1px dashed var(--line);padding-top:10px">
+              <span class="tag" style="color:var(--bad)">지우면 되돌릴 수 없습니다</span>
+              <button class="ghost" data-delno="1">그만둔다</button>
+              <button data-delyes="${i}">지운다</button></div>`:""}`
+          :`<p>비어 있습니다.</p>
+            <div class="bar" style="margin-top:10px"><span class="tag"></span>
+            <button data-new="${i}">새 게임</button></div>`}
+        </div>`}).join("")}`;
+    document.getElementById("bk").onclick=()=>{G={scene:"title"};render()};
+    el.querySelectorAll("[data-ld]").forEach(b=>b.onclick=()=>{
+      G=unpackSave(readSave(+b.dataset.ld));G.slot=+b.dataset.ld;render()});
+    el.querySelectorAll("[data-new]").forEach(b=>b.onclick=()=>newGame(+b.dataset.new));
+    el.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
+      G.delAsk=+b.dataset.del;render()});
+    el.querySelectorAll("[data-delno]").forEach(b=>b.onclick=()=>{
+      G.delAsk=null;render()});
+    el.querySelectorAll("[data-delyes]").forEach(b=>b.onclick=()=>{
+      deleteSave(+b.dataset.delyes);G={scene:"slots",delAsk:null};render()});
+    return;
+  }
+  if(SAVE_SCENES.indexOf(S)>=0)saveGame();   // 안전한 화면에 닿을 때마다 기록한다
+
+  if(S==="unlocked"){
+    const f=FACILITIES.find(x=>x.id===G.unlockId);
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">캠퍼스</span><span class="tag">새로 열림</span></div>
+      <div class="card" style="border-color:var(--mark)"><h2>${f.ic} ${f.n}</h2><p>${f.msg}</p></div>
+      <div class="bar"><span class="tag"></span><button id="ok">확인</button></div>`;
+    document.getElementById("ok").onclick=()=>{
+      G.announced.push(f.id);
+      if(f.onUnlock)f.onUnlock();
+      G.scene=G.freeRecruit?"volunteer":(G.unlockFrom||"campus");
+      render()};
+    return;
+  }
+  if(S==="volunteer"){
+    const v=G.freeRecruit;
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">정문 앞</span><span class="tag">지원자</span></div>
+      <div class="card" style="border-color:var(--ok)"><h2>대신 들어가겠다는 사람</h2>
+      <p>소문을 듣고 왔다며 한 명이 정문 앞에 서 있었습니다.
+      다친 친구를 대신해 게이트에 들어가겠다고 합니다.<br><br>
+      돈은 필요 없다더군요. 이름만 적고 들어왔습니다.</p></div>
+      <div class="app"><div class="hd"><b>${v.name}</b><span>새내기 · Lv 1</span></div>
+      ${statGrid(v)}${hpLine(v)}</div>
+      <div class="bar"><span class="tag">명단 ${G.roster.length}명</span><button id="ok">고맙다고 한다</button></div>`;
+    document.getElementById("ok").onclick=()=>{
+      G.freeRecruit=null;G.scene=G.unlockFrom||"campus";render()};
+    return;
+  }
+  if(S==="intro"){
+    const cur=INTRO[G.introLine],art=INTRO_ART[cur.bg]||"";
+    el.innerHTML=logo+`<div id="intro" style="${art?`background-image:url('${art}')`:""}">
+      <div class="scrim"></div>
+      ${art||!DEV_SHOW_UNLOCK?"":`<div class="artslot">배경 자리 · <b>${cur.bg}</b></div>`}
+      <div class="lines">${INTRO.slice(0,G.introLine+1).map((o,i)=>
+        `<div class="ln ${i<G.introLine?"q":""}">${o.t}${i===G.introLine?'<span class="cursor"></span>':""}</div>`).join("")}</div>
+      </div>
+      <div class="bar"><button class="ghost" id="sk">건너뛰기</button>
+      <button id="nx">${G.introLine>=INTRO.length-1?"게이트 앞으로":"계속"}</button></div>`;
+    document.getElementById("nx").onclick=()=>{G.introLine>=INTRO.length-1?G.scene="stats":G.introLine++;render()};
+    document.getElementById("sk").onclick=()=>{G.scene="stats";render()};
+    return;
+  }
+  if(S==="stats"){
+    allocScreen(p,"이경호 · 새내기 Lv 1",
+      "모든 능력이 10에서 시작합니다. 남은 1점을 배분하세요. 전공활용은 Lv 5부터 올릴 수 있습니다.",
+      ()=>{G.scene="enter";render()});
+    return;
+  }
+  if(S==="enter"){
+    el.innerHTML=logo+`<div class="card"><h2>게이트 안</h2>
+      <p>발을 들이는 순간 색이 빠져나간다. 하늘도 건물도 세워둔 자전거도 전부 회색이다.<br><br>
+      귀에 익은 대학가 골목인데, 아무 소리도 나지 않는다.</p></div>
+      <div class="bar"><span class="tag">튜토리얼</span><button id="nx">주변을 살핀다</button></div>`;
+    document.getElementById("nx").onclick=()=>{G.scene="gateforce";render()};
+    return;
+  }
+  if(S==="gateforce"){
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">${G.mode==="tutorial"?"정문 게이트":G.gateName}</span><span class="tag">1일차</span></div>
+      <div class="card" style="border-color:var(--gate)"><h2>깨달음</h2>
+      <p>게이트에 들어서자 기묘한 힘이 온몸에 흐르는 것이 느껴집니다.<br><br>
+      당신은 이 구역에서 사용할 수 있는 새로운 힘이 있음을 본능적으로 깨닫습니다.</p></div>
+      <div class="card"><h2>이 힘에 대하여</h2>
+      <p>하루가 지날 때마다 새로운 힘 하나를 고를 수 있습니다. 고른 힘은 나갈 때까지 쌓이지만,
+      문을 나서는 순간 전부 사라집니다.<br><br>안에서 주운 물건도 마찬가지입니다.
+      <b style="color:var(--gate)">현장</b> 표시가 붙은 것은 나가면 사라지고,
+      <b style="color:var(--ok)">반출</b> 표시가 붙은 것만 살아서 나가야 지킬 수 있습니다.</p></div>
+      <div class="bar"><span class="tag"></span><button id="ok">힘을 받아들인다</button></div>`;
+    document.getElementById("ok").onclick=()=>{G.skillOffer=null;G.scene="instant";render()};
+    return;
+  }
+  if(S==="instant"){
+    if(!G.skillOffer){
+      const have=G.instants.map(s=>s.n);
+      const all=skillPool();
+      let pool=all.filter(s=>!have.includes(s.n));
+      if(pool.length<3)pool=all.slice();
+      G.skillOffer=pool.sort(()=>Math.random()-.5).slice(0,3);
+    }
+    const tut=G.mode==="tutorial";
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">${tut?"정문 게이트":G.gateName} · <b>${tut?1:G.day}</b>일차</span>
+      <span class="tag">익힌 힘 ${G.instants.length}개</span></div>
+      <div class="card"><h2>${!G.instants.length?"첫 번째 힘":"오늘의 힘"}</h2>
+      <p>하나를 고르면 이 게이트를 나갈 때까지 유지됩니다.</p></div>
+      ${G.skillOffer.map((s,i)=>`<button class="skl" data-s="${i}">
+        <b>${s.n}${s.maj?` <span class="kd perm">${majorOf(s.maj).n}</span>`:""}</b><span>${s.d}</span></button>`).join("")}
+      ${chips()}
+      <div class="bar"><span class="tag"></span><button class="ghost" id="skip">거절한다</button></div>`;
+    const go=()=>{G.skillOffer=null;G.scene=tut?"tutplace":"encounter";render()};
+    el.querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>{G.instants.push(G.skillOffer[+b.dataset.s]);go()});
+    document.getElementById("skip").onclick=go;
+    return;
+  }
+  if(S==="tutplace"){
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag"><b>1</b>일차</span><span class="tag">발견한 장소 1곳</span></div>
+      <div class="place"><h3>이름이 지워진 음식점</h3>
+      <p>골목 안쪽, 문이 반쯤 열려 있습니다. 안에서 식은 기름 냄새가 납니다.</p></div>
+      <div class="bar"><button class="ghost" disabled>지나친다</button><button id="in">들어간다</button></div>
+      <div class="tag">튜토리얼에서는 지나칠 수 없습니다.</div>`;
+    document.getElementById("in").onclick=()=>{G.scene="loot";render()};
+    return;
+  }
+  if(S==="loot"){
+    const w=p.gear.rh,s=p.gear.lh,d=derive(p);
+    el.innerHTML=logo+`
+      <div class="card"><h2>음식점 · 탐색 결과</h2><p>주방을 뒤졌습니다. 쓸 만한 것 세 개를 찾았습니다.</p>
+      <div class="loot">
+        <div class="item">참치캔<small>잡화 · 팔면 25 골드</small></div>
+        <button class="item equip ${w?"on":""}" id="eq-w">국자<small>오른손 · 공격력 +4</small></button>
+        <button class="item equip ${s?"on":""}" id="eq-s">냄비뚜껑<small>왼손 · 피해 −3</small></button>
+      </div></div>
+      <div class="derived">공격력 <b>${d.atk}</b> · 최대 체력 <b>${d.maxHp}</b> · 피해 감소 <b>${d.guard}</b></div>
+      <div class="bar"><span class="tag">${w&&s?"준비 완료":"둘 다 착용해 보세요"}</span>
+      <button id="go" ${w&&s?"":"disabled"}>계속</button></div>`;
+    document.getElementById("eq-w").onclick=()=>{p.gear.rh=p.gear.rh?null:"ladle";p.hp=derive(p).maxHp;render()};
+    document.getElementById("eq-s").onclick=()=>{p.gear.lh=p.gear.lh?null:"lid";p.hp=derive(p).maxHp;render()};
+    document.getElementById("go").onclick=()=>{
+      if(!p.bag.includes("tuna"))p.bag.push("tuna");
+      ROOM=ROOMS.in;G.here=PLACES[0];G.scene="battle";startBattle([p],["worm","worm"]);render()};
+    return;
+  }
+  if(S==="encounter"){
+    if(!G.offer){
+      // 첫날은 위험도 ★ 장소만 나옵니다. 초반에 손쓸 새 없이 잃는 일을 막기 위해서입니다.
+      const pool=G.day===1?PLACES.filter(p=>p.risk===0):PLACES;
+      G.offer=[...pool].sort(()=>Math.random()-.5).slice(0,2);
+    }
+    const t=party();
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">${G.gateName} · <b>${G.day}</b>일차</span>
+      <span class="tag">가방 ${t.reduce((s,r)=>s+r.bag.length,0)} / ${t.length*BAG_MAX}</span></div>
+      <div class="tag">탄약 · ${ammoLine()}</div>
+      ${chips()}
+      <div class="card"><h2>어디로 갈까</h2>
+      <p>하루가 지날 때마다 안쪽의 것들이 강해집니다.${bossHint(G.day)}
+      체력은 회복되지 않습니다.${G.day===1?" 첫날은 안전한 곳만 눈에 띕니다.":""}</p></div>
+      ${t.length===1&&G.day>=2?`<div class="card" style="border-color:var(--bad)">
+        <h2>혼자입니다</h2><p>여기서 더 들어가면 쓰러졌을 때 아무도 끌어내 줄 사람이 없습니다.
+        지금 나가면 오늘 챙긴 것은 지킬 수 있습니다.</p></div>`:""}
+      ${G.offer.map((pl,i)=>`<button class="place" data-p="${i}">
+        <h3>${pl.n}</h3><p>${pl.d}</p>
+        <span class="risk">위험도 ${"★".repeat(pl.risk+1)}${DEV_SHOW_UNLOCK?` · <i style="font-style:normal;color:var(--dim)">DEV · ${[...new Set([...pl.junk,...pl.gear,...(pl.special?pl.special.ids:[])])].slice(0,5).map(id=>ITEMS[id].n).join(", ")}</i>`:""}</span></button>`).join("")}
+      <div class="bar"><button class="ghost" id="pass">둘 다 지나친다</button>
+      <button class="ghost" id="out">게이트에서 나간다</button></div>
+      <div class="card"><h2>파티</h2>
+      ${t.map((r,i)=>`<div class="app"><div class="hd"><b>${r.name}</b><span>배낭 ${r.bag.length}/${BAG_MAX}</span></div>
+        ${hpLine(r)}</div>`).join("")}</div>`;
+    el.querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{
+      const pl=G.offer[+b.dataset.p];G.here=pl;ROOM=ROOMS[pl.room];
+      G.scene="battle";startBattle(party(),rollEncounter(G.day,pl.risk,party().length));render()});
+    document.getElementById("pass").onclick=()=>{G.day++;G.offer=null;G.skillOffer=null;G.scene="instant";render()};
+    document.getElementById("out").onclick=()=>{G.scene="retreat";render()};
+    return;
+  }
+  if(S==="battle"){
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">${G.here?G.here.n:"음식점"} · ${G.mode==="tutorial"?1:G.day}일차</span>
+      <span class="tag">적 ${B.foes.filter(f=>f.hp>0).length}</span></div>
+      <canvas id="cv"></canvas>
+      <div id="feed">${feed.map(x=>`<div>${x}</div>`).join("")}</div>
+      <div class="tag">진한 지형은 아무도 못 지나가고, 옅은 점선 지형은 기어다니는 것만 통과합니다.</div>`;
+    fitCanvas();startLoop();
+    return;
+  }
+  if(S==="reward"){
+    const g=G.lastGain;
+    el.innerHTML=logo+`
+      <div class="card"><h2>${g.boss?`${g.boss}를 쓰러뜨렸다`:"전투 종료"}</h2>
+      <p>${g.boss==="사마귀"?"낫 같은 앞다리가 힘없이 접힙니다.":
+          g.boss==="거미"?"긴 다리가 안쪽으로 하나씩 오므라듭니다.":"숨을 고릅니다."}</p></div>
+      <div class="card"><h2>정산</h2>
+      <div class="derived">획득 경험치 <b>${g.exp}</b>${g.found?` · 주운 물건 <b>${g.found}</b>개`:""}${g.relic?` · 유품 <b>${g.relic}</b>개`:""}</div>
+      ${g.ammoGot&&g.ammoGot.length?`<div class="tag" style="margin-top:6px;color:var(--mark)">탄약 획득 · ${g.ammoGot.join(", ")}</div>`:""}
+      ${g.broke.length?`<div class="tag" style="margin-top:8px;color:var(--bad)">파손 · ${g.broke.join(", ")}</div>`:""}
+      ${g.dead.length?`<div class="tag" style="margin-top:8px;color:var(--bad)">사망 · ${g.dead.map(d=>d.name).join(", ")}</div>`:""}
+      ${g.results.map(r=>`<div class="app" style="margin-top:9px">
+        <div class="hd"><b>${r.p.name}</b><span>${r.up?`Lv ${r.p.lvl-r.up} → Lv ${r.p.lvl}`:`Lv ${r.p.lvl}`}</span></div>
+        ${hpLine(r.p)}${expBar(r.p)}
+        ${r.up?`<div class="tag" style="margin-top:6px;color:var(--mark)">레벨 상승 · 포인트 ${r.up}점</div>`:""}
+      </div>`).join("")}</div>
+      <div class="bar"><span class="tag"></span><button id="nx">계속</button></div>`;
+    document.getElementById("nx").onclick=()=>{
+      G.scene=(G.mode!=="tutorial"&&G.ground.length)?"spoils":"afterloot";render()};
+    return;
+  }
+
+  /* ── 전리품 정리 ── */
+  if(S==="spoils"){
+    const t=party();
+    const free=t.reduce((n,r)=>n+bagRoom(r),0);
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">${G.here.n} · ${G.day}일차</span>
+      <span class="tag">바닥에 <b>${G.ground.length}</b>개</span></div>
+      <div class="card"><h2>바닥에 남은 것</h2>
+      <p>가져갈 것을 고릅니다. 배낭은 한 사람당 ${BAG_MAX}칸이고, 지금 파티의 빈칸은 <b style="color:var(--mark)">${free}</b>칸입니다.
+      두고 간 것은 사라집니다. 먹을 수 있는 것은 여기서 바로 먹여도 됩니다.</p>
+      ${G.ground.length?G.ground.map((gd,i)=>{
+        const it=ITEMS[gd.id];
+        return `<div class="slot has ${G.sel===i?"pick":""}">
+          <span class="sn">${gd.src}</span>
+          <span class="si">${itemIcon(gd.id)}${it.n} ${kindTag(it)}<small>${it.d}</small></span>
+          <button class="mini" data-pick="${i}">${G.sel===i?"선택됨":"고름"}</button></div>`}).join("")
+        :`<div class="tag" style="margin-top:8px">전부 정리했습니다.</div>`}
+      ${G.sel!==null&&G.ground[G.sel]?`<div class="tag" style="margin-top:11px">
+        <b>${ITEMS[G.ground[G.sel].id].n}</b> — 누구 배낭에 넣을까요?</div>
+        <div class="chips" style="margin-top:6px">
+        ${t.map((r,i)=>`<button class="pickb" data-give="${i}" ${bagRoom(r)<=0?"disabled":""}>
+          ${r.name} ${r.bag.length}/${BAG_MAX}</button>`).join("")}
+        <button class="pickb" data-toss="1">버린다</button></div>
+        ${ITEMS[G.ground[G.sel].id].use?`<div class="tag" style="margin-top:8px">그 자리에서 먹이기</div>
+          <div class="chips" style="margin-top:4px">${t.map((r,i)=>
+            `<button class="pickb" data-eat="${i}" ${r.hp>=derive(r).maxHp?"disabled":""}>${r.name} 먹인다</button>`).join("")}</div>`:""}`:""}
+      </div>
+      ${t.map((r,i)=>`<div class="app"><div class="hd"><b>${r.name}</b><span>Lv ${r.lvl}</span></div>
+        ${hpLine(r)}${invPanel(r,G.roster.indexOf(r),"manage",t)}${gearLine(r)}</div>`).join("")}
+      <div class="bar">
+        <button class="ghost" id="all" ${G.ground.length&&free>0?"":"disabled"}>${
+          free>=G.ground.length?"모두 가져가기":`가능한 만큼 가져가기 (빈칸 ${free})`}</button>
+        <button id="done">정리 끝</button></div>`;
+    el.querySelectorAll("[data-pick]").forEach(b=>b.onclick=()=>{
+      const i=+b.dataset.pick;G.sel=(G.sel===i?null:i);render()});
+    el.querySelectorAll("[data-give]").forEach(b=>b.onclick=()=>{
+      takeToBag(t[+b.dataset.give],G.sel);render()});
+    el.querySelectorAll("[data-toss]").forEach(b=>b.onclick=()=>{
+      G.ground.splice(G.sel,1);G.sel=null;render()});
+    el.querySelectorAll("[data-eat]").forEach(b=>b.onclick=()=>{
+      eatFromGround(t[+b.dataset.eat],G.sel);render()});
+    const ab=document.getElementById("all");
+    if(ab)ab.onclick=()=>{takeAllGround(t);render()};
+    bindInv();
+    document.getElementById("done").onclick=()=>{G.ground=[];G.sel=null;G.scene="afterloot";render()};
+    return;
+  }
+  if(S==="afterloot"){
+    const list=G.mode==="tutorial"?[p]:G.roster;
+    G.scene=list.some(x=>x.points>0)?"levelup":(G.mode==="tutorial"?"retreat":"nextday");
+    render();return;
+  }
+  if(S==="levelup"){
+    const list=G.mode==="tutorial"?[p]:G.roster;
+    const who=list.find(x=>x.points>0);
+    if(!who){G.scene=G.mode==="tutorial"?"retreat":"nextday";render();return}
+    allocScreen(who,`${who.name} · Lv ${who.lvl}`,
+      `좀처럼 오르지 않는 레벨이 올랐습니다. 포인트 ${who.points}점.`,
+      ()=>{G.scene=list.some(x=>x.points>0)?"levelup":(G.mode==="tutorial"?"retreat":"nextday");render()});
+    return;
+  }
+  if(S==="nextday"){G.day++;G.offer=null;G.skillOffer=null;G.scene="instant";render();return}
+
+  if(S==="retreat"){
+    const tut=G.mode==="tutorial";
+    const keep=[],lose=[];
+    for(const r of (tut?[p]:G.roster)){
+      for(const s of SLOTS){const it=ITEMS[r.gear[s.k]];if(it&&it.kind==="inst")lose.push(it.n)}
+      for(const id of r.bag){const it=ITEMS[id];
+        if(it.kind==="inst")lose.push(it.n);else if(it.kind==="perm")keep.push(it.n)}
+    }
+    const junkVal=(tut?[p]:G.roster).reduce((s,r)=>s+r.bag.reduce((a,id)=>
+      a+(ITEMS[id].kind==="junk"?ITEMS[id].price:0),0),0);
+    const mystN=(tut?[p]:G.roster).reduce((s,r)=>s+r.bag.filter(id=>ITEMS[id].mystery).length,0);
+    el.innerHTML=logo+`<div class="card"><h2>${tut?"일단 물러난다":"게이트를 나선다"}</h2>
+      <p>${tut?"고작 벌레 두 마리였는데 손이 떨린다. 더 안쪽에는 무엇이 있을지 가늠이 되지 않는다.<br><br>두려움을 느낀 당신은 일단 귀환하기로 한다.":
+        `${G.day}일차까지 버텼습니다. 몸에 붙었던 요령과 현장에서 주운 것들은 문을 나서는 순간 사라집니다.`}</p></div>
+      <div class="card"><h2>가지고 나갈 것</h2>
+      <div class="derived">팔 수 있는 잡화 <b>${junkVal}</b> 골드어치${mystN?` · 감정할 물건 <b>${mystN}</b>개`:""}${keep.length?` · 반출품 <b>${keep.join(", ")}</b>`:""}</div>
+      ${lose.length?`<div class="tag" style="margin-top:8px;color:var(--bad)">사라짐 · ${lose.join(", ")}</div>`:""}</div>
+      <div class="bar"><span class="tag"></span><button id="o">귀환한다</button></div>`;
+    document.getElementById("o").onclick=()=>{
+      if(G.fought)G.explores++;
+      const went=tut?[p]:party();
+      if(tut){G.roster=[p];G.mode="campus";if(!G.announced.includes("office"))G.announced.push("office")}
+      for(const r of G.roster){
+        for(const s of SLOTS){const it=ITEMS[r.gear[s.k]];if(it&&it.kind==="inst")r.gear[s.k]=null}
+        const nb=[];
+        for(const id of r.bag){const it=ITEMS[id];
+          if(it.kind==="junk")G.loot[id]=(G.loot[id]||0)+1;
+          else if(it.kind==="perm")nb.push(id)}
+        r.bag=nb;
+        const m=derive(r).maxHp;
+        if(went.includes(r)&&r.hp/m<=0.5)G.woundedReturn=true;
+        let rate=went.includes(r)?0.10:0.05;
+        if(r.resting){
+          if(G.gold>=10){G.gold-=10;rate=0.40;G.bedBill=(G.bedBill||0)+10}
+          else{r.resting=false;rate=0.05;G.bedKick=r.name}
+        }
+        r.hp=Math.min(m,r.hp+Math.round(m*rate));
+      }
+      G.fought=false;G.instants=[];G.day=1;G.offer=null;G.here=null;G.ground=[];
+      G.scene=tut?"briefing":"campus";render()};
+    return;
+  }
+  if(S==="fail"){
+    el.innerHTML=logo+`<div class="card"><h2>돌아오지 못했다</h2>
+      <p>파티가 전멸했습니다. 가지고 있던 것도 전부 안에 남았습니다.</p></div>
+      <div class="bar"><span class="tag"></span><button id="r">처음부터</button></div>`;
+    deleteSave(curSlot());                   // 전멸은 되돌릴 수 없습니다
+    document.getElementById("r").onclick=()=>{G={scene:"title"};render()};
+    return;
+  }
+  if(S==="briefing"){
+    el.innerHTML=logo+`
+      <div class="card"><h2>폐쇄된 캠퍼스</h2>
+      <p>정문을 나오자 색이 돌아옵니다. 지금 쓸 수 있는 곳은 <b style="color:var(--mark)">행정실</b> 하나뿐입니다.</p></div>
+      <button class="fac hot" id="b-off"><span class="ic">💰</span>
+        <span class="tx"><b>행정실</b><span>주워온 잡화를 골드로 바꿉니다. 골드가 있어야 나머지가 열립니다.</span></span></button>
+      <div class="card"><h2>다음에 열릴 곳</h2>
+      <p>골드 25가 모이면 <b style="color:var(--mark)">교내매점</b>이 열립니다.<br>
+      탐색을 두 번 하면 <b style="color:var(--mark)">입학처</b>가 열립니다.<br><br>그때까지는 혼자 들어가야 합니다.</p></div>
+      <div class="bar"><span class="tag">잡화 <b>${lootTotal()}</b> 골드어치</span><button id="ok">알겠다</button></div>`;
+    document.getElementById("b-off").onclick=()=>openFacility("office");
+    document.getElementById("ok").onclick=()=>{G.scene="campus";render()};
+    return;
+  }
+  if(S==="talk"){
+    const id=G.talkFor,np=NPCS[id],ls=np.first,last=G.talkLine>=ls.length-1;
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">${np.role}</span><span class="tag">${G.talkLine+1} / ${ls.length}</span></div>
+      <div class="card">${npcHead(id)}<p class="say">${ls[G.talkLine]}</p></div>
+      <div class="bar"><button class="ghost" id="sk">건너뛴다</button><button id="nx">${last?"들어간다":"계속"}</button></div>`;
+    const go=()=>{G.metNpc[id]=true;G.npcSay=pick(np.again);G.npcSayFor=id;G.scene=G.talkNext;render()};
+    document.getElementById("nx").onclick=()=>{if(last)go();else{G.talkLine++;render()}};
+    document.getElementById("sk").onclick=go;
+    return;
+  }
+  if(S==="campus"){
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">본진 · 탐색 ${G.explores}회 · 사망 ${G.deaths}명${DEV_SHOW_UNLOCK?' <b style="color:var(--gate)">DEV</b>':""}</span>
+      <span class="tag">골드 <b>${G.gold}</b></span></div>
+      <div class="tag" style="margin-top:-4px">탄약 · ${ammoLine()}</div>
+      <button class="fac" id="f-gate"><span class="ic">${facIcon("gate","🚪")}</span>
+        <span class="tx"><b>게이트</b><span>안으로 들어갑니다</span></span></button>
+      ${FACILITIES.map(f=>{const o=f.cond(G);
+        return `<button class="fac ${o?"":"lock"}" ${o?`data-f="${f.id}"`:"disabled"}>
+          <span class="ic">${o?facIcon(f.id,f.ic):"🔒"}</span>
+          <span class="tx"><b>${o?f.n:"잠겨 있다"}</b><span>${
+            o?f.d:(DEV_SHOW_UNLOCK?`${f.n} · <i>${f.prog(G)}</i>`:"아직 들어갈 수 없습니다")}</span></span></button>`}).join("")}
+      <div class="card"><h2>명단 · ${G.roster.length}명</h2>\n      <p style="font-size:12px;color:var(--dim);margin-bottom:9px">여기서 바로 착용하고, 서로 물건을 넘겨줄 수 있습니다.</p>
+      ${G.bedKick?`<div class="tag" style="color:var(--bad);margin-bottom:8px">골드가 모자라 ${G.bedKick}이(가) 퇴원했습니다</div>`:""}
+      ${G.roster.map(r=>{
+        const on=party().includes(r);
+        const st=r.resting?'<span style="color:var(--ok)">입원</span>':on?'<span style="color:var(--mark)">출동</span>':"대기";
+        return `<div class="app ${r.resting?"":on?"sel":"out"}">
+          <div class="hd"><b>${r.name}</b><span>${st} · Lv ${r.lvl}</span></div>
+          ${hpLine(r)}${statGrid(r)}${invPanel(r,G.roster.indexOf(r),"manage",G.roster)}${gearLine(r)}${expBar(r)}</div>`}).join("")}</div>`;
+    bindInv();
+    document.getElementById("f-gate").onclick=()=>{G.scene="gates";render()};
+    el.querySelectorAll("[data-f]").forEach(b=>b.onclick=()=>{
+      const id=b.dataset.f;
+      if(id==="adm"&&!G.applicants)G.applicants=[rollStudent(),rollStudent(),rollStudent()];
+      openFacility(id)});
+    return;
+  }
+  if(S==="office"){
+    const ent=Object.entries(G.loot).filter(([,n])=>n>0);
+    const rows=ent.filter(([id])=>!ITEMS[id].mystery);
+    const myst=ent.filter(([id])=>ITEMS[id].mystery);
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">행정실</span><span class="tag">골드 <b>${G.gold}</b></span></div>
+      ${npcBar("office")}
+      ${myst.length?`<div class="card" style="border-color:var(--gate)"><h2>감정</h2>
+      <p>값을 알 수 없는 물건은 여기서 열어봅니다. 감정은 공짜지만, 나온 값이 그대로 값입니다.</p>
+      ${myst.map(([id,n])=>`<div class="buyrow">
+        <div><b>${ITEMS[id].n}</b> × ${n}<span class="tag"> · 추정 ${ITEMS[id].mystery.lo}~${ITEMS[id].mystery.hi} 골드</span></div>
+        <button data-app="${id}">열어본다</button></div>`).join("")}
+      ${G.appraisal?`<div class="tag" style="margin-top:10px;color:var(--mark)">${G.appraisal}</div>`:""}</div>`:
+      (G.appraisal?`<div class="tag" style="color:var(--mark)">${G.appraisal}</div>`:"")}
+      <div class="card"><h2>회수품 매입</h2>
+      <p>게이트 안의 물건은 밖에서도 멀쩡합니다. 학교가 값을 쳐서 사들입니다.</p>
+      ${rows.length?rows.map(([id,n])=>`<div class="buyrow">
+        <div><b>${ITEMS[id].n}</b> × ${n}<span class="tag"> · 개당 ${ITEMS[id].price} 골드</span></div>
+        <div class="tag">${ITEMS[id].price*n} 골드</div></div>`).join("")
+        :`<div class="tag" style="margin-top:10px">팔 것이 없습니다.</div>`}
+      <div class="bar" style="margin-top:12px"><span class="tag">받을 금액 <b>${lootTotal()}</b> 골드</span>
+      <button id="sell" ${rows.length?"":"disabled"}>전부 판다</button></div></div>
+      <div class="bar"><span class="tag">누적 수입 ${G.goldEarned} 골드</span><button class="ghost" id="bk">본진으로</button></div>`;
+    el.querySelectorAll("[data-app]").forEach(b=>b.onclick=()=>{
+      const id=b.dataset.app,res=appraise(id);
+      G.loot[id]--; if(G.loot[id]<=0)delete G.loot[id];
+      G.loot[res]=(G.loot[res]||0)+1;
+      G.appraisal=`${ITEMS[id].n} · 열어보니 <b>${ITEMS[res].n}</b>. ${ITEMS[res].price} 골드짜리입니다.`;
+      render()});
+    document.getElementById("sell").onclick=()=>{
+      const a=lootTotal();G.gold+=a;G.goldEarned+=a;
+      const keep={};                                   // 감정 전 물건은 팔지 않고 남긴다
+      for(const e of Object.entries(G.loot))if(ITEMS[e[0]].mystery)keep[e[0]]=e[1];
+      G.loot=keep;render()};
+    document.getElementById("bk").onclick=()=>{G.appraisal=null;G.scene="campus";render()};
+    return;
+  }
+  if(S==="shop"){
+    const own=id=>G.store[id]||0;
+    const wi=Math.min(G.shopWho||0,Math.max(0,G.roster.length-1));
+    const who=G.roster[wi]||null;
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">교내매점</span><span class="tag">골드 <b>${G.gold}</b></span></div>
+      ${npcBar("shop")}
+      ${who?`<div class="card"><h2>지금 입고 있는 것</h2>
+      <p>고른 사람을 기준으로 판매대의 물건과 비교해 보여줍니다.</p>
+      ${G.roster.length>1?`<div class="chips">${G.roster.map((r,i)=>
+        `<button class="pickb ${i===wi?"on":""}" data-who="${i}">${r.name}</button>`).join("")}</div>`:""}
+      ${gearLine(who)}
+      ${wornPanel(who)}</div>`:""}
+      <div class="card"><h2>판매대</h2>
+      <p>매점은 생각보다 다양한 물품을 팔고 있습니다. 학생회는 돈 되는 물건이면 무엇이든 팔 생각입니다.<br><br>산 물건은 창고에 들어갑니다.</p>
+      ${SHOP.map(id=>{const it=ITEMS[id];
+        return `<div class="buyrow"><div><b>${it.n}</b> <span class="tag">창고 ${own(id)}</span><br>
+          <span class="tag">${SLOTS.find(s=>s.k===it.slot).n} · ${it.d}</span>
+          ${who?compareLine(who,id):""}</div>
+          <button data-buy="${id}" ${G.gold<it.price?"disabled":""}>${it.price} 골드</button></div>`}).join("")}
+      ${(()=>{const av=SHOP_AMMO.filter(id=>seenGun(ITEMS[id].ammo));
+        if(!av.length)return "";
+        return `<div class="tag" style="margin-top:12px">탄약 — 가방을 차지하지 않고 본부에 쌓입니다</div>`+
+          av.map(id=>{const it=ITEMS[id];
+          return `<div class="buyrow"><div><b>${it.n}</b> <span class="tag">보유 ${G.ammo[it.ammo]||0}발</span><br>
+            <span class="tag">${it.d}</span></div>
+            <button data-ammo="${id}" ${G.gold<it.price?"disabled":""}>${it.price} 골드</button></div>`}).join("");
+      })()}
+      </div>
+      <div class="card"><h2>창고에서 꺼내주기</h2>
+      <p>배낭에 자리가 있어야 넣을 수 있습니다.</p>
+      ${Object.entries(G.store).filter(([,n])=>n>0).map(([id,n])=>`<div class="buyrow">
+        <div><b>${ITEMS[id].n}</b> × ${n}<br><span class="tag">${ITEMS[id].d}</span>
+        ${who?compareLine(who,id):""}</div>
+        <div class="chips">${G.roster.map((r,i)=>`<button class="pickb" data-hand="${id}|${i}" ${bagRoom(r)<=0?"disabled":""}>${r.name}</button>`).join("")}</div>
+        </div>`).join("")||`<div class="tag" style="margin-top:10px">창고가 비었습니다.</div>`}
+      </div>
+      ${G.roster.map(r=>`<div class="app"><div class="hd"><b>${r.name}</b><span>Lv ${r.lvl}</span></div>
+        ${invPanel(r,G.roster.indexOf(r),"manage",G.roster)}${gearLine(r)}</div>`).join("")}
+      <div class="bar"><span class="tag"></span><button class="ghost" id="bk">본진으로</button></div>`;
+    el.querySelectorAll("[data-who]").forEach(b=>b.onclick=()=>{
+      G.shopWho=+b.dataset.who;render()});
+    el.querySelectorAll("[data-buy]").forEach(b=>b.onclick=()=>{
+      const it=ITEMS[b.dataset.buy];if(G.gold<it.price)return;
+      G.gold-=it.price;G.store[it.id]=(G.store[it.id]||0)+1;render()});
+    el.querySelectorAll("[data-ammo]").forEach(b=>b.onclick=()=>{
+      const it=ITEMS[b.dataset.ammo];if(G.gold<it.price)return;
+      G.gold-=it.price;G.ammo[it.ammo]=(G.ammo[it.ammo]||0)+it.qty;render()});
+    el.querySelectorAll("[data-hand]").forEach(b=>b.onclick=()=>{
+      const [id,i]=b.dataset.hand.split("|");const r=G.roster[+i];
+      if(bagRoom(r)<=0)return;
+      G.store[id]--;r.bag.push(id);render()});
+    bindInv();
+    document.getElementById("bk").onclick=()=>{G.scene="campus";render()};
+    return;
+  }
+  if(S==="admissions"){
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">입학처 · 입학생 ${G.recruited}명</span><span class="tag">골드 <b>${G.gold}</b></span></div>
+      ${npcBar("adm")}
+      <div class="card"><h2>지원자 명단</h2>
+      <p>전부 새내기입니다. 전공은 Lv ${MAJOR_LV}가 되어야 정할 수 있습니다.</p></div>
+      ${G.applicants.map((a,i)=>`<div class="app">
+        <div class="hd"><b>${a.name}</b><span>새내기 · Lv 1</span></div>${statGrid(a)}
+        <div class="bar" style="margin-top:9px"><span class="tag">영입 <b>20</b> 골드</span>
+        <button data-take="${i}" ${G.gold<20?"disabled":""}>영입</button></div></div>`).join("")}
+      <div class="bar"><button class="ghost" id="re" ${G.gold<5?"disabled":""}>새로고침 · 5 골드</button>
+      <button id="bk">본진으로</button></div>`;
+    el.querySelectorAll("[data-take]").forEach(b=>b.onclick=()=>{
+      const i=+b.dataset.take;G.gold-=20;G.recruited++;
+      logAdd(G.applicants[i],"입학");G.roster.push(G.applicants[i]);G.applicants.splice(i,1);
+      if(!G.applicants.length)G.applicants=[rollStudent(),rollStudent(),rollStudent()];
+      render()});
+    document.getElementById("re").onclick=()=>{
+      G.gold-=5;G.applicants=[rollStudent(),rollStudent(),rollStudent()];render()};
+    document.getElementById("bk").onclick=()=>{G.scene="campus";render()};
+    return;
+  }
+  if(S==="union"){
+    const sel=G.roster.filter(r=>r.inParty&&!r.resting).length;
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">학생회관</span><span class="tag">선발 <b>${Math.min(sel,4)}</b> / 4명</span></div>
+      ${npcBar("union")}
+      <div class="card"><h2>파티 편성과 장비</h2>
+      <p>최대 넷까지 고릅니다. 이름을 누르면 출동·대기가 바뀝니다.</p></div>
+      ${G.roster.map((r,i)=>`<div class="app ${r.resting?"out":r.inParty?"sel":"out"}">
+        <div class="hd"><b>${r.name}</b><span>${r.resting?"입원 중":r.inParty?"출동":"대기"} · Lv ${r.lvl}</span></div>
+        ${hpLine(r)}${statGrid(r)}${invPanel(r,i,"manage",G.roster)}${gearLine(r)}
+        <div class="bar" style="margin-top:9px"><span class="tag"></span>
+        <button class="ghost" data-t="${i}" ${r.resting?"disabled":""}>${r.inParty?"대기시킨다":"출동시킨다"}</button></div>
+      </div>`).join("")}
+      <div class="bar"><span class="tag"></span><button class="ghost" id="bk">본진으로</button></div>`;
+    el.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{
+      const r=G.roster[+b.dataset.t];
+      if(r.resting)return;
+      if(!r.inParty&&G.roster.filter(x=>x.inParty&&!x.resting).length>=4)return;
+      r.inParty=!r.inParty;render()});
+    bindInv();
+    document.getElementById("bk").onclick=()=>{G.scene="campus";render()};
+    return;
+  }
+  if(S==="clinic"){
+    G.bedKick=null;
+    const beds=G.beds||1;
+    const inBeds=G.roster.filter(r=>r.resting);
+    const free=beds-inBeds.length;
+    const cost=bedCost();
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">보건소 · 침상 ${beds}개 (${free}개 빔)</span><span class="tag">골드 <b>${G.gold}</b></span></div>
+      ${npcBar("clinic")}
+      <div class="card"><h2>침상</h2>
+      <p>입원한 사람은 게이트에 나가지 못하는 대신, 탐색을 한 번 다녀올 때마다
+      <b style="color:var(--mark)">10 골드</b>가 나가고
+      체력이 <b style="color:var(--ok)">40%</b> 회복됩니다. 병원비는 사람 수만큼 나갑니다.</p>
+      ${inBeds.map(r=>{const ri=G.roster.indexOf(r);const wr=worn(r);
+        return `<div class="app" style="border-left-color:var(--ok);margin-top:11px">
+        <div class="hd"><b>${r.name}</b><span>입원 중</span></div>${hpLine(r)}
+        ${wr.length?`<div class="tag" style="margin-top:9px">착용 중 · ${wr.map(x=>x.n).join(", ")}</div>
+          <div class="bar" style="margin-top:7px"><span class="tag">벗긴 장비는 매점 창고로 갑니다</span>
+          <button class="ghost" data-strip="${ri}">장비를 전부 벗긴다</button></div>`
+        :`<div class="tag" style="margin-top:9px">맨몸으로 누워 있습니다.</div>`}
+        ${G.stripMsg&&G.stripMsg.pi===ri?`<div class="tag" style="margin-top:8px;color:var(--mark)">${G.stripMsg.t}</div>`:""}
+        <div class="bar" style="margin-top:9px"><span class="tag">누적 병원비 ${G.bedBill||0} 골드</span>
+        <button class="ghost" data-out="${ri}">퇴원시킨다</button></div></div>`}).join("")}
+      ${free>0?`<div class="tag" style="margin-top:11px">빈 침상 ${free}개.</div>`:
+        `<div class="tag" style="margin-top:11px;color:var(--mark)">침상이 다 찼습니다.</div>`}</div>
+      <div class="card"><h2>침상 증설</h2>
+      ${beds>=BED_MAX?`<p>${BED_MAX}개가 한계입니다. 더 들일 자리가 없습니다.</p>`
+       :`<p>안 쓰는 교실을 하나 더 틔웁니다. 다음 침상은 <b>${cost}</b> 골드,
+         그 뒤로는 ${BED_COST.slice(beds).map(c=>c+"골드").join(" → ")} 순으로 오릅니다.</p>
+         <div class="bar" style="margin-top:10px"><span class="tag">지금 ${beds}개 → ${beds+1}개</span>
+         <button id="up" ${G.gold<cost?"disabled":""}>${cost} 골드로 늘린다</button></div>`}</div>
+      <div class="card"><h2>대기실</h2>
+      <p>나가지 않고 쉬기만 해도 탐색 1회당 5%는 회복됩니다.</p>
+      ${G.roster.filter(r=>!r.resting).map(r=>{
+        const m=derive(r).maxHp,pct=Math.round(r.hp/m*100);
+        return `<div class="app" style="margin-top:9px">
+          <div class="hd"><b>${r.name}</b><span>${pct}% · Lv ${r.lvl}</span></div>${hpLine(r)}
+          <div class="bar" style="margin-top:9px"><span class="tag">${pct>=100?"멀쩡합니다":""}</span>
+          <button data-bed="${G.roster.indexOf(r)}" ${free<=0||pct>=100?"disabled":""}>눕힌다</button></div></div>`}).join("")}</div>
+      <div class="bar"><span class="tag"></span><button class="ghost" id="bk">본진으로</button></div>`;
+    el.querySelectorAll("[data-bed]").forEach(b=>b.onclick=()=>{
+      const r=G.roster[+b.dataset.bed];r.resting=true;r.inParty=false;logAdd(r,"보건소 입원");render()});
+    el.querySelectorAll("[data-strip]").forEach(b=>b.onclick=()=>{
+      const ri=+b.dataset.strip,p=G.roster[ri],r=stripGear(p);
+      G.stripMsg={pi:ri,t:`${p.name}의 장비 ${r.moved}점을 창고로 옮겼습니다.`
+        +(r.kept?` ${r.kept}점은 ${GEAR_LOW.replace("아이템을 해제할 수 없습니다","벗기지 못했습니다")}.`:"")};
+      render()});
+    el.querySelectorAll("[data-out]").forEach(b=>b.onclick=()=>{
+      const p=G.roster[+b.dataset.out];
+      p.resting=false;p.inParty=true;G.stripMsg=null;render()});
+    const up=document.getElementById("up");
+    if(up)up.onclick=()=>{
+      if(G.gold<cost||beds>=BED_MAX)return;
+      G.gold-=cost;G.beds=beds+1;G.stripMsg=null;render()};
+    document.getElementById("bk").onclick=()=>{G.stripMsg=null;G.scene="campus";render()};
+    return;
+  }
+  if(S==="arcade"){
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">게임장</span><span class="tag">골드 <b>${G.gold}</b></span></div>
+      ${npcBar("arcade")}
+      <div class="card"><h2>지하 오락실</h2>
+      <p>누군가 게이트 안의 것들을 본떠 만든 기계가 세 대 놓여 있습니다.
+      판마다 요금을 넣어야 하고, 상금은 잡은 만큼 나옵니다. 횟수 제한은 없습니다.</p></div>
+      <button class="fac" id="g1" ${G.gold<ARCADE_FEE.spider?"disabled":""}><span class="ic">🕷</span>
+        <span class="tx"><b>거미 잡기 · ${ARCADE_FEE.spider}골드</b><span>줄을 타고 내려오는 거미를 눌러 잡습니다 · 마리당 3골드 · 최고 ${G.arcadeBest}마리</span></span></button>
+      <button class="fac" id="g2" ${G.gold<ARCADE_FEE.star?"disabled":""}><span class="ic">⭐</span>
+        <span class="tx"><b>별 줍기 · ${ARCADE_FEE.star}골드</b><span>발판을 뛰어다니며 별을 모읍니다 · 개당 4골드 · 최고 ${G.starBest||0}개</span></span></button>
+      <button class="fac" id="g3" ${G.gold<ARCADE_FEE.hunt?"disabled":""}><span class="ic">🔫</span>
+        <span class="tx"><b>좀비 헌터 · ${ARCADE_FEE.hunt}골드</b><span>내려오는 좀비를 쏘아 막습니다 · 마리당 3골드 · 최고 ${G.huntBest||0}마리</span></span></button>
+      ${G.gold<ARCADE_FEE.spider?`<div class="tag" style="color:var(--bad)">골드가 모자라 기계를 돌릴 수 없습니다.</div>`:""}
+      <div class="bar"><span class="tag"></span><button class="ghost" id="bk">본진으로</button></div>`;
+    document.getElementById("g1").onclick=()=>{if(!payFee("spider"))return;AR=null;G.scene="spidergame";render()};
+    document.getElementById("g2").onclick=()=>{if(!payFee("star"))return;AR=null;G.scene="stargame";render()};
+    document.getElementById("g3").onclick=()=>{if(!payFee("hunt"))return;AR=null;G.scene="huntgame";render()};
+    document.getElementById("bk").onclick=()=>{G.scene="campus";render()};
+    return;
+  }
+  if(S==="spidergame"){
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">거미 잡기</span><span class="tag">최고 <b>${G.arcadeBest}</b>마리</span></div>
+      <canvas id="acv"></canvas>
+      <div class="tag">내려오는 거미를 눌러 잡습니다. 바닥 점선에 닿으면 놓친 것으로 칩니다. 세 마리를 놓치면 끝.</div>
+      <div class="bar"><span class="tag"></span><button class="ghost" id="bk">그만둔다</button></div>`;
+    arcadeStart();
+    document.getElementById("bk").onclick=()=>{arcadeStop();AR=null;G.scene="arcade";render()};
+    return;
+  }
+  if(S==="stargame"){
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">별 줍기 · ${STAR_TIME}초</span><span class="tag">최고 <b>${G.starBest||0}</b>개</span></div>
+      <canvas id="acv"></canvas>
+      <div class="bar" style="margin-top:2px">
+        <span class="tag">끌면 이동 · 톡 치면 점프</span>
+        <button id="jump" style="padding:14px 30px;font-size:16px">점프</button></div>
+      <div class="bar"><span class="tag"></span><button class="ghost" id="bk">그만둔다</button></div>`;
+    starStart();
+    bindJump(document.getElementById("jump"));
+    document.getElementById("bk").onclick=()=>{arcadeStop();AR=null;G.scene="arcade";render()};
+    return;
+  }
+  if(S==="huntgame"){
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">좀비 헌터</span><span class="tag">최고 <b>${G.huntBest||0}</b>마리</span></div>
+      <canvas id="acv"></canvas>
+      <div class="tag">화면을 끌어 좌우로 움직입니다. 총은 0.11초마다 저절로 나가고 한 방이면 죽습니다.
+      25마리를 잡을 때마다 열 방을 맞아야 죽는 보라 좀비가 나옵니다. 붉은 선을 넘기면 목숨이 하나 줄고, 셋을 잃으면 끝납니다.</div>
+      <div class="bar"><span class="tag"></span><button class="ghost" id="bk">그만둔다</button></div>`;
+    huntStart();
+    document.getElementById("bk").onclick=()=>{arcadeStop();AR=null;G.scene="arcade";render()};
+    return;
+  }
+  if(S==="huntend"){
+    const sc=AR?AR.score:0;
+    const prize=huntPrize(sc),fee=ARCADE_FEE.hunt;
+    if(sc>(G.huntBest||0))G.huntBest=sc;
+    if(prize>0&&AR&&!AR.paid){G.gold+=prize;G.goldEarned+=prize;AR.paid=true}
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">좀비 헌터</span><span class="tag">최고 <b>${G.huntBest||0}</b>마리</span></div>
+      <div class="card"><h2>${sc>=20?"방어선을 지켰다":sc>=10?"그럭저럭 버텼다":"금방 뚫렸다"}</h2>
+      <p>좀비 <b style="color:var(--mark)">${sc}</b>마리를 쓰러뜨렸습니다.</p>
+      <div class="derived">상금 <b>${prize}</b> 골드 · 요금 ${fee} 골드 ·
+        <b style="color:${prize-fee>=0?"var(--ok)":"var(--bad)"}">${prize-fee>=0?"+":""}${prize-fee}</b> 골드</div></div>
+      <div class="bar"><button class="ghost" id="again" ${G.gold<fee?"disabled":""}>한 판 더 · ${fee}골드</button><button id="bk">게임장으로</button></div>`;
+    document.getElementById("again").onclick=()=>{if(!payFee("hunt"))return;AR=null;G.scene="huntgame";render()};
+    document.getElementById("bk").onclick=()=>{AR=null;G.scene="arcade";render()};
+    return;
+  }
+  if(S==="spiderend"||S==="arcadeend"){
+    const sc=AR?AR.score:0;
+    const prize=arcadePrize(sc),fee=ARCADE_FEE.spider;
+    if(sc>G.arcadeBest)G.arcadeBest=sc;
+    if(prize>0&&AR&&!AR.paid){G.gold+=prize;G.goldEarned+=prize;AR.paid=true}
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">거미 잡기</span><span class="tag">최고 <b>${G.arcadeBest}</b>마리</span></div>
+      <div class="card"><h2>${sc>=20?"기계가 삑삑거린다":sc>=10?"제법이다":"손이 느리다"}</h2>
+      <p>거미 <b style="color:var(--mark)">${sc}</b>마리를 잡았습니다.</p>
+      <div class="derived">상금 <b>${prize}</b> 골드 · 요금 ${fee} 골드 ·
+        <b style="color:${prize-fee>=0?"var(--ok)":"var(--bad)"}">${prize-fee>=0?"+":""}${prize-fee}</b> 골드</div></div>
+      <div class="bar"><button class="ghost" id="again" ${G.gold<fee?"disabled":""}>한 판 더 · ${fee}골드</button><button id="bk">게임장으로</button></div>`;
+    document.getElementById("again").onclick=()=>{if(!payFee("spider"))return;AR=null;G.scene="spidergame";render()};
+    document.getElementById("bk").onclick=()=>{AR=null;G.scene="arcade";render()};
+    return;
+  }
+  if(S==="starend"){
+    const sc=AR?AR.score:0;
+    const prize=starPrize(sc),fee=ARCADE_FEE.star;
+    if(sc>(G.starBest||0))G.starBest=sc;
+    if(prize>0&&AR&&!AR.paid){G.gold+=prize;G.goldEarned+=prize;AR.paid=true}
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">별 줍기</span><span class="tag">최고 <b>${G.starBest||0}</b>개</span></div>
+      <div class="card"><h2>${sc>=14?"기계가 축포를 쏜다":sc>=7?"제법 뛰어다녔다":"발이 무겁다"}</h2>
+      <p>별 <b style="color:var(--mark)">${sc}</b>개를 모았습니다.</p>
+      <div class="derived">상금 <b>${prize}</b> 골드 · 요금 ${fee} 골드 ·
+        <b style="color:${prize-fee>=0?"var(--ok)":"var(--bad)"}">${prize-fee>=0?"+":""}${prize-fee}</b> 골드</div></div>
+      <div class="bar"><button class="ghost" id="again" ${G.gold<fee?"disabled":""}>한 판 더 · ${fee}골드</button><button id="bk">게임장으로</button></div>`;
+    document.getElementById("again").onclick=()=>{if(!payFee("star"))return;AR=null;G.scene="stargame";render()};
+    document.getElementById("bk").onclick=()=>{AR=null;G.scene="arcade";render()};
+    return;
+  }
+  if(S==="library"){
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">도서관</span><span class="tag">Lv ${MAJOR_LV}부터 전공 선택</span></div>
+      ${npcBar("lib")}
+      <div class="card"><h2>전공 배정</h2>
+      <p>한 번 정하면 바꿀 수 없습니다. <b style="color:var(--mark)">군인</b>과
+      <b style="color:var(--mark)">경찰대학생</b>만 총을 다룰 수 있습니다.</p></div>
+      ${G.roster.map((r,i)=>`<div class="app">
+        <div class="hd"><b>${r.name}</b><span>${r.major?majorOf(r.major).n:`Lv ${r.lvl}`}</span></div>
+        ${r.major?`<div class="tag">${majorOf(r.major).d}</div>`
+          :r.lvl<MAJOR_LV?`<div class="tag">Lv ${MAJOR_LV}이 되어야 전공을 정할 수 있습니다 (현재 Lv ${r.lvl})</div>`
+          :`<div class="chips" style="margin-top:6px">${MAJORS.map(m=>
+            `<button class="pickb" data-maj="${i}|${m.id}">${m.n}</button>`).join("")}</div>`}
+      </div>`).join("")||`<div class="card"><p>명단이 비었습니다.</p></div>`}
+      <div class="bar"><span class="tag"></span><button class="ghost" id="bk">본진으로</button></div>`;
+    el.querySelectorAll("[data-maj]").forEach(b=>b.onclick=()=>{
+      const [i,id]=b.dataset.maj.split("|");
+      const r=G.roster[+i];
+      if(r.lvl<MAJOR_LV||r.major)return;
+      r.major=id;logAdd(r,`${majorOf(id).n} 전공 선택`);render()});
+    document.getElementById("bk").onclick=()=>{G.scene="campus";render()};
+    return;
+  }
+  if(S==="tower"){
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">메모리얼 타워</span><span class="tag">새겨진 이름 <b>${G.memorial.length}</b></span></div>
+      ${npcBar("tower")}
+      <div class="card"><h2>돌아오지 못한 사람들</h2>
+      <p>게이트 안에서 잃은 사람들의 기록입니다.</p></div>
+      ${G.memorial.length?[...G.memorial].reverse().map(m=>`<div class="app" style="border-left-color:var(--bad)">
+        <div class="hd"><b>${m.name}</b><span>Lv ${m.lvl} · ${m.gate} ${m.day}일차</span></div>
+        <div class="tag" style="margin-bottom:8px">${m.where}에서 쓰러짐</div>
+        <div class="grid">${STATS.map(s=>`<div class="g">${s.n}<b>${m.stats[s.k]}</b></div>`).join("")}</div>
+        <div class="gearline">마지막 장비 · ${SLOTS.map(s=>m.gear[s.k]?ITEMS[m.gear[s.k]].n:null).filter(Boolean).join(", ")||"없음"}</div>
+        ${m.log.length?`<div class="tag" style="margin-top:8px">기록</div>
+          <div class="rec">${m.log.map(l=>`<div>· ${l}</div>`).join("")}</div>`:""}
+      </div>`).join(""):`<div class="card"><p>아직 아무 이름도 새겨지지 않았습니다.</p></div>`}
+      <div class="bar"><span class="tag"></span><button class="ghost" id="bk">본진으로</button></div>`;
+    document.getElementById("bk").onclick=()=>{G.scene="campus";render()};
+    return;
+  }
+  if(S==="soon"){
+    const f=FACILITIES.find(x=>x.id===G.soonName);
+    el.innerHTML=logo+`${npcBar(G.soonName)}
+      <div class="card"><h2>${f.n}</h2>
+      <p>해금은 됐지만 안쪽은 아직 비어 있습니다. ${f.d} 기능이 여기에 들어갈 자리입니다.</p></div>
+      <div class="bar"><span class="tag"></span><button class="ghost" id="bk">본진으로</button></div>`;
+    document.getElementById("bk").onclick=()=>{G.scene="campus";render()};
+    return;
+  }
+  if(S==="gates"){
+    const top=Math.max(1,...G.roster.map(r=>r.lvl));
+    const GATES=[
+      {n:"정문 게이트",d:"대학가 골목. 게이트 에너지로 변형된 기형 생물이 출몰한다",lv:1,open:true},
+      {n:"후문 게이트",d:"상가 지하. 더 큰 것이 있다",lv:5,open:top>=5},
+      {n:"강의동 게이트",d:"본관 뒤편. 아직 아무도 못 봤다",lv:10,open:top>=10},
+    ];
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">게이트 선택</span><span class="tag">출동 <b>${party().length}</b>명</span></div>
+      <div class="card"><h2>어디로 들어갈까</h2>
+      <p>하루가 지날 때마다 안쪽의 것들이 강해집니다.<br><br>
+      돌아온 사람들 말로는, <b style="color:var(--gate)">사흘째부터 결이 다른 것이 돌아다닌다</b>고 합니다.
+      닷새를 넘겨 본 사람은 아직 없습니다.</p></div>
+      ${GATES.map((g,i)=>`<button class="fac ${g.open?"":"lock"}" ${g.open?`data-g="${i}"`:"disabled"}>
+        <span class="ic">${g.open?"🚪":"🔒"}</span>
+        <span class="tx"><b>${g.n}</b><span>${g.d} · 권장 Lv ${g.lv}</span></span></button>`).join("")}
+      <div class="bar"><span class="tag"></span><button class="ghost" id="bk">본진으로</button></div>`;
+    el.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{
+      G.pickedGate=GATES[+b.dataset.g].n;G.scene="confirm";render()});
+    document.getElementById("bk").onclick=()=>{G.scene="campus";render()};
+    return;
+  }
+  if(S==="confirm"){
+    const t=party();
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">${G.pickedGate}</span><span class="tag">출동 <b>${t.length}</b>명</span></div>
+      <div class="card"><h2>출동 명단 확인</h2>
+      <p>쓰러진 사람은 돌아오지 못하고, 가진 것은 바닥에 남습니다.
+      배낭은 한 사람당 ${BAG_MAX}칸입니다.</p></div>
+      ${t.map(r=>`<div class="app"><div class="hd"><b>${r.name}</b>
+        <span>${r.major?majorOf(r.major).n:"새내기"} · Lv ${r.lvl}</span></div>
+        ${statGrid(r)}${invPanel(r,G.roster.indexOf(r),"manage",t)}${gearLine(r)}${hpLine(r)}</div>`).join("")}
+      ${t.some(r=>!r.gear.rh)?`<div class="tag" style="color:var(--bad)">맨손인 사람이 있습니다.</div>`:""}
+      <div class="tag">탄약 · ${ammoLine()}</div>
+      ${t.some(r=>{const g=ITEMS[r.gear.rh];return g&&g.ammo&&(G.ammo[g.ammo]||0)<10})?
+        `<div class="tag" style="color:var(--bad)">탄약이 부족한 총이 있습니다. 떨어지면 맨손으로 싸웁니다.</div>`:""}
+      <div class="card"><h2>정말 들어가시겠습니까?</h2>
+      <p>${G.pickedGate} 안쪽은 아직 아무도 지도를 그리지 못했습니다.</p></div>
+      <div class="bar"><button class="ghost" id="no">아니오</button><button id="yes">들어간다</button></div>`;
+    bindInv();
+    document.getElementById("no").onclick=()=>{G.scene="gates";render()};
+    document.getElementById("yes").onclick=()=>{
+      G.mode="run";G.day=1;G.instants=[];G.offer=null;G.ground=[];G.sel=null;
+      G.gateName=G.pickedGate;G.scene="gateforce";render()};
+    return;
+  }
+}
+addEventListener("keydown",onKeyJump);
+addEventListener("resize",()=>{if(G.scene==="battle")fitCanvas()});
+bootGame();
+
+</script>
+</body>
+</html>
