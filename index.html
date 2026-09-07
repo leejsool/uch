@@ -73,7 +73,10 @@
   .item{flex:1 1 30%;min-width:100px;background:var(--panel2);border:1px solid var(--line);border-radius:3px;
     padding:9px;font-size:12.5px;font-weight:700;text-align:left;line-height:1.4;color:var(--dim)}
   .item small{display:block;font-weight:400;font-size:11px;color:var(--dim);margin-top:3px}
-  .item.art{text-align:center;padding:11px 9px 10px}
+  .item.art{text-align:left;padding:10px;display:flex;align-items:center;gap:12px}
+  .item.art .bigart{width:64px;height:64px;flex:0 0 64px;margin:0;
+    background:#241E36;border-radius:4px;padding:3px}
+  .loot .item{flex:1 1 100%}
   .item.equip{cursor:pointer;border-color:var(--cy);color:var(--ink);font-family:inherit}
   .item.equip.on{border-color:var(--mark);background:#463A5F}
 
@@ -125,10 +128,36 @@
   .chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
   .chip{font-size:11px;background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:3px 9px;color:var(--mark)}
 
-  .buyrow{display:flex;justify-content:space-between;align-items:center;gap:10px;
+  .buyrow{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;
     background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:10px;margin-top:8px}
+  .buyrow.tap{cursor:pointer}
+  .buyrow.open{border-color:var(--mark);background:#332B4A}
+  .buyrow .caret{font-size:11px;color:var(--dim);flex:0 0 auto}
   .buyrow b{font-size:14px}
-  .buyrow button{padding:7px 12px;font-size:12.5px;white-space:nowrap}
+  .buyrow button{padding:7px 12px;font-size:12.5px;white-space:nowrap;position:relative}
+  /* 눌렀다는 것이 보이도록 — 버튼이 한 번 눌리고 값이 위로 떠오릅니다 */
+  @keyframes tapPulse{0%{transform:scale(1)}30%{transform:scale(.90)}100%{transform:scale(1)}}
+  @keyframes costFly{0%{opacity:0;transform:translate(-50%,6px) scale(.9)}
+    18%{opacity:1;transform:translate(-50%,0) scale(1)}
+    100%{opacity:0;transform:translate(-50%,-30px) scale(1)}}
+  @keyframes tapRing{0%{opacity:.55;transform:scale(.6)}100%{opacity:0;transform:scale(1.5)}}
+  .tapped{animation:tapPulse .26s ease;border-color:var(--mark)!important;color:var(--mark)!important}
+  .tapring{position:absolute;inset:-2px;border-radius:4px;border:2px solid var(--mark);
+    pointer-events:none;animation:tapRing .42s ease-out forwards}
+  .costfly{position:absolute;left:50%;top:-4px;font-size:13px;font-weight:700;
+    color:var(--bad);pointer-events:none;white-space:nowrap;z-index:5;
+    text-shadow:0 1px 3px #000;animation:costFly .95s ease-out forwards}
+  .costfly.plus{color:var(--ok)}
+  /* 못 하는 까닭을 알리는 짧은 알림 — 화면을 다시 그려도 남습니다 */
+  @keyframes toastIn{from{opacity:0;transform:translate(-50%,14px)}to{opacity:1;transform:translate(-50%,0)}}
+  @keyframes toastOut{to{opacity:0;transform:translate(-50%,-8px)}}
+  .toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,0);z-index:60;
+    background:#3B2C3E;border:1px solid var(--bad);color:var(--ink);
+    padding:11px 18px;border-radius:4px;font-size:13.5px;max-width:86vw;text-align:center;
+    box-shadow:0 8px 22px rgba(0,0,0,.55);pointer-events:none;
+    animation:toastIn .2s ease, toastOut .45s ease 1.9s forwards}
+  @keyframes goldBump{0%,100%{transform:scale(1)}35%{transform:scale(1.25);color:var(--mark)}}
+  .goldbump{display:inline-block;animation:goldBump .4s ease}
   .pickb{font-size:12px;font-weight:600;padding:6px 11px;border-radius:3px;
     border:1px solid var(--line);background:var(--panel2);color:var(--dim);cursor:pointer;font-family:inherit}
   .rec{font-size:11.5px;color:var(--dim);line-height:1.75;margin-top:4px}
@@ -138,7 +167,14 @@
   .kd.junk{background:#3A3450;color:var(--dim)}
   .inv{margin-top:9px} .invh{font-size:11px;color:var(--dim);font-weight:700;margin:8px 0 4px}
   .slot{display:flex;align-items:center;gap:7px;background:var(--panel2);border:1px solid var(--line);
-    border-radius:3px;padding:7px 9px;margin-bottom:4px}
+    border-radius:3px;padding:7px 9px;margin-bottom:4px;flex-wrap:wrap}
+  .slot.tap{cursor:pointer}
+  .slot.open{border-color:var(--mark);background:#332B4A}
+  .slot .caret{font-size:11px;color:var(--dim);flex:0 0 auto;margin-left:auto}
+  /* 고른 줄에서만 아래로 펼쳐지는 버튼 묶음 — 장비칸과 판매대가 같이 씁니다 */
+  .acts{flex:1 1 100%;display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:8px;
+    padding-top:8px;border-top:1px solid var(--line)}
+  .acts .chips{display:flex;flex-wrap:wrap;gap:5px;margin:0}
   .slot.pick{border-color:var(--mark)}
   .slot .sn{font-size:10.5px;color:var(--dim);min-width:44px;flex:0 0 auto}
   .slot .si{flex:1;font-size:12.5px;font-weight:700;line-height:1.35;min-width:0}
@@ -181,6 +217,11 @@
   .ico{width:19px;height:19px;object-fit:contain;vertical-align:-4px;margin-right:5px;
     filter:drop-shadow(0 1px 2px rgba(0,0,0,.55))}
   .ico.none{display:inline-block;border:1px dashed var(--line);border-radius:3px;filter:none}
+  /* 목록 안에서는 그림이 왼쪽을 크게 차지하고 글이 그 오른쪽으로 흐릅니다 */
+  .slot .si .ico,.buyrow .ico{float:left;width:44px;height:44px;vertical-align:top;
+    margin:1px 10px 3px 0;background:#241E36;border-radius:4px;padding:2px}
+  .buyrow .ico{width:48px;height:48px}
+  .slot .si,.buyrow>div:first-child{overflow:hidden}
   .bigart{display:block;width:56px;height:56px;object-fit:contain;margin:0 auto 7px;
     filter:drop-shadow(0 2px 4px rgba(0,0,0,.55))}
   .bigart.none{border:1px dashed var(--line);border-radius:4px;filter:none}
@@ -269,7 +310,9 @@ const STATS=[
   {k:"agi",n:"순발력",d:"공격 속도",need:1},{k:"luk",n:"운",d:"치명타",need:2},
 ];
 const openAt=(s,lvl)=>lvl>=s.need;
-/* 전공 — MAJOR_LV부터 도서관에서 정합니다. 총기는 군인·경찰대학생만 다룹니다. */
+/* 전공 — MAJOR_LV부터 각 건물의 학과사무실에서 정합니다.
+   지금 실제로 고를 수 있는 것은 태권도학과·간호학과·군사학 셋뿐입니다.
+   나머지는 그 전공을 맡을 학과사무실이 생기면 되살아납니다. */
 const MAJOR_LV=2;
 const MAJORS=[
   {id:"soldier",n:"군인",        d:"총기를 다룰 수 있습니다"},
@@ -282,9 +325,15 @@ const MAJORS=[
   {id:"dance",  n:"무용과",      d:"몸놀림이 빠릅니다"},
   {id:"arch",   n:"건축학과",    d:"구조를 읽습니다"},
   {id:"lib",    n:"문헌정보학과", d:"약점을 찾아냅니다"},
+  /* 학과사무실에서 실제로 고를 수 있는 전공 — 전공 스킬은 차차 붙입니다 */
+  {id:"tkd",    n:"태권도학과",   d:"맨몸으로 부딪칩니다"},
+  {id:"nurse",  n:"간호학과",     d:"다친 사람을 돌봅니다"},
+  {id:"mil",    n:"군사학",      d:"총기를 다룰 수 있습니다"},
 ];
 const majorOf=id=>MAJORS.find(m=>m.id===id)||null;
-const GUN_MAJORS=["soldier","police"];
+const GUN_MAJORS=["soldier","police","mil"];
+/* 파티에서 가장 높은 레벨 — 학과사무실 해금에 씁니다 */
+const topLvl=g=>Math.max(1,...(g.roster||[]).map(r=>r.lvl));
 const canUse=(p,it)=>!it.req||it.req.includes(p.major);
 const SURNAME="김이박최정강조윤장임한오서신권황안송류전홍".split("");
 /* 이름은 성 22개 × 이름 20개를 섞어 만듭니다. 얼굴을 고를 때 쓰려고 남녀를 나눠 둡니다. */
@@ -345,11 +394,11 @@ const ITEMS={
   slippers:{n:"삼선 슬리퍼",slot:"shoes",kind:"inst",dodge:5,crit:3,d:"회피 5%, 치명 +3%"},
   /* ── 총기 · 군인/경찰대학생 전용 ── */
   pistol:{n:"권총",slot:"rh",kind:"perm",atk:8,aspdM:1.25,rng:9,dmg:DMG.PIERCE,style:"gun",
-          req:GUN_MAJORS,ammo:"pistol",d:"공격력 +8, 공속 +25%, 사거리 +9 · 관통 · 군인·경찰대학생 전용"},
+          req:GUN_MAJORS,ammo:"pistol",d:"공격력 +8, 공속 +25%, 사거리 +9 · 관통"},
   shotgun:{n:"진압용 산탄총",slot:"rh",kind:"perm",atk:16,aspdM:0.70,rng:6,dmg:DMG.PIERCE,style:"gun",
-          req:GUN_MAJORS,ammo:"shotgun",d:"공격력 +16, 공속 −30%, 사거리 +6 · 관통 · 군인·경찰대학생 전용"},
+          req:GUN_MAJORS,ammo:"shotgun",d:"공격력 +16, 공속 −30%, 사거리 +6 · 관통"},
   rifle:{n:"소총",slot:"rh",kind:"perm",atk:12,aspdM:1.0,rng:12,dmg:DMG.PIERCE,style:"gun",
-          req:GUN_MAJORS,ammo:"rifle",d:"공격력 +12, 사거리 +12 · 관통 · 군인·경찰대학생 전용"},
+          req:GUN_MAJORS,ammo:"rifle",d:"공격력 +12, 사거리 +12 · 관통"},
   /* ── 탄약 · 가방 칸을 차지하지 않고 본부에 쌓입니다 ── */
   ammoP:{n:"권총 탄약",kind:"ammo",ammo:"pistol",qty:12,price:15,d:"권총 12발"},
   ammoS:{n:"산탄총 탄약",kind:"ammo",ammo:"shotgun",qty:6,price:18,d:"산탄총 6발"},
@@ -546,11 +595,16 @@ const INSTANTS=[
   {k:"m_chem",   maj:"chem",   n:"약품 조제", br:"mix",  v:10, d:"공격력·공격 속도 +10%",     f:u=>{u.atk*=1.10;u.aspd*=1.10}},
   {k:"m_phil",   maj:"phil",   n:"설득",     br:"hp",   v:20, d:"최대 체력 +20",            f:u=>{u.maxHp+=20;u.hp+=20}},
   {k:"m_pe",     maj:"pe",     n:"기초 체력", br:"hp",   v:25, d:"최대 체력 +25",            f:u=>{u.maxHp+=25;u.hp+=25}},
-  {k:"m_med",    maj:"med",    n:"응급 처치", br:"heal", v:25, d:"전투 시작마다 체력 25 회복", f:u=>u.hp=Math.min(u.maxHp,u.hp+25)},
+  {k:"m_med",    maj:"nurse",  n:"응급 처치", br:"heal", v:25, d:"전투 시작마다 체력 25 회복", f:u=>u.hp=Math.min(u.maxHp,u.hp+25)},
   {k:"m_cs",     maj:"cs",     n:"조준 보정", br:"rng",  v:3,  d:"공격 사거리 +3",           f:u=>u.range+=3},
   {k:"m_dance",  maj:"dance",  n:"스텝",     br:"dodge",v:12, d:"이동 +12%, 회피 +9%",      f:u=>{u.vspeed*=1.12;u.dodge+=9}},
   {k:"m_arch",   maj:"arch",   n:"구조 파악", br:"guard",v:2,  d:"받는 피해 −2, 이동 +3%",    f:u=>{u.guard+=2;u.vspeed*=1.03}},
   {k:"m_lib",    maj:"lib",    n:"약점 기록", br:"atk",  v:14, d:"공격력 +14%",              f:u=>u.atk*=1.14},
+  /* 적수공권만은 파티 전원이 아니라, 양손이 빈 태권도학과 대원에게만 걸립니다.
+     u.ref 가 그 대원이고, hasW/hasS 는 오른손·왼손에 뭔가 들었는지입니다. */
+  {k:"m_tkd",    maj:"tkd",    n:"적수공권", br:"mix",  v:25,
+     d:"양손이 빈 태권도학과 대원만 · 공격력 +25%, 공격 속도 +10%",
+     f:u=>{if(u.ref&&u.ref.major==="tkd"&&!u.hasW&&!u.hasS){u.atk*=1.25;u.aspd*=1.10}}},
 ];
 const skillOf=k=>INSTANTS.find(s=>s.k===k);
 /* 지금까지 쌓인 갈래별 수치. 상위 스킬이 선행을 대체하므로 겹쳐 세지 않습니다 */
@@ -636,11 +690,19 @@ function rollStudent(){
   return s;
 }
 
+/* 지원자는 한 명씩 명단에 얹어 가며 뽑습니다.
+   세 명을 한꺼번에 만들면 서로의 초상을 못 봐서 같은 얼굴이 겹칩니다. */
+function rollApplicants(n){
+  G.applicants=[];
+  for(let i=0;i<n;i++)G.applicants.push(rollStudent());
+  return G.applicants;
+}
+
 const FACILITIES=[
   {id:"office",ic:"💰",n:"행정실",d:"주워온 잡화를 골드로 바꿉니다",
    cond:g=>g.explores>=1,prog:g=>`탐색 ${Math.min(g.explores,1)} / 1회`,
    msg:"행정실에 불이 켜졌습니다. 게이트에서 가져온 물건을 학교가 값을 쳐서 사들이겠다고 합니다."},
-  {id:"shop",ic:"🏪",n:"교내매점",d:"학생회가 돈 되는 물건은 다 팝니다",
+  {id:"shop",ic:"🏪",n:"창고 겸 학생회 매점",d:"학생회가 돈 되는 물건은 다 팝니다",
    cond:g=>g.goldEarned>=25,prog:g=>`누적 골드 ${Math.min(g.goldEarned,25)} / 25`,
    msg:"학생회가 매점 셔터를 올렸습니다.<br><br>매점은 생각보다 다양한 물품을 팔고 있습니다. 학생회는 돈 되는 물건이면 무엇이든 팔 생각입니다."},
   {id:"adm",ic:"📋",n:"입학처",d:"신입생을 모집합니다",
@@ -658,7 +720,7 @@ const FACILITIES=[
    onUnlock:()=>{                       // 다친 사람을 대신할 지원자가 무료로 합류한다
      const v=rollStudent();
      logAdd(v,"자원 입학");
-     G.roster.push(v);G.recruited++;G.freeRecruit=v;
+     claimFace(v);G.roster.push(v);G.recruited++;G.freeRecruit=v;
    }},
   {id:"arcade",ic:"🕹",n:"게임장",d:"거미 잡기와 별 줍기 · 상금 있음",
    cond:g=>g.explores>=1,prog:g=>`탐색 ${Math.min(g.explores,1)} / 1회`,
@@ -666,11 +728,22 @@ const FACILITIES=[
   {id:"tower",ic:"🗿",n:"메모리얼 홀",d:"돌아오지 못한 사람들의 기록",
    cond:g=>g.deaths>=1,prog:g=>`첫 사망자가 나오면 열림`,
    msg:"운동장 한쪽에 이름을 새길 자리를 만들었습니다.<br><br>돌아오지 못한 사람들의 기록이 여기 남습니다."},
-  {id:"lib",ic:"📚",n:"도서관",d:`전공 선택 · Lv ${MAJOR_LV}부터`,
-   cond:g=>g.recruited>=3,prog:g=>`입학생 ${Math.min(g.recruited,3)} / 3명`,
-   msg:"도서관 서고가 열렸습니다.<br><br>Lv 3이 된 학생부터 전공을 정할 수 있습니다. 군인과 경찰대학생만 총을 다룰 수 있습니다."},
+  /* 학과사무실 — 건물마다 하나씩, 그 건물의 전공만 배정합니다.
+     major 칸이 있는 시설은 전공 배정 화면으로 넘어갑니다. */
+  {id:"deptArts",ic:"🥋",n:"학과사무실",d:"태권도학과 전공 배정",major:"tkd",
+   cond:g=>topLvl(g)>=MAJOR_LV,prog:g=>`Lv ${MAJOR_LV} 대원이 나오면 열림 (현재 최고 Lv ${topLvl(g)})`,
+   msg:"예체능대학 학과사무실이 문을 열었습니다.<br><br>도장은 비었지만 매트는 남아 있습니다. 태권도학과 전공을 정할 수 있습니다."},
+  {id:"deptMed",ic:"💉",n:"학과사무실",d:"간호학과 전공 배정",major:"nurse",
+   cond:g=>topLvl(g)>=MAJOR_LV,prog:g=>`Lv ${MAJOR_LV} 대원이 나오면 열림 (현재 최고 Lv ${topLvl(g)})`,
+   msg:"의학대학 학과사무실이 문을 열었습니다.<br><br>실습실 옆방입니다. 간호학과 전공을 정할 수 있습니다."},
+  {id:"deptRotc",ic:"🎖",n:"학과사무실",d:"군사학 전공 배정",major:"mil",
+   cond:g=>!!g.gunHome&&topLvl(g)>=MAJOR_LV,
+   prog:g=>!g.gunHome?"게이트에서 총기를 가지고 살아 돌아오면 열림"
+                     :`Lv ${MAJOR_LV} 대원이 나오면 열림 (현재 최고 Lv ${topLvl(g)})`,
+   msg:"총기를 들고 돌아오자 ROTC 건물의 잠금이 풀렸습니다.<br><br>군사학 전공을 정할 수 있습니다. 총을 다루려면 이 전공이 필요합니다."},
 ];
-const FAC_SCENE={office:"office",shop:"shop",adm:"admissions",union:"union",clinic:"clinic",tower:"tower",arcade:"arcade",lib:"library"};
+const FAC_SCENE={office:"office",shop:"shop",adm:"admissions",union:"union",clinic:"clinic",tower:"tower",arcade:"arcade",
+                 deptArts:"dept",deptMed:"dept",deptRotc:"dept"};
 
 /* ═══════════ 시설 담당자 ═══════════
    first — 그 시설에 처음 들어갈 때 한 번. 줄 단위로 넘깁니다.
@@ -685,7 +758,7 @@ const NPCS={
     again:["가져온 게 있나. 값은 쳐주지.",
            "요즘은 안쪽 물건이라면 뭐든 팔린다네.",
            "장부는 내가 맞출 테니 자네는 들고 오기만 하게."]},
-  shop:{n:"매점 총무",role:"교내매점",ic:"🏪",
+  shop:{n:"매점 총무",role:"창고 겸 학생회 매점",ic:"🏪",
     first:["학생회에서 나왔습니다. 재고는 제가 관리해요.",
            "돈 되는 물건이면 뭐든 들여옵니다. 총알도요.",
            "외상은 안 됩니다. 그건 학생회장이 정한 겁니다."],
@@ -710,11 +783,21 @@ const NPCS={
            "기계마다 다녀올 때 한 번씩만 상금이 나갑니다.",
            "돈 딸 생각은 마세요. 그 정도는 아닙니다."],
     again:["한 판 하시게요?","오늘 상금은 아직 남아 있습니다.","기록은 갱신하셨습니까?"]},
-  lib:{n:"사서",role:"도서관",ic:"📚",
-    first:["Lv 3이 되면 전공을 정할 수 있습니다.",
-           "한 번 정하면 못 바꿉니다. 신중히 고르세요.",
-           "총을 들고 싶다면 군인이나 경찰대학생이어야 합니다."],
-    again:["전공 정하실 분 있습니까?","한 번 정하면 끝입니다.","서고는 늘 열려 있습니다."]},
+  deptArts:{n:"태권도부 사범",role:"예체능대학 학과사무실",ic:"🥋",
+    first:["도장은 비었습니다. 매트만 남았죠.",
+           "몸으로 부딪치는 걸 배우고 싶으면 여기로 오세요.",
+           "무기가 부러져도 팔다리는 안 부러집니다."],
+    again:["태권도학과, 정하실 분 있습니까?","매트는 늘 깔려 있습니다."]},
+  deptMed:{n:"간호학과 조교",role:"의학대학 학과사무실",ic:"💉",
+    first:["실습실 옆방입니다. 교수님들은 안 돌아오셨습니다.",
+           "간호학과는 사람을 살리는 걸 먼저 배웁니다.",
+           "돌아오는 게 이기는 겁니다."],
+    again:["간호학과 지원, 받고 있습니다.","다친 사람 있으면 데려오세요."]},
+  deptRotc:{n:"학군단 교관",role:"ROTC 학과사무실",ic:"🎖",
+    first:["총을 들고 왔더군요. 그래서 문을 열었습니다.",
+           "군사학은 총을 다루는 법부터 가르칩니다.",
+           "탄약은 알아서 구해 오십시오. 여긴 창고가 아닙니다."],
+    again:["군사학, 정하실 분 있습니까?","총은 다룰 줄 아는 사람만 듭니다."]},
   tower:{n:"관리인",role:"메모리얼 홀",ic:"🕯",
     first:["여기 이름을 새깁니다.",
            "돌아오지 못한 사람들의 기록만 남습니다.",
@@ -734,7 +817,7 @@ function npcBar(id){
   return `<div class="npcbar">${npcFace(id,1)}<div class="line"><b>${NPCS[id].n}</b><span>${G.npcSay}</span></div></div>`;
 }
 function enterFac(id){
-  if(id==="adm"&&!G.applicants)G.applicants=[rollStudent(),rollStudent(),rollStudent()];
+  if(id==="adm"&&!G.applicants)rollApplicants(3);
   openFacility(id);
 }
 /* 시설은 전부 이 함수를 거칩니다. 첫 방문이면 대사 화면, 이후엔 한 줄 인사만 붙습니다. */
@@ -747,14 +830,16 @@ function openFacility(id){
   }
   G.talkFor=id;G.talkLine=0;G.talkNext=dest;G.scene="talk";render();
 }
-const CAMPUS_SCENES=["campus","hall","office","shop","admissions","union","gates","soon","tower","clinic","arcade","spidergame","stargame","huntgame","spiderend","starend","huntend","library"];
+const CAMPUS_SCENES=["campus","hall","office","shop","admissions","union","gates","soon","tower","clinic","arcade","spidergame","stargame","huntgame","spiderend","starend","huntend","dept"];
 
 /* ═══════════ 그림 ═══════════
    그림은 전부 art 폴더에 둡니다. 빈 칸("")이면 지금처럼 이모지나 글자로 나옵니다.
    파일을 만들어 넣고 아래 표에 이름만 적으면 그 자리에 바로 붙습니다. */
 const ART="art/";
-const NPC_ART={office:"",shop:"",adm:"",union:"",clinic:"",arcade:"",lib:"",tower:"",work:""};
-const FAC_ART={office:"",shop:"",adm:"",union:"",clinic:"",arcade:"",lib:"",tower:"",work:"",gate:""};
+const NPC_ART={office:"npc/office.webp",shop:"npc/shop.webp",adm:"",union:"",clinic:"",arcade:"",tower:"",work:"",
+               deptArts:"",deptMed:"",deptRotc:""};
+const FAC_ART={office:"",shop:"",adm:"",union:"",clinic:"",arcade:"",tower:"",work:"",gate:"",
+               deptArts:"",deptMed:"",deptRotc:""};
 const CAMPUS_ART="campus.webp";
 /* 건물 안 화면의 배경. 빈 칸이면 배경 없이 지금처럼 나옵니다. */
 const BLD_ART={main:"bld/main.webp",med:"bld/med.webp",arts:"bld/arts.webp",
@@ -764,13 +849,13 @@ const BLD_ART={main:"bld/main.webp",med:"bld/med.webp",arts:"bld/arts.webp",
    box는 그림 기준 백분율 [왼쪽, 위, 오른쪽, 아래]. 그림을 바꾸면 이 숫자만 다시 재면 됩니다.
    facs가 비면 아직 쓰임을 정하지 않은 건물, null이면 게이트입니다. */
 const BUILDINGS=[
-  {id:"arts",  n:"예체능대학",   box:[26.7, 7.4,45.5,10.6], facs:["arcade"]},
-  {id:"rotc",  n:"ROTC",        box:[60.5, 6.8,77.7,10.9], facs:[]},
-  {id:"human", n:"인문사회대학", box:[17.7,23.4,38.5,27.1], facs:["lib"]},
+  {id:"arts",  n:"예체능대학",   box:[26.7, 7.4,45.5,10.6], facs:["arcade","deptArts"]},
+  {id:"rotc",  n:"ROTC",        box:[60.5, 6.8,77.7,10.9], facs:["deptRotc"]},
+  {id:"human", n:"인문사회대학", box:[17.7,23.4,38.5,27.1], facs:[]},   /* 학과사무실 미정 */
   {id:"edu",   n:"사범대학",     box:[66.1,23.9,84.8,27.5], facs:[]},
   {id:"field", n:"대운동장",     box:[38.5,39.2,60.4,42.9], facs:["union"]},
   {id:"sci",   n:"이공대학",     box:[ 8.0,53.5,32.4,57.3], facs:["work"]},
-  {id:"med",   n:"의학대학",     box:[74.7,53.2,92.8,56.8], facs:["clinic","tower"]},
+  {id:"med",   n:"의학대학",     box:[74.7,53.2,92.8,56.8], facs:["clinic","deptMed","tower"]},
   {id:"main",  n:"본관",        box:[47.5,66.6,63.8,70.6], facs:["office","shop","adm"]},
   {id:"gate",  n:"정문",        box:[46.0,82.7,60.7,86.5], facs:null},
 ];
@@ -781,19 +866,65 @@ const bldOpen=b=>b.facs===null||b.facs.some(id=>facOf(id).cond(G));
    열쇠는 "성별-스탯"(예: m-str). 그 칸이 비면 "m"/"f"로, 그것도 없으면 빈 자리로 나옵니다.
    스탯 열쇠: vit 체력 · str 힘 · spd 속도 · agi 순발력 · luk 운 · maj 전공활용 */
 const FACE_ART={
-  m:[], f:[],
-  "m-vit":[], "m-str":[], "m-spd":[], "m-agi":[], "m-luk":[], "m-maj":[],
-  "f-vit":[], "f-str":[], "f-spd":[], "f-agi":[], "f-luk":[], "f-maj":[],
+  m:[], f:[],                       /* 스탯을 안 가리는 공용 초상 */
+  "m-vit":["face/m-vit-1.webp"], "m-str":[], "m-spd":["face/m-spd-1.webp"],
+  "m-agi":[], "m-luk":[], "m-maj":[],
+  "f-vit":[], "f-str":[], "f-spd":["face/f-spd-1.webp"],
+  "f-agi":[], "f-luk":[], "f-maj":[],
+  /* 줄 초상이 다 떨어졌을 때 쓰는 얼굴 없는 그림. 여럿이 같이 써도 됩니다 */
+  anon:{m:"face/m-anon.webp", f:"face/f-anon.webp"},
 };
 const topStat=st=>Object.keys(st).reduce((a,b)=>st[b]>st[a]?b:a);
+const isAnon=f=>f===FACE_ART.anon.m||f===FACE_ART.anon.f;
+/* 이미 나간 초상은 다시 주지 않습니다.
+   지원자 명단에 걸려 있는 것도 그동안은 빼둡니다(같은 얼굴 셋이 나란히 서지 않게). */
+function facesTaken(){
+  const t=new Set((G&&G.facesUsed)||[]);
+  for(const r of (G&&G.applicants)||[])if(r&&r.face)t.add(r.face);
+  return t;
+}
 function pickFace(sex,st){
-  const pool=(FACE_ART[sex+"-"+topStat(st)]||[]).concat([]);
-  const list=pool.length?pool:(FACE_ART[sex]||[]);
-  return list.length?list[(Math.random()*list.length)|0]:"";
+  const t=facesTaken();
+  const free=a=>(a||[]).filter(f=>!t.has(f));
+  const pool=free(FACE_ART[sex+"-"+topStat(st)]);
+  const list=pool.length?pool:free(FACE_ART[sex]);
+  if(list.length)return list[(Math.random()*list.length)|0];
+  return FACE_ART.anon[sex]||"";     // 남은 초상이 없으면 어나니머스
+}
+/* 명단에 들어오는 순간 그 초상을 쓴 것으로 적어 둡니다 */
+function claimFace(p){
+  if(!p||!p.face||isAnon(p.face))return;
+  G.facesUsed=G.facesUsed||[];
+  if(!G.facesUsed.includes(p.face))G.facesUsed.push(p.face);
 }
 const faceTag=p=>p&&p.face
   ?`<img class="pf" src="${artUrl(p.face)}" alt="">`
   :`<span class="pf none"></span>`;
+
+/* 몬스터 그림 — 옆모습 한 장, 머리가 오른쪽을 보도록 그립니다.
+   빈 칸이면 지금까지처럼 도형으로 그립니다. 한 마리씩 채워 넣어도 됩니다. */
+const FOE_ART={worm:"foe/worm.webp",hopper:"foe/hopper.webp",mantis:"foe/mantis.webp",spider:"",
+               bloodeyes:"",zombie:"",zomb:""};
+/* "○○Fly"는 그 몬스터가 날아오를 때 쓰는 그림입니다.
+   메뚜기 두 장은 눈을 한가운데 두고 같은 배율로 맞춰 두었으므로,
+   같은 자리에 같은 크기로 그리면 몸은 그대로 있고 날개만 펴집니다. */
+FOE_ART.hopperFly="foe/hopperFly.webp";
+const SPR={};
+/* 다 읽히기 전에는 null을 돌려주고, 그동안은 도형으로 그립니다 */
+function sprite(key){
+  const rel=FOE_ART[key];
+  if(!rel)return null;
+  let s=SPR[key];
+  if(s===undefined){
+    s=new Image();s.ok=false;
+    s.onload=()=>{s.ok=true};
+    s.onerror=()=>{s.ok=false};
+    s.src=artUrl(rel);
+    SPR[key]=s;
+  }
+  return s.ok?s:null;
+}
+const preloadFoes=keys=>{for(const k of new Set(keys)){sprite(k);sprite(k+"Fly")}};
 
 const ITEM_ART={        /* 아이템 아이콘 — 만든 것부터 한 줄씩 채우면 됩니다 */
   ladle:"item/ladle.webp",
@@ -806,6 +937,9 @@ const ITEM_ART={        /* 아이템 아이콘 — 만든 것부터 한 줄씩 �
   boots:"item/boots.webp",
   sneakers:"item/sneakers.webp",
   slippers:"item/slippers.webp",
+  snack:"item/snack.webp",
+  track:"item/track.webp",
+  spray:"item/spray.webp",
 };
 const artUrl=v=>v?ART+v:"";
 /* 그림이 아직 없는 아이템도 같은 크기의 빈 자리를 남깁니다.
@@ -1022,13 +1156,13 @@ let G,feed=[];
 function bootGame(){migrateSave();G={scene:"title"};feed=[];render()}
 function newGame(slot){
   const base={vit:10,maj:10,str:10,spd:10,agi:10,luk:10};
-  const p={name:"이경호",sex:"m",face:"face/lee.webp",lvl:1,exp:0,major:null,stats:{...base},base:{...base},
+  const p={name:"이경호",sex:"m",face:"face/lee.webp",   /* 주인공은 전용 초상 */lvl:1,exp:0,major:null,stats:{...base},base:{...base},
            gear:emptyGear(),bag:[],points:1,inParty:true,log:["첫 게이트 진입"]};
   p.hp=derive(p).maxHp;
   G={slot:(slot===undefined?curSlot():slot),scene:"intro",introLine:0,gold:0,mode:"tutorial",
-     explores:0,goldEarned:0,deaths:0,recruited:0,woundedReturn:false,
+     explores:0,goldEarned:0,deaths:0,recruited:0,woundedReturn:false,gunHome:false,
      day:1,instants:[],offer:null,here:null,fought:false,announced:[],
-     store:{},loot:{},ground:[],memorial:[],sel:null,ammo:{pistol:0,shotgun:0,rifle:0},gunSeen:{pistol:false,shotgun:false,rifle:false},itemSeen:{},arcadeBest:0,starBest:0,huntBest:0,
+     store:{},loot:{},ground:[],memorial:[],sel:null,invSel:null,rowSel:null,facesUsed:[],ammo:{pistol:0,shotgun:0,rifle:0},gunSeen:{pistol:false,shotgun:false,rifle:false},itemSeen:{},arcadeBest:0,starBest:0,huntBest:0,
      beds:1,hallId:null,mapMsg:null,shopWho:0,stripMsg:null,metNpc:{},npcSay:null,npcSayFor:null,talkFor:null,talkLine:0,talkNext:null,appraisal:null,
      player:p,roster:[],applicants:null,lastGain:null};
   feed=[];render();
@@ -1274,6 +1408,7 @@ function rollEncounter(day,risk,party){
 function startBattle(list,keys){
   G.fought=true;
   clearPaths();
+  preloadFoes(keys.concat(["zomb"]));   /* 좀비화에 대비해 무리도 같이 */
   B={ammo:{...G.ammo},allies:list.map((p,i)=>makeFighter(p,i,list.length)),
      foes:keys.map((k,i)=>makeEnemy(k,i,G.day)),fx:[],shots:[],fallen:[],over:false};
   feed=[];
@@ -1512,29 +1647,78 @@ function drawFoe(f){
   const bx=Math.cos(f.face),by=Math.sin(f.face);
   const col=f.flash>0?"#fff":f.color;
   if(f.key==="worm"){
-    const su=f.surge||0,gap=r*(.55+.55*su),fat=1+(1-su)*.22;
-    for(let i=2;i>=0;i--){
-      const w=Math.sin((f.wig||0)-i*.7)*1.5*(0.4+su);
-      ctx.beginPath();
-      ctx.arc(x-bx*i*gap-by*w,y-by*i*gap+bx*w,(r-i*r*.15)*fat,0,7);
-      ctx.fillStyle=f.flash>0?"#fff":(i===0?f.color:"#7E9E3C");ctx.fill();
+    const sp=sprite("worm");
+    const su=f.surge||0;
+    if(sp){
+      /* 그림 한 장을 세로로 잘게 썰어, 조각마다 어긋나게 그립니다.
+         surge(0 웅크림 ~ 1 뻗음)로 길이를 줄였다 늘이고,
+         머리에서 꼬리로 흐르는 사인파로 몸을 물결치게 합니다.
+         판정 반지름 f.r 은 건드리지 않습니다 — 그림만 커집니다. */
+      const N=20, sw=sp.width/N;
+      const L=r*4.4;                     // 다 뻗었을 때의 몸 길이
+      const HEAD=0.36;                   // 앞 36%는 딱딱한 머리 — 접히지 않는다
+      const sq=0.60+0.40*su;             // 몸통만 이만큼 접힌다
+      const back=1-HEAD;
+      const mapU=u=>u>=back?u:back-(back-u)*sq;   // 꼬리 쪽만 끌어당긴다
+      const hx=r*1.15;                   // 머리는 판정 원보다 조금 앞
+      const wg=f.wig||0, amp=r*0.42*(0.25+su*0.9);
+      ctx.save();
+      ctx.translate(x,y);ctx.rotate(f.face);
+      if(f.flash>0)ctx.filter="brightness(0) invert(1)";   // 맞으면 하얗게
+      for(let i=0;i<N;i++){
+        const u=i/N, un=(i+1)/N;         // 0 꼬리 ~ 1 머리
+        const a=mapU(u),b=mapU(un);
+        const t=Math.max(0,(back-u)/back);          // 머리 0 ~ 꼬리 1
+        const dy=Math.sin(wg*1.7-(1-u)*5.4)*amp*t;  // 머리에서 꼬리로 흐르는 물결
+        const H=r*2.5*(1+(1-su)*0.20*t);            // 접힌 만큼 몸통이 통통해진다
+        ctx.drawImage(sp, i*sw,0, sw,sp.height,
+          hx-L+a*L, dy-H/2, (b-a)*L*1.10, H);
+      }
+      ctx.restore();
+    }else{
+      const gap=r*(.55+.55*su),fat=1+(1-su)*.22;
+      for(let i=2;i>=0;i--){
+        const w=Math.sin((f.wig||0)-i*.7)*1.5*(0.4+su);
+        ctx.beginPath();
+        ctx.arc(x-bx*i*gap-by*w,y-by*i*gap+bx*w,(r-i*r*.15)*fat,0,7);
+        ctx.fillStyle=f.flash>0?"#fff":(i===0?f.color:"#7E9E3C");ctx.fill();
+      }
+      ctx.fillStyle=f.flash>0?"#fff":"#3A4A22";
+      ctx.beginPath();ctx.arc(x+bx*r*.45-by*r*.3,y+by*r*.45+bx*r*.3,r*.16,0,7);ctx.fill();
     }
-    ctx.fillStyle=f.flash>0?"#fff":"#3A4A22";
-    ctx.beginPath();ctx.arc(x+bx*r*.45-by*r*.3,y+by*r*.45+bx*r*.3,r*.16,0,7);ctx.fill();
   }else if(f.key==="hopper"){
     const j=f.air>0?Math.sin((1-f.air/HOP_AIR)*Math.PI):0;
     const crouch=f.air>0?0:Math.max(0,1-(f.hopCd||0)/.35);
-    if(j>0.02){ctx.fillStyle="rgba(0,0,0,.35)";
-      ctx.beginPath();ctx.ellipse(x,y,r*.9*(1-j*.3),r*.5*(1-j*.3),0,0,7);ctx.fill()}
-    ctx.save();ctx.translate(x,y-j*r*1.6);ctx.rotate(f.face);ctx.scale(1+j*.12,1+j*.12);
-    const spread=j>0?r*.9:-crouch*r*.35;
-    ctx.strokeStyle=col;ctx.lineWidth=2.2;ctx.lineCap="round";
-    ctx.beginPath();ctx.moveTo(-r*.3,-r*.5);ctx.lineTo(-r*1.2,-r*1.0-spread);ctx.lineTo(-r*.3,-r*1.5-spread*.5);ctx.stroke();
-    ctx.beginPath();ctx.moveTo(-r*.3,r*.5);ctx.lineTo(-r*1.2,r*1.0+spread);ctx.lineTo(-r*.3,r*1.5+spread*.5);ctx.stroke();
-    ctx.beginPath();ctx.ellipse(0,0,r*1.15*(1-crouch*.12),r*.72*(1+crouch*.15),0,0,7);
-    ctx.fillStyle=col;ctx.fill();
-    ctx.beginPath();ctx.arc(r*.8,0,r*.3,0,7);ctx.fillStyle=f.flash>0?"#fff":"#EFD98A";ctx.fill();
-    ctx.restore();
+    const flying=j>0.02;
+    const spH=sprite("hopper"), spF=flying?sprite("hopperFly"):null;
+    const sp=spF||spH;
+    if(flying){                              // 뜬 만큼 그림자가 작아진다
+      ctx.fillStyle="rgba(0,0,0,.35)";
+      ctx.beginPath();ctx.ellipse(x,y,r*.9*(1-j*.3),r*.5*(1-j*.3),0,0,7);ctx.fill();
+    }
+    if(sp){
+      const S=r*5.0*(1+j*0.20);              // 높이 뜰수록 커 보인다
+      const flap=flying?1+Math.sin((f.wig||0)*7)*0.06:1;   // 날개 파닥임
+      ctx.save();
+      ctx.translate(x,y-j*r*1.7);            // 화면상 위로 뜬다
+      ctx.rotate(f.face);
+      ctx.translate(r*0.9,0);                // 눈이 판정 원보다 조금 앞
+      /* 웅크리면 앞뒤로 짧아지고 옆으로 퍼집니다 */
+      ctx.scale(1-crouch*0.22,(1+crouch*0.18)*flap);
+      if(f.flash>0)ctx.filter="brightness(0) invert(1)";
+      ctx.drawImage(sp,-S/2,-S/2,S,S);
+      ctx.restore();
+    }else{
+      ctx.save();ctx.translate(x,y-j*r*1.6);ctx.rotate(f.face);ctx.scale(1+j*.12,1+j*.12);
+      const spread=j>0?r*.9:-crouch*r*.35;
+      ctx.strokeStyle=col;ctx.lineWidth=2.2;ctx.lineCap="round";
+      ctx.beginPath();ctx.moveTo(-r*.3,-r*.5);ctx.lineTo(-r*1.2,-r*1.0-spread);ctx.lineTo(-r*.3,-r*1.5-spread*.5);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(-r*.3,r*.5);ctx.lineTo(-r*1.2,r*1.0+spread);ctx.lineTo(-r*.3,r*1.5+spread*.5);ctx.stroke();
+      ctx.beginPath();ctx.ellipse(0,0,r*1.15*(1-crouch*.12),r*.72*(1+crouch*.15),0,0,7);
+      ctx.fillStyle=col;ctx.fill();
+      ctx.beginPath();ctx.arc(r*.8,0,r*.3,0,7);ctx.fillStyle=f.flash>0?"#fff":"#EFD98A";ctx.fill();
+      ctx.restore();
+    }
   }else if(f.key==="spider"){
     ctx.save();ctx.translate(x,y);ctx.rotate(f.face);
     ctx.strokeStyle=col;ctx.lineWidth=2.1;ctx.lineCap="round";
@@ -1630,15 +1814,31 @@ function drawFoe(f){
     ctx.fillStyle="rgba(242,215,78,.9)";ctx.font="800 9px system-ui";ctx.textAlign="center";
     ctx.fillText("BOSS",x,y-r-12);
   }else{
-    ctx.save();ctx.translate(x,y);ctx.rotate(f.face);
-    const sw=Math.sin(f.wig*1.1)*0.28;
-    ctx.strokeStyle=col;ctx.lineWidth=3;ctx.lineCap="round";
-    for(const s of [-1,1]){ctx.save();ctx.rotate(s*(0.5+sw));
-      ctx.beginPath();ctx.moveTo(r*.4,0);ctx.lineTo(r*1.5,0);ctx.lineTo(r*1.9,-s*r*.7);ctx.stroke();
-      ctx.restore()}
-    ctx.beginPath();ctx.ellipse(-r*.2,0,r*1.05,r*.66,0,0,7);ctx.fillStyle=col;ctx.fill();
-    ctx.beginPath();ctx.arc(r*.75,0,r*.42,0,7);ctx.fillStyle=f.flash>0?"#fff":"#8FE0BC";ctx.fill();
-    ctx.restore();
+    const sp=sprite(f.key);
+    if(sp){
+      /* 낫을 내리칠 때(strike) 앞으로 튀어나가고, 평소에는 좌우로 천천히 흔들립니다 */
+      const st=f.strike>0?Math.sin((1-Math.max(0,f.strike)/.24)*Math.PI):0;
+      const sway=Math.sin((f.wig||0)*0.9)*0.05*(1-st);
+      const S=r*4.6;
+      ctx.save();
+      ctx.translate(x,y);
+      ctx.rotate(f.face+sway);
+      ctx.translate(st*r*0.55,0);            // 찌를 때 앞으로
+      ctx.scale(1+st*0.10,1-st*0.06);
+      if(f.flash>0)ctx.filter="brightness(0) invert(1)";
+      ctx.drawImage(sp,-S/2,-S/2,S,S);
+      ctx.restore();
+    }else{
+      ctx.save();ctx.translate(x,y);ctx.rotate(f.face);
+      const sw=Math.sin(f.wig*1.1)*0.28;
+      ctx.strokeStyle=col;ctx.lineWidth=3;ctx.lineCap="round";
+      for(const s of [-1,1]){ctx.save();ctx.rotate(s*(0.5+sw));
+        ctx.beginPath();ctx.moveTo(r*.4,0);ctx.lineTo(r*1.5,0);ctx.lineTo(r*1.9,-s*r*.7);ctx.stroke();
+        ctx.restore()}
+      ctx.beginPath();ctx.ellipse(-r*.2,0,r*1.05,r*.66,0,0,7);ctx.fillStyle=col;ctx.fill();
+      ctx.beginPath();ctx.arc(r*.75,0,r*.42,0,7);ctx.fillStyle=f.flash>0?"#fff":"#8FE0BC";ctx.fill();
+      ctx.restore();
+    }
     ctx.fillStyle="rgba(242,215,78,.9)";ctx.font="800 9px system-ui";ctx.textAlign="center";
     ctx.fillText("BOSS",x,y-r-12);
   }
@@ -1771,15 +1971,6 @@ function takeAllGround(list){
   }
   G.sel=null;
 }
-function eatFromGround(p,idx){
-  const it=ITEMS[G.ground[idx].id];
-  if(!it.use)return;
-  markSeen(G.ground[idx].id);
-  const m=derive(p).maxHp;
-  if(p.hp>=m)return;
-  p.hp=Math.min(m,p.hp+it.use.hp);
-  G.ground.splice(idx,1);G.sel=null;
-}
 function takeToBag(p,idx){
   if(bagRoom(p)<=0)return false;
   const id=G.ground[idx].id, it=ITEMS[id];
@@ -1798,16 +1989,25 @@ function tryGear(p,fn){
   return true;
 }
 const GEAR_LOW="체력이 적어 아이템을 해제할 수 없습니다";
+const GEAR_MAJ="전공이 적합하지 않습니다";
+/* 화면을 다시 그려도 남도록 body 에 직접 띄웁니다 */
+function toast(t){
+  const d=document.createElement("div");
+  d.className="toast";d.textContent=t;
+  document.body.appendChild(d);
+  setTimeout(()=>d.remove(),2400);
+}
+/* 성공하면 null, 못 들면 까닭을 돌려줍니다 */
 function equipFromBag(p,bagIdx){
   const id=p.bag[bagIdx],it=ITEMS[id];
-  if(!it.slot)return true;
-  if(!canUse(p,it))return true;     // 전공이 맞아야 든다
+  if(!it.slot)return null;
+  if(!canUse(p,it))return GEAR_MAJ;     // 총기는 전공이 맞아야 든다
   return tryGear(p,()=>{
     const old=p.gear[it.slot];
     p.bag.splice(bagIdx,1);
     p.gear[it.slot]=id;
     if(old)p.bag.push(old);
-  });
+  })?null:GEAR_LOW;
 }
 function useItem(p,bi){
   const it=ITEMS[p.bag[bi]];
@@ -2333,51 +2533,75 @@ function invPanel(p,pi,mode,group){
   const warn=G.gearMsg&&G.gearMsg.pi===pi?`<div class="tag" style="margin-top:8px;color:var(--bad)">${G.gearMsg.t}</div>`:"";
   const atBase=CAMPUS_SCENES.indexOf(G.scene)>=0;   // 창고는 본진에서만 닿습니다
   const mates=(group||[]).filter(r=>r!==p);
+  /* 그림이 커지면서 글자리가 좁아졌습니다. 그래서 버튼은 평소에 숨겨 두고,
+     줄을 누른 그 줄에서만 아래에 한 줄로 펼칩니다. */
+  const on=k=>G.invSel===k;
   const slots=SLOTS.map(s=>{
     const it=ITEMS[p.gear[s.k]];
-    return `<div class="slot ${it?"has":""}">
+    const k=`${pi}|slot|${s.k}`, act=mode==="manage"&&it;
+    return `<div class="slot ${it?"has":""} ${act?"tap":""} ${on(k)?"open":""}" ${act?`data-sel="${k}"`:""}>
       <span class="sn">${s.n}</span>
-      <span class="si">${it?`${itemIcon(p.gear[s.k])}${it.n} ${kindTag(it)}`:"—"}</span>
-      ${mode==="manage"&&it?`<button class="mini" data-un="${pi}|${s.k}" ${bagRoom(p)<=0?"disabled":""}>내림</button>
-        <button class="mini bad" data-dr="${pi}|slot|${s.k}">버림</button>`:""}
+      <span class="si">${it?`${itemIcon(p.gear[s.k])}${it.n} ${kindTag(it)}<small>${it.d}</small>`:"—"}</span>
+      ${act?`<span class="caret">${on(k)?"▴":"▾"}</span>`:""}
+      ${act&&on(k)?`<div class="acts">
+        <button class="mini" data-un="${pi}|${s.k}" ${bagRoom(p)<=0?"disabled":""}>내림</button>
+        <button class="mini bad" data-dr="${pi}|slot|${s.k}">버림</button></div>`:""}
     </div>`}).join("");
   const bag=p.bag.map((id,bi)=>{
     const it=ITEMS[id];
-    const canWear=!!it.slot;
-    return `<div class="slot has">
+    const canWear=!!it.slot, k=`${pi}|bag|${bi}`, act=mode==="manage";
+    const full=p.hp>=derive(p).maxHp;
+    return `<div class="slot has ${act?"tap":""} ${on(k)?"open":""}" ${act?`data-sel="${k}"`:""}>
       <span class="sn">${it.slot?SLOTS.find(s=>s.k===it.slot).n:"잡화"}</span>
-      <span class="si">${itemIcon(id)}${it.n} ${kindTag(it)}<small>${it.d}</small>
-        ${mode==="manage"&&mates.length?`<span class="mv">${mates.map(o=>
-          `<button class="mini" data-mv="${pi}|${bi}|${G.roster.indexOf(o)}" ${bagRoom(o)<=0?"disabled":""}>${o.name} ▸</button>`).join("")}</span>`:""}
-      </span>
-      ${mode==="manage"?`${canWear?`<button class="mini" data-eq="${pi}|${bi}">착용</button>`:""}
+      <span class="si">${itemIcon(id)}${it.n} ${kindTag(it)}<small>${it.d}</small></span>
+      ${act?`<span class="caret">${on(k)?"▴":"▾"}</span>`:""}
+      ${act&&on(k)?`<div class="acts">
+        ${canWear?`<button class="mini" data-eq="${pi}|${bi}">착용</button>`:""}
+        ${it.use?`<button class="mini" data-use="${pi}|${bi}" ${full?"disabled":""}>먹는다</button>`:""}
         ${atBase?`<button class="mini" data-st="${pi}|${bi}">창고</button>`:""}
-        <button class="mini bad" data-dr="${pi}|bag|${bi}">버림</button>`:""}
+        <button class="mini bad" data-dr="${pi}|bag|${bi}">버림</button>
+        ${mates.map(o=>`<button class="mini" data-mv="${pi}|${bi}|${G.roster.indexOf(o)}" ${bagRoom(o)<=0?"disabled":""}>${o.name} ▸</button>`).join("")}
+      </div>`:""}
     </div>`}).join("");
   return `<div class="inv"><div class="invh">장비</div>${slots}
     <div class="invh">배낭 ${p.bag.length} / ${BAG_MAX}</div>
     ${bag||'<div class="slot"><span class="si" style="color:var(--dim)">비어 있음</span></div>'}</div>${warn}`;
 }
+/* 판매대·창고·감정 줄도 장비칸과 같습니다. 눌러야 버튼이 나옵니다. */
+function bindRows(){
+  el.querySelectorAll("[data-row]").forEach(d=>d.onclick=e=>{
+    if(e.target.closest("button"))return;
+    const k=d.dataset.row;
+    G.rowSel=(G.rowSel===k?null:k);render()});
+}
 function bindInv(){
-  el.querySelectorAll("[data-un]").forEach(b=>b.onclick=()=>{
+  bindRows();
+  /* 줄 아무 데나 눌러 펼칩니다. 안쪽 버튼을 누른 것은 넘깁니다 */
+  el.querySelectorAll("[data-sel]").forEach(d=>d.onclick=e=>{
+    if(e.target.closest("button"))return;
+    const k=d.dataset.sel;
+    G.invSel=(G.invSel===k?null:k);render()});
+  el.querySelectorAll("[data-un]").forEach(b=>b.onclick=()=>{G.invSel=null;
     const [pi,slot]=b.dataset.un.split("|");
     G.gearMsg=unequip(G.roster[+pi],slot)?null:{pi:+pi,t:GEAR_LOW};render()});
-  el.querySelectorAll("[data-eq]").forEach(b=>b.onclick=()=>{
+  el.querySelectorAll("[data-eq]").forEach(b=>b.onclick=()=>{G.invSel=null;
     const [pi,bi]=b.dataset.eq.split("|");
-    G.gearMsg=equipFromBag(G.roster[+pi],+bi)?null:{pi:+pi,t:GEAR_LOW};render()});
-  el.querySelectorAll("[data-mv]").forEach(b=>b.onclick=()=>{
+    const why=equipFromBag(G.roster[+pi],+bi);
+    if(why)toast(why);
+    G.gearMsg=why?{pi:+pi,t:why}:null;render()});
+  el.querySelectorAll("[data-mv]").forEach(b=>b.onclick=()=>{G.invSel=null;
     const [fi,bi,ti]=b.dataset.mv.split("|");
     const from=G.roster[+fi],to=G.roster[+ti];
     if(bagRoom(to)<=0)return;
     to.bag.push(from.bag.splice(+bi,1)[0]);
     from.hp=Math.min(from.hp,derive(from).maxHp);render()});
-  el.querySelectorAll("[data-st]").forEach(b=>b.onclick=()=>{
+  el.querySelectorAll("[data-st]").forEach(b=>b.onclick=()=>{G.invSel=null;
     const [pi,bi]=b.dataset.st.split("|");const p=G.roster[+pi];
     const id=p.bag.splice(+bi,1)[0];
     G.store[id]=(G.store[id]||0)+1;G.gearMsg=null;render()});
-  el.querySelectorAll("[data-use]").forEach(b=>b.onclick=()=>{
+  el.querySelectorAll("[data-use]").forEach(b=>b.onclick=()=>{G.invSel=null;
     const [pi,bi]=b.dataset.use.split("|");useItem(G.roster[+pi],+bi);render()});
-  el.querySelectorAll("[data-dr]").forEach(b=>b.onclick=()=>{
+  el.querySelectorAll("[data-dr]").forEach(b=>b.onclick=()=>{G.invSel=null;
     const [pi,where,key]=b.dataset.dr.split("|");const p=G.roster[+pi];
     if(where!=="slot"){p.bag.splice(+key,1);G.gearMsg=null;render();return}
     G.gearMsg=tryGear(p,()=>{p.gear[key]=null})?null:{pi:+pi,t:GEAR_LOW};render()});
@@ -2415,6 +2639,26 @@ function appraise(id){
   return t[t.length-1][0];
 }
 
+/* 버튼을 누르면 화면을 통째로 다시 그리므로, 그 자리에서 애니메이션을 걸면 곧바로 지워집니다.
+   그래서 "무엇을 눌렀고 얼마가 나갔는지"만 적어 두었다가 다시 그린 뒤에 재생합니다. */
+let tapFx=null;
+function markTap(sel,amount,plus){tapFx={sel,amount,plus:!!plus}}
+function playTap(){
+  if(!tapFx)return;
+  const fx=tapFx;tapFx=null;
+  const b=document.querySelector(fx.sel);
+  if(!b)return;
+  b.classList.add("tapped");
+  const ring=document.createElement("span");ring.className="tapring";
+  const fly=document.createElement("span");fly.className="costfly"+(fx.plus?" plus":"");
+  fly.textContent=(fx.plus?"+":"−")+fx.amount+" G";
+  b.appendChild(ring);b.appendChild(fly);
+  setTimeout(()=>b.classList.remove("tapped"),280);
+  setTimeout(()=>{ring.remove();fly.remove()},1000);
+  /* 상단 골드도 한 번 튀게 해서 어디로 갔는지 눈이 따라갑니다 */
+  const g=document.getElementById("goldnum");
+  if(g){g.classList.add("goldbump");setTimeout(()=>g.classList.remove("goldbump"),420)}
+}
 function render(){
   stopLoop();
   let S=G.scene;
@@ -2673,23 +2917,18 @@ function render(){
       <span class="tag">바닥에 <b>${G.ground.length}</b>개</span></div>
       <div class="card"><h2>바닥에 남은 것</h2>
       <p>가져갈 것을 고릅니다. 배낭은 한 사람당 ${BAG_MAX}칸이고, 지금 파티의 빈칸은 <b style="color:var(--mark)">${free}</b>칸입니다.
-      두고 간 것은 사라집니다. 먹을 수 있는 것은 여기서 바로 먹여도 됩니다.</p>
+      두고 간 것은 사라집니다. 먹을 것은 배낭에 넣은 뒤 그 사람에게 먹일 수 있습니다.</p>
       ${G.ground.length?G.ground.map((gd,i)=>{
-        const it=ITEMS[gd.id];
-        return `<div class="slot has ${G.sel===i?"pick":""}">
+        const it=ITEMS[gd.id], o=G.sel===i;
+        return `<div class="slot has tap ${o?"open":""}" data-gsel="${i}">
           <span class="sn">${gd.src}</span>
           <span class="si">${itemIcon(gd.id)}${it.n} ${kindTag(it)}<small>${it.d}</small></span>
-          <button class="mini" data-pick="${i}">${G.sel===i?"선택됨":"고름"}</button></div>`}).join("")
+          <span class="caret">${o?"▴":"▾"}</span>
+          ${o?`<div class="acts"><span class="tag">누구 배낭에</span>
+            ${t.map((r,ri)=>`<button class="mini" data-give="${ri}" ${bagRoom(r)<=0?"disabled":""}>${r.name} ${r.bag.length}/${BAG_MAX}</button>`).join("")}
+            <button class="mini bad" data-toss="1">버린다</button></div>`:""}
+        </div>`}).join("")
         :`<div class="tag" style="margin-top:8px">전부 정리했습니다.</div>`}
-      ${G.sel!==null&&G.ground[G.sel]?`<div class="tag" style="margin-top:11px">
-        <b>${ITEMS[G.ground[G.sel].id].n}</b> — 누구 배낭에 넣을까요?</div>
-        <div class="chips" style="margin-top:6px">
-        ${t.map((r,i)=>`<button class="pickb" data-give="${i}" ${bagRoom(r)<=0?"disabled":""}>
-          ${r.name} ${r.bag.length}/${BAG_MAX}</button>`).join("")}
-        <button class="pickb" data-toss="1">버린다</button></div>
-        ${ITEMS[G.ground[G.sel].id].use?`<div class="tag" style="margin-top:8px">그 자리에서 먹이기</div>
-          <div class="chips" style="margin-top:4px">${t.map((r,i)=>
-            `<button class="pickb" data-eat="${i}" ${r.hp>=derive(r).maxHp?"disabled":""}>${r.name} 먹인다</button>`).join("")}</div>`:""}`:""}
       </div>
       ${t.map((r,i)=>`<div class="app">${faceTag(r)}<div class="hd"><b>${r.name}</b><span>Lv ${r.lvl}</span></div>
         ${hpLine(r)}${invPanel(r,G.roster.indexOf(r),"manage",t)}${gearLine(r)}</div>`).join("")}
@@ -2697,14 +2936,14 @@ function render(){
         <button class="ghost" id="all" ${G.ground.length&&free>0?"":"disabled"}>${
           free>=G.ground.length?"모두 가져가기":`가능한 만큼 가져가기 (빈칸 ${free})`}</button>
         <button id="done">정리 끝</button></div>`;
-    el.querySelectorAll("[data-pick]").forEach(b=>b.onclick=()=>{
-      const i=+b.dataset.pick;G.sel=(G.sel===i?null:i);render()});
+    /* 줄 아무 데나 눌러 고릅니다. 버튼은 고른 줄 아래에만 나옵니다 */
+    el.querySelectorAll("[data-gsel]").forEach(d=>d.onclick=e=>{
+      if(e.target.closest("button"))return;
+      const i=+d.dataset.gsel;G.sel=(G.sel===i?null:i);render()});
     el.querySelectorAll("[data-give]").forEach(b=>b.onclick=()=>{
       takeToBag(t[+b.dataset.give],G.sel);render()});
     el.querySelectorAll("[data-toss]").forEach(b=>b.onclick=()=>{
       G.ground.splice(G.sel,1);G.sel=null;render()});
-    el.querySelectorAll("[data-eat]").forEach(b=>b.onclick=()=>{
-      eatFromGround(t[+b.dataset.eat],G.sel);render()});
     const ab=document.getElementById("all");
     if(ab)ab.onclick=()=>{takeAllGround(t);render()};
     bindInv();
@@ -2748,6 +2987,10 @@ function render(){
     document.getElementById("o").onclick=()=>{
       if(G.fought)G.explores++;
       const went=tut?[p]:party();
+      /* 총기를 손에 들었든 배낭에 넣었든, 살아서 캠퍼스까지 가져오면 ROTC가 열립니다 */
+      const hasGun=r=>SLOTS.some(s=>{const it=ITEMS[r.gear[s.k]];return it&&it.ammo})
+                    ||r.bag.some(id=>ITEMS[id].ammo);
+      if(went.some(r=>r.hp>0&&hasGun(r)))G.gunHome=true;
       if(tut){G.roster=[p];G.mode="campus";if(!G.announced.includes("office"))G.announced.push("office")}
       for(const r of G.roster){
         for(const s of SLOTS){const it=ITEMS[r.gear[s.k]];if(it&&it.kind==="inst")r.gear[s.k]=null}
@@ -2860,9 +3103,11 @@ function render(){
       ${npcBar("office")}
       ${myst.length?`<div class="card" style="border-color:var(--gate)"><h2>감정</h2>
       <p>값을 알 수 없는 물건은 여기서 열어봅니다. 감정은 공짜지만, 나온 값이 그대로 값입니다.</p>
-      ${myst.map(([id,n])=>`<div class="buyrow">
-        <div><b>${ITEMS[id].n}</b> × ${n}<span class="tag"> · 추정 ${ITEMS[id].mystery.lo}~${ITEMS[id].mystery.hi} 골드</span></div>
-        <button data-app="${id}">열어본다</button></div>`).join("")}
+      ${myst.map(([id,n])=>{const o=G.rowSel==="app:"+id;
+        return `<div class="buyrow tap ${o?"open":""}" data-row="app:${id}">
+        <div><b>${itemIcon(id)}${ITEMS[id].n}</b> × ${n}<span class="tag"> · 추정 ${ITEMS[id].mystery.lo}~${ITEMS[id].mystery.hi} 골드</span></div>
+        <span class="caret">${o?"▴":"▾"}</span>
+        ${o?`<div class="acts"><button data-app="${id}">열어본다</button></div>`:""}</div>`}).join("")}
       ${G.appraisal?`<div class="tag" style="margin-top:10px;color:var(--mark)">${G.appraisal}</div>`:""}</div>`:
       (G.appraisal?`<div class="tag" style="color:var(--mark)">${G.appraisal}</div>`:"")}
       <div class="card"><h2>회수품 매입</h2>
@@ -2874,7 +3119,9 @@ function render(){
       <div class="bar" style="margin-top:12px"><span class="tag">받을 금액 <b>${lootTotal()}</b> 골드</span>
       <button id="sell" ${rows.length?"":"disabled"}>전부 판다</button></div></div>
       <div class="bar"><span class="tag">누적 수입 ${G.goldEarned} 골드</span><button class="ghost" id="bk">캠퍼스로</button></div>`;
+    bindRows();
     el.querySelectorAll("[data-app]").forEach(b=>b.onclick=()=>{
+      G.rowSel=null;
       const id=b.dataset.app,res=appraise(id);
       G.loot[id]--; if(G.loot[id]<=0)delete G.loot[id];
       G.loot[res]=(G.loot[res]||0)+1;
@@ -2893,7 +3140,7 @@ function render(){
     const wi=Math.min(G.shopWho||0,Math.max(0,G.roster.length-1));
     const who=G.roster[wi]||null;
     el.innerHTML=logo+`
-      <div class="bar"><span class="tag">교내매점</span><span class="tag">골드 <b>${G.gold}</b></span></div>
+      <div class="bar"><span class="tag">창고 겸 학생회 매점</span><span class="tag">골드 <b id="goldnum">${G.gold}</b></span></div>
       ${npcBar("shop")}
       ${who?`<div class="card"><h2>지금 입고 있는 것</h2>
       <p>고른 사람을 기준으로 판매대의 물건과 비교해 보여줍니다.</p>
@@ -2903,27 +3150,36 @@ function render(){
       ${wornPanel(who)}</div>`:""}
       <div class="card"><h2>판매대</h2>
       <p>매점은 생각보다 다양한 물품을 팔고 있습니다. 학생회는 돈 되는 물건이면 무엇이든 팔 생각입니다.<br><br>산 물건은 창고에 들어갑니다.</p>
-      ${SHOP.map(id=>{const it=ITEMS[id];
-        return `<div class="buyrow"><div><b>${itemIcon(id)}${it.n}</b> <span class="tag">창고 ${own(id)}</span><br>
+      ${SHOP.map(id=>{const it=ITEMS[id],o=G.rowSel==="buy:"+id;
+        return `<div class="buyrow tap ${o?"open":""}" data-row="buy:${id}">
+          <div><b>${itemIcon(id)}${it.n}</b> <span class="tag">창고 ${own(id)} · ${it.price} 골드</span><br>
           <span class="tag">${SLOTS.find(s=>s.k===it.slot).n} · ${it.d}</span>
           ${who?compareLine(who,id):""}</div>
-          <button data-buy="${id}" ${G.gold<it.price?"disabled":""}>${it.price} 골드</button></div>`}).join("")}
+          <span class="caret">${o?"▴":"▾"}</span>
+          ${o?`<div class="acts">
+            <button data-buy="${id}" ${G.gold<it.price?"disabled":""}>${it.price} 골드에 산다</button></div>`:""}</div>`}).join("")}
       ${(()=>{const av=SHOP_AMMO.filter(id=>seenGun(ITEMS[id].ammo));
         if(!av.length)return "";
         return `<div class="tag" style="margin-top:12px">탄약 — 가방을 차지하지 않고 본부에 쌓입니다</div>`+
-          av.map(id=>{const it=ITEMS[id];
-          return `<div class="buyrow"><div><b>${it.n}</b> <span class="tag">보유 ${G.ammo[it.ammo]||0}발</span><br>
+          av.map(id=>{const it=ITEMS[id],o=G.rowSel==="ammo:"+id;
+          return `<div class="buyrow tap ${o?"open":""}" data-row="ammo:${id}">
+            <div><b>${it.n}</b> <span class="tag">보유 ${G.ammo[it.ammo]||0}발 · ${it.price} 골드</span><br>
             <span class="tag">${it.d}</span></div>
-            <button data-ammo="${id}" ${G.gold<it.price?"disabled":""}>${it.price} 골드</button></div>`}).join("");
+            <span class="caret">${o?"▴":"▾"}</span>
+            ${o?`<div class="acts">
+              <button data-ammo="${id}" ${G.gold<it.price?"disabled":""}>${it.price} 골드에 산다</button></div>`:""}</div>`}).join("");
       })()}
       </div>
       <div class="card"><h2>창고에서 꺼내주기</h2>
       <p>배낭에 자리가 있어야 넣을 수 있습니다.</p>
-      ${Object.entries(G.store).filter(([,n])=>n>0).map(([id,n])=>`<div class="buyrow">
+      ${Object.entries(G.store).filter(([,n])=>n>0).map(([id,n])=>{const o=G.rowSel==="hand:"+id;
+        return `<div class="buyrow tap ${o?"open":""}" data-row="hand:${id}">
         <div><b>${itemIcon(id)}${ITEMS[id].n}</b> × ${n}<br><span class="tag">${ITEMS[id].d}</span>
         ${who?compareLine(who,id):""}</div>
-        <div class="chips">${G.roster.map((r,i)=>`<button class="pickb" data-hand="${id}|${i}" ${bagRoom(r)<=0?"disabled":""}>${r.name}</button>`).join("")}</div>
-        </div>`).join("")||`<div class="tag" style="margin-top:10px">창고가 비었습니다.</div>`}
+        <span class="caret">${o?"▴":"▾"}</span>
+        ${o?`<div class="acts"><span class="tag">누구에게</span>
+          <div class="chips">${G.roster.map((r,i)=>`<button class="pickb" data-hand="${id}|${i}" ${bagRoom(r)<=0?"disabled":""}>${r.name}</button>`).join("")}</div>
+        </div>`:""}</div>`}).join("")||`<div class="tag" style="margin-top:10px">창고가 비었습니다.</div>`}
       </div>
       ${G.roster.map(r=>`<div class="app">${faceTag(r)}<div class="hd"><b>${r.name}</b><span>Lv ${r.lvl}</span></div>
         ${invPanel(r,G.roster.indexOf(r),"manage",G.roster)}${gearLine(r)}</div>`).join("")}
@@ -2932,16 +3188,19 @@ function render(){
       G.shopWho=+b.dataset.who;render()});
     el.querySelectorAll("[data-buy]").forEach(b=>b.onclick=()=>{
       const it=ITEMS[b.dataset.buy];if(G.gold<it.price)return;
-      G.gold-=it.price;markSeen(it.id);G.store[it.id]=(G.store[it.id]||0)+1;render()});
+      G.gold-=it.price;markSeen(it.id);G.store[it.id]=(G.store[it.id]||0)+1;
+      markTap(`[data-buy="${it.id}"]`,it.price);render()});
     el.querySelectorAll("[data-ammo]").forEach(b=>b.onclick=()=>{
       const it=ITEMS[b.dataset.ammo];if(G.gold<it.price)return;
-      G.gold-=it.price;markSeen(it.id);G.ammo[it.ammo]=(G.ammo[it.ammo]||0)+it.qty;render()});
-    el.querySelectorAll("[data-hand]").forEach(b=>b.onclick=()=>{
+      G.gold-=it.price;markSeen(it.id);G.ammo[it.ammo]=(G.ammo[it.ammo]||0)+it.qty;
+      markTap(`[data-ammo="${it.id}"]`,it.price);render()});
+    el.querySelectorAll("[data-hand]").forEach(b=>b.onclick=()=>{G.rowSel=null;
       const [id,i]=b.dataset.hand.split("|");const r=G.roster[+i];
       if(bagRoom(r)<=0)return;
       G.store[id]--;r.bag.push(id);render()});
     bindInv();
     document.getElementById("bk").onclick=()=>{G.scene="campus";render()};
+    playTap();
     return;
   }
   if(S==="admissions"){
@@ -2958,11 +3217,12 @@ function render(){
       <button id="bk">캠퍼스로</button></div>`;
     el.querySelectorAll("[data-take]").forEach(b=>b.onclick=()=>{
       const i=+b.dataset.take;G.gold-=20;G.recruited++;
+      claimFace(G.applicants[i]);
       logAdd(G.applicants[i],"입학");G.roster.push(G.applicants[i]);G.applicants.splice(i,1);
-      if(!G.applicants.length)G.applicants=[rollStudent(),rollStudent(),rollStudent()];
+      if(!G.applicants.length)rollApplicants(3);
       render()});
     document.getElementById("re").onclick=()=>{
-      G.gold-=5;G.applicants=[rollStudent(),rollStudent(),rollStudent()];render()};
+      G.gold-=5;rollApplicants(3);render()};
     document.getElementById("bk").onclick=()=>{G.scene="campus";render()};
     return;
   }
@@ -3149,18 +3409,22 @@ function render(){
     document.getElementById("bk").onclick=()=>{AR=null;G.scene="arcade";render()};
     return;
   }
-  if(S==="library"){
+  if(S==="dept"){
+    /* 학과사무실 — 그 사무실이 맡은 전공 하나만 고를 수 있습니다 */
+    const fac=facOf(G.soonName)||FACILITIES.find(f=>f.major);
+    const pool=fac.major?[majorOf(fac.major)]:[];
     el.innerHTML=logo+`
-      <div class="bar"><span class="tag">도서관</span><span class="tag">Lv ${MAJOR_LV}부터 전공 선택</span></div>
-      ${npcBar("lib")}
+      <div class="bar"><span class="tag">${fac.n}</span><span class="tag">Lv ${MAJOR_LV}부터 전공 선택</span></div>
+      ${npcBar(fac.id)}
       <div class="card"><h2>전공 배정</h2>
-      <p>한 번 정하면 바꿀 수 없습니다. <b style="color:var(--mark)">군인</b>과
-      <b style="color:var(--mark)">경찰대학생</b>만 총을 다룰 수 있습니다.</p></div>
+      <p>한 번 정하면 바꿀 수 없습니다.${fac.major
+        ?` 이곳에서 정할 수 있는 전공은 <b style="color:var(--mark)">${pool[0].n}</b> 하나입니다.`
+        :` <b style="color:var(--mark)">군인</b>과 <b style="color:var(--mark)">경찰대학생</b>만 총을 다룰 수 있습니다.`}</p></div>
       ${G.roster.map((r,i)=>`<div class="app">
         ${faceTag(r)}<div class="hd"><b>${r.name}</b><span>${r.major?majorOf(r.major).n:`Lv ${r.lvl}`}</span></div>
-        ${r.major?`<div class="tag">${majorOf(r.major).d}</div>`
+        ${r.major?`<div class="tag">${majorOf(r.major).d} · 이미 정해졌습니다</div>`
           :r.lvl<MAJOR_LV?`<div class="tag">Lv ${MAJOR_LV}이 되어야 전공을 정할 수 있습니다 (현재 Lv ${r.lvl})</div>`
-          :`<div class="chips" style="margin-top:6px">${MAJORS.map(m=>
+          :`<div class="chips" style="margin-top:6px">${pool.map(m=>
             `<button class="pickb" data-maj="${i}|${m.id}">${m.n}</button>`).join("")}</div>`}
       </div>`).join("")||`<div class="card"><p>명단이 비었습니다.</p></div>`}
       <div class="bar"><span class="tag"></span><button class="ghost" id="bk">캠퍼스로</button></div>`;
@@ -3239,14 +3503,17 @@ function render(){
         `<div class="tag" style="color:var(--bad)">탄약이 부족한 총이 있습니다. 떨어지면 맨손으로 싸웁니다.</div>`:""}
       <div class="card"><h2>창고에서 꺼내기</h2>
       <p>들어가기 전 마지막입니다. 배낭에 자리가 있어야 넣을 수 있습니다.</p>
-      ${Object.entries(G.store).filter(([,n])=>n>0).map(([id,n])=>`<div class="buyrow">
+      ${Object.entries(G.store).filter(([,n])=>n>0).map(([id,n])=>{const o=G.rowSel==="hand:"+id;
+        return `<div class="buyrow tap ${o?"open":""}" data-row="hand:${id}">
         <div><b>${itemIcon(id)}${ITEMS[id].n}</b> × ${n}<br><span class="tag">${ITEMS[id].d}</span></div>
-        <div class="chips">${t.map(r=>`<button class="pickb" data-hand="${id}|${G.roster.indexOf(r)}" ${bagRoom(r)<=0?"disabled":""}>${r.name}</button>`).join("")}</div>
-        </div>`).join("")||`<div class="tag" style="margin-top:10px">창고가 비었습니다.</div>`}</div>
+        <span class="caret">${o?"▴":"▾"}</span>
+        ${o?`<div class="acts"><span class="tag">누구에게</span>
+          <div class="chips">${t.map(r=>`<button class="pickb" data-hand="${id}|${G.roster.indexOf(r)}" ${bagRoom(r)<=0?"disabled":""}>${r.name}</button>`).join("")}</div>
+        </div>`:""}</div>`}).join("")||`<div class="tag" style="margin-top:10px">창고가 비었습니다.</div>`}</div>
       <div class="card"><h2>정말 들어가시겠습니까?</h2>
       <p>${G.pickedGate} 안쪽은 아직 아무도 지도를 그리지 못했습니다.</p></div>
       <div class="bar"><button class="ghost" id="no">아니오</button><button id="yes">들어간다</button></div>`;
-    el.querySelectorAll("[data-hand]").forEach(b=>b.onclick=()=>{
+    el.querySelectorAll("[data-hand]").forEach(b=>b.onclick=()=>{G.rowSel=null;
       const [id,i]=b.dataset.hand.split("|");const r=G.roster[+i];
       if(bagRoom(r)<=0||!(G.store[id]>0))return;
       G.store[id]--; if(G.store[id]<=0)delete G.store[id];
