@@ -495,21 +495,24 @@ function rollLoot(place,day){
 }
 
 /* ═══════════ 방 배치 ═══════════ */
-function chairs(t,lv){
-  const c=5.5,g=1.8,y1=t.y+t.h*0.26-c/2,y2=t.y+t.h*0.74-c/2;
-  return[{x:t.x-c-g,y:y1,w:c,h:c,lv},{x:t.x-c-g,y:y2,w:c,h:c,lv},
-         {x:t.x+t.w+g,y:y1,w:c,h:c,lv},{x:t.x+t.w+g,y:y2,w:c,h:c,lv}];
-}
-const TA={x:20,y:30,w:13,h:34,l:"식탁",lv:L1};
-const TB={x:60,y:38,w:13,h:34,l:"식탁",lv:L1};
 const ROOMS={
-  in:{obs:[{x:5,y:7,w:40,h:11,l:"주방",lv:L1|L2},{x:74,y:5,w:21,h:17,l:"냉장고",lv:TALL},
-      TA,...chairs(TA,L2),TB,...chairs(TB,L2)]},
-  street:{obs:[{x:4,y:8,w:17,h:42,l:"건물",lv:TALL},{x:79,y:12,w:17,h:40,l:"건물",lv:TALL},
+  /* 음식점 배경(art/battle/restaurant.jpg)에 맞춘 부딪침 판정 — 그림 기준 %.
+     주방·냉장고는 전층(TALL), 식탁은 L1(거미는 넘음), 의자는 L2, 화분은 낮음. */
+  in:{id:"in",obs:[
+      {x:3,y:3,w:56,h:23,l:"주방",lv:TALL},
+      {x:70,y:3,w:26,h:22,l:"냉장고",lv:TALL},
+      {x:21,y:30,w:14,h:41,l:"식탁",lv:L1},
+      {x:13,y:36,w:9,h:12,lv:L2},{x:35,y:36,w:9,h:12,lv:L2},
+      {x:13,y:52,w:9,h:12,lv:L2},{x:35,y:52,w:9,h:12,lv:L2},
+      {x:59,y:40,w:14,h:37,l:"식탁",lv:L1},
+      {x:50,y:44,w:10,h:13,lv:L2},{x:73,y:44,w:10,h:13,lv:L2},
+      {x:50,y:61,w:10,h:13,lv:L2},{x:73,y:61,w:10,h:13,lv:L2},
+      {x:2,y:88,w:12,h:9,lv:L1|L2},{x:85,y:88,w:12,h:9,lv:L1|L2}]},
+  street:{id:"street",obs:[{x:4,y:8,w:17,h:42,l:"건물",lv:TALL},{x:79,y:12,w:17,h:40,l:"건물",lv:TALL},
       {x:34,y:16,w:18,h:10,l:"쓰레기",lv:L1|L2},{x:38,y:52,w:28,h:13,l:"차",lv:L1|L2},
       {x:28,y:76,w:15,h:7,l:"화단",lv:L1},{x:57,y:76,w:15,h:7,l:"화단",lv:L1},
       {x:66,y:30,w:5,h:5,l:"",lv:TALL}]},
-  under:{obs:[{x:4,y:4,w:15,h:14,l:"계단",lv:L1|L2},
+  under:{id:"under",obs:[{x:4,y:4,w:15,h:14,l:"계단",lv:L1|L2},
       {x:22,y:22,w:8,h:8,l:"",lv:TALL},{x:70,y:22,w:8,h:8,l:"",lv:TALL},
       {x:22,y:62,w:8,h:8,l:"",lv:TALL},{x:70,y:62,w:8,h:8,l:"",lv:TALL},
       {x:37,y:30,w:26,h:12,l:"소파",lv:L1},{x:42,y:52,w:18,h:10,l:"테이블",lv:L1},
@@ -722,8 +725,12 @@ const FACILITIES=[
   {id:"clinic",ic:"🏥",n:"응급의학 실습실",d:"입원 치료 · 침상 증설",
    cond:g=>!!g.woundedReturn,prog:g=>`체력 절반 이하로 돌아온 사람이 생기면 열림`,
    msg:"게이트에서 다친 채 귀환하는 사람들이 많아졌습니다.<br><br>대학에서는 응급의학 실습실을 개방하여 치료가 필요한 학생들이 사용할 수 있게 되었습니다.",
-   onUnlock:()=>{                       // 다친 사람을 대신할 지원자가 무료로 합류한다
-     const v=rollStudent();
+   onUnlock:()=>{                       // 다친 사람을 대신할 자원자가 무료로 합류한다 — 고정 인물 신재혁
+     const v={name:"신재혁",sex:"m",face:FACE_ART.anon.m,   /* 전용 초상은 나중에 넣는다 */
+              lvl:1,exp:0,major:null,
+              stats:{vit:11,maj:10,str:8,spd:12,agi:10,luk:9},
+              gear:emptyGear(),bag:[],points:0,inParty:true,log:[]};
+     v.hp=derive(v).maxHp;
      logAdd(v,"자원 입학");
      claimFace(v);G.roster.push(v);G.recruited++;G.freeRecruit=v;
    }},
@@ -857,11 +864,11 @@ const BUILDINGS=[
   {id:"rotc",  n:"ROTC",        box:[60.5, 6.8,77.7,10.9], facs:["deptRotc"]},
   {id:"human", n:"인문사회대학", box:[17.7,23.4,38.5,27.1], facs:[]},   /* 학과사무실 미정 */
   {id:"edu",   n:"사범대학",     box:[66.1,23.9,84.8,27.5], facs:[]},
-  {id:"field", n:"대운동장",     box:[38.5,39.2,60.4,42.9], facs:["union"]},
-  {id:"sci",   n:"이공대학",     box:[ 8.0,53.5,32.4,57.3], facs:["work"]},
+  {id:"field", n:"대운동장",     box:[44,39.62,62,42.9], facs:["union"]},
+  {id:"sci",   n:"이공대학",     box:[15,53.75,33,57.75], facs:["work"]},
   {id:"med",   n:"의학대학",     box:[74.7,53.2,92.8,56.8], facs:["clinic","deptMed","tower"]},
-  {id:"main",  n:"본관",        box:[47.5,66.6,63.8,70.6], facs:["office","shop","adm"]},
-  {id:"gate",  n:"정문",        box:[46.0,82.7,60.7,86.5], facs:null},
+  {id:"main",  n:"본관",        box:[48,67.3,63.5,70.55], facs:["office","shop","adm"]},
+  {id:"gate",  n:"정문",        box:[46,82.9,61,86.9], facs:null},
 ];
 const facOf=id=>FACILITIES.find(f=>f.id===id);
 /* 이름이 붙는 건물 = 시설이 하나라도 배정된 건물. 들어가서 잠긴 시설도 볼 수 있습니다.
@@ -925,6 +932,40 @@ function sprite(key){
   return s.ok?s:null;
 }
 const preloadFoes=keys=>{for(const k of new Set(keys)){sprite(k);sprite(k+"Fly")}};
+
+/* ═══════════ 대원 전투 스프라이트 ═══════════
+   앞/뒤 두 장. 회전하지 않고 좌우 반전만 한다 — 위/아래는 앞·뒤 그림으로, 좌/우는 미러.
+   "성별-front" / "성별-back". 빈 칸이면 지금까지처럼 도형으로 그린다(다른 대원은 아직 그림이 없다). */
+const ALLY_ART={
+  "m-front":"ally/m-front.png", "m-back":"ally/m-back.png",
+  "f-front":"ally/f-front.png", "f-back":"ally/f-back.png",
+};
+const ASPR={};
+function allySprite(key){
+  const rel=ALLY_ART[key];
+  if(!rel)return null;
+  let s=ASPR[key];
+  if(s===undefined){
+    s=new Image();s.ok=false;
+    s.onload=()=>{s.ok=true};s.onerror=()=>{s.ok=false};
+    s.src=artUrl(rel);ASPR[key]=s;
+  }
+  return s.ok?s:null;
+}
+const preloadAllies=list=>{for(const u of list){const g=(u.sex||"m");allySprite(g+"-front");allySprite(g+"-back")}};
+
+/* ═══════════ 전투 배경 그림 ═══════════
+   방 종류(ROOM.id)별로 한 장. 있으면 격자·도형·입구 표시를 빼고 이 그림을 깐다.
+   그림은 전투 화면 비율(가로:세로 = 100:92)로 미리 눌러 두면 왜곡이 없다. */
+const BG_ART={in:"battle/restaurant.jpg"};
+const BGSPR={};
+function bgSprite(id){
+  const rel=BG_ART[id];
+  if(!rel)return null;
+  let s=BGSPR[id];
+  if(s===undefined){s=new Image();s.ok=false;s.onload=()=>{s.ok=true};s.onerror=()=>{s.ok=false};s.src=artUrl(rel);BGSPR[id]=s}
+  return s.ok?s:null;
+}
 
 const ITEM_ART={        /* 아이템 아이콘 — 만든 것부터 한 줄씩 채우면 됩니다 */
   ladle:"item/ladle.webp",
@@ -1197,7 +1238,7 @@ function saveTime(sv){
 
 /* ═══════════ 상태 ═══════════ */
 let G,feed=[];
-function bootGame(){migrateSave();G={scene:"title"};feed=[];render()}
+function bootGame(){migrateSave();G={scene:"title"};feed=[];armBack();render()}
 function newGame(slot){
   const base={vit:10,maj:10,str:10,spd:10,agi:10,luk:10};
   const p={name:"이경호",sex:"m",face:"face/lee.webp",   /* 주인공은 전용 초상 */lvl:1,exp:0,major:null,stats:{...base},base:{...base},
@@ -1390,7 +1431,7 @@ const D=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 
 function makeFighter(p,i,n){
   const d=derive(p);
-  const u={ref:p,name:p.name,side:"a",face:-1.57,r:3.2,lvm:HUMAN,
+  const u={ref:p,name:p.name,sex:p.sex||"m",side:"a",face:-1.57,r:3.2,lvm:HUMAN,
     hp:Math.min(p.hp,d.maxHp),maxHp:d.maxHp,atk:d.atk,aspd:d.aspd,vspeed:d.speed*0.42,
     range:7+d.rng,guard:d.guard,guardVar:0,dodge:d.dodge,crit:d.crit,cool:.3+i*.15,anim:null,color:"#4FC3D9",
     style:d.style,dmgType:d.dmg,broken:[],wid:p.gear.rh,
@@ -1407,7 +1448,7 @@ function makeFighter(p,i,n){
     u.meleeAtk=Math.max(1,+(u.atk-rh.atk).toFixed(1));
   }
   const sp=freeSpot(50+(i-(n-1)/2)*9,90,u.r,u.lvm);
-  u.x=sp.x;u.y=sp.y;
+  u.x=sp.x;u.y=sp.y;u._px=u.x;u._py=u.y;
   return u;
 }
 function makeEnemy(key,i,day){
@@ -1455,6 +1496,8 @@ function startBattle(list,keys){
   preloadFoes(keys.concat(["zomb"]));   /* 좀비화에 대비해 무리도 같이 */
   B={ammo:{...G.ammo},allies:list.map((p,i)=>makeFighter(p,i,list.length)),
      foes:keys.map((k,i)=>makeEnemy(k,i,G.day)),fx:[],shots:[],fallen:[],over:false};
+  preloadAllies(B.allies);
+  if(ROOM)bgSprite(ROOM.id);
   feed=[];
   const bs=B.foes.find(f=>f.boss);
   say(bs?`${bs.name}이(가) 천천히 몸을 일으킨다. 적 ${keys.length}체.`:`적 ${keys.length}체가 다가온다.`);
@@ -1591,26 +1634,31 @@ let SX=4,SY=4;
 function paint(){
   ctx.clearRect(0,0,W,H);SX=W/100;SY=H/100;
   const px=v=>v*SX,py=v=>v*SY;
-  ctx.fillStyle="#22212A";ctx.fillRect(0,0,W,H);
-  ctx.strokeStyle="rgba(255,255,255,.045)";ctx.lineWidth=1;
-  for(let i=1;i<10;i++){
-    ctx.beginPath();ctx.moveTo(px(i*10),0);ctx.lineTo(px(i*10),H);ctx.stroke();
-    ctx.beginPath();ctx.moveTo(0,py(i*10));ctx.lineTo(W,py(i*10));ctx.stroke();
-  }
-  ctx.strokeStyle="rgba(216,71,126,.35)";ctx.lineWidth=3;ctx.strokeRect(1.5,1.5,W-3,H-3);
-  ctx.fillStyle="rgba(216,71,126,.30)";ctx.fillRect(px(DOOR.x),py(DOOR.y),px(DOOR.w),py(DOOR.h));
-  ctx.fillStyle="rgba(234,230,242,.6)";ctx.font="700 9px system-ui";ctx.textAlign="center";
-  ctx.fillText("입구",px(DOOR.x+DOOR.w/2),py(DOOR.y)-3);
-  for(const o of ROOM.obs){
-    const high=(o.lv&L3)!==0,mid=(o.lv&L2)!==0,low=(o.lv&L1)!==0;
-    ctx.fillStyle=high?"#43414F":mid&&low?"#3A3948":"rgba(120,112,140,.32)";
-    ctx.fillRect(px(o.x),py(o.y),px(o.w),py(o.h));
-    if(!high&&!(mid&&low))ctx.setLineDash([3,3]);
-    ctx.strokeStyle="rgba(255,255,255,.26)";ctx.lineWidth=1;
-    ctx.strokeRect(px(o.x)+.5,py(o.y)+.5,px(o.w)-1,py(o.h)-1);
-    ctx.setLineDash([]);
-    if(o.l){ctx.fillStyle="rgba(234,230,242,.5)";ctx.font="700 10px system-ui";ctx.textAlign="center";
-      ctx.fillText(o.l,px(o.x+o.w/2),py(o.y+o.h/2)+3.5)}
+  const bg=ROOM&&bgSprite(ROOM.id);
+  if(bg){
+    ctx.drawImage(bg,0,0,W,H);            // 배경 그림 — 도형 판정은 안 보이게, 계산에만 쓴다
+  }else{
+    ctx.fillStyle="#22212A";ctx.fillRect(0,0,W,H);
+    ctx.strokeStyle="rgba(255,255,255,.045)";ctx.lineWidth=1;
+    for(let i=1;i<10;i++){
+      ctx.beginPath();ctx.moveTo(px(i*10),0);ctx.lineTo(px(i*10),H);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(0,py(i*10));ctx.lineTo(W,py(i*10));ctx.stroke();
+    }
+    ctx.strokeStyle="rgba(216,71,126,.35)";ctx.lineWidth=3;ctx.strokeRect(1.5,1.5,W-3,H-3);
+    ctx.fillStyle="rgba(216,71,126,.30)";ctx.fillRect(px(DOOR.x),py(DOOR.y),px(DOOR.w),py(DOOR.h));
+    ctx.fillStyle="rgba(234,230,242,.6)";ctx.font="700 9px system-ui";ctx.textAlign="center";
+    ctx.fillText("입구",px(DOOR.x+DOOR.w/2),py(DOOR.y)-3);
+    for(const o of ROOM.obs){
+      const high=(o.lv&L3)!==0,mid=(o.lv&L2)!==0,low=(o.lv&L1)!==0;
+      ctx.fillStyle=high?"#43414F":mid&&low?"#3A3948":"rgba(120,112,140,.32)";
+      ctx.fillRect(px(o.x),py(o.y),px(o.w),py(o.h));
+      if(!high&&!(mid&&low))ctx.setLineDash([3,3]);
+      ctx.strokeStyle="rgba(255,255,255,.26)";ctx.lineWidth=1;
+      ctx.strokeRect(px(o.x)+.5,py(o.y)+.5,px(o.w)-1,py(o.h)-1);
+      ctx.setLineDash([]);
+      if(o.l){ctx.fillStyle="rgba(234,230,242,.5)";ctx.font="700 10px system-ui";ctx.textAlign="center";
+        ctx.fillText(o.l,px(o.x+o.w/2),py(o.y+o.h/2)+3.5)}
+    }
   }
   for(const f of B.foes)if(f.hp>0)drawFoe(f);
   for(const a of B.allies)if(a.hp>0)drawAlly(a);
@@ -1620,11 +1668,57 @@ function paint(){
     ctx.fillText(p.t,px(p.x),py(p.y)-10-p.off)}
   ctx.globalAlpha=1;
 }
+/* 공격 시 몸통을 앞뒤로 미는 양(−준비 뒤로 ~ +타격 앞으로 ~ 0 복귀). 총은 호출부에서 부호를 뒤집어 반동으로 쓴다 */
+function bodyLunge(u){
+  if(!u.anim)return 0;
+  const t=u.anim.t, S=u.style==="thrust"?THRUST:u.style==="gun"?GUNA:SWING, go=S.down||S.go;
+  if(t<S.up)return -0.12*(t/S.up);
+  if(t<S.up+go)return -0.12+1.12*((t-S.up)/go);
+  return Math.max(0,1-(t-S.up-go)/S.rec);
+}
 function drawAlly(u){
   const x=u.x*SX,y=u.y*SY,r=u.r*Math.min(SX,SY);
-  ctx.save();ctx.translate(x,y);ctx.save();ctx.rotate(u.face);
-  if(u.hasS){ctx.beginPath();ctx.arc(-r*.5,-r*.9,r*.85,0,7);
-    ctx.fillStyle="#8F87A6";ctx.fill();ctx.strokeStyle="#B9B2CC";ctx.lineWidth=1.5;ctx.stroke()}
+  const fx=Math.cos(u.face),fy=Math.sin(u.face);
+  const flip=fx<0, back=fy<-0.15;
+  /* 걷는 중인지 — 지난 프레임과의 위치차로 판단. 공격 중엔 걷기 흔들림을 끈다 */
+  const mv=Math.hypot(u.x-(u._px===undefined?u.x:u._px),u.y-(u._py===undefined?u.y:u._py));
+  u._px=u.x;u._py=u.y;
+  const walk=mv>0.015&&!u.anim;
+  u.bob=(u.bob||0)+(walk?mv*0.9:0);
+  const bobY=walk?-Math.abs(Math.sin(u.bob))*r*0.14:0;
+  const P=bodyLunge(u), dir=u.style==="gun"?-0.45:1;
+  const lx=fx*r*0.55*P*dir, ly=fy*r*0.55*P*dir;
+
+  ctx.save();ctx.translate(x,y);
+
+  /* 발밑 그림자 */
+  ctx.save();ctx.translate(0,r*0.5);ctx.scale(1,0.42);
+  ctx.beginPath();ctx.arc(0,0,r*0.95,0,7);
+  ctx.fillStyle="rgba(0,0,0,.30)";ctx.fill();ctx.restore();
+
+  /* 몸 — 스프라이트가 있으면 그림, 없으면 기존 도형(다른 대원은 아직 그림 없음) */
+  const img=allySprite((u.sex||"m")+(back?"-back":"-front"));
+  ctx.save();ctx.translate(lx,ly+bobY);
+  if(img){
+    const h=r*4.2, w=h*(img.width/img.height);
+    if(walk)ctx.rotate(Math.sin(u.bob)*0.05);
+    ctx.scale((flip?-1:1)*(1+0.08*Math.max(0,P)),1-0.06*Math.max(0,P));
+    if(u.flash>0)ctx.filter="brightness(0) invert(1)";
+    ctx.drawImage(img,-w/2,-h+r*0.55,w,h);
+    ctx.filter="none";
+  }else{
+    ctx.beginPath();ctx.arc(0,0,r,0,7);
+    ctx.fillStyle=u.flash>0?"#fff":u.color;ctx.fill();
+    ctx.lineWidth=2;ctx.strokeStyle="rgba(255,255,255,.85)";ctx.stroke();
+  }
+  ctx.restore();
+
+  /* 무기·방패 — 손 높이에서 타겟 방향으로. 방패는 왼손(local -y), 무기는 오른손(local +y) */
+  ctx.save();ctx.translate(0,-r*1.35);ctx.rotate(u.face);
+  if(u.hasS){ctx.save();ctx.translate(-r*.15,-r*1.05);ctx.rotate(-.5);ctx.scale(1,.6);
+    ctx.beginPath();ctx.arc(0,0,r*.62,0,7);
+    ctx.fillStyle="#8F87A6";ctx.fill();ctx.strokeStyle="#B9B2CC";ctx.lineWidth=2.5;ctx.stroke();ctx.restore()}
+  if(u.hasW)ctx.translate(0,r*.42);
   if(u.hasW&&u.wid==="spray"){
     // 분무기 — 손에 들린 통, 누를 때 앞으로 안개가 퍼진다
     const t=u.anim?u.anim.t:-1;
@@ -1663,11 +1757,12 @@ function drawAlly(u){
     ctx.strokeStyle="#F2D74E";ctx.lineWidth=1.4;
     ctx.beginPath();ctx.moveTo(r*1.7+ext,0);ctx.lineTo(r*2.15+ext,0);ctx.stroke();
   }else if(u.hasW){
-    let ang=-0.5;
+    /* 오른손잡이 휘두르기 — 오른쪽(+)에서 왼쪽(−)으로, 반시계 방향 */
+    let ang=0.5;
     if(u.anim){const t=u.anim.t;
-      if(t<SWING.up){const p=t/SWING.up;ang=-0.5-1.25*(p*p*(3-2*p))}
-      else if(t<SWING.up+SWING.down){const p=(t-SWING.up)/SWING.down;ang=-1.75+3.1*(p*p)}
-      else{const p=(t-SWING.up-SWING.down)/SWING.rec;ang=1.35-1.85*p}}
+      if(t<SWING.up){const p=t/SWING.up;ang=0.5+1.25*(p*p*(3-2*p))}
+      else if(t<SWING.up+SWING.down){const p=(t-SWING.up)/SWING.down;ang=1.75-3.1*(p*p)}
+      else{const p=(t-SWING.up-SWING.down)/SWING.rec;ang=-1.35+1.85*p}}
     ctx.save();ctx.rotate(ang);
     ctx.strokeStyle="#C9C2D8";ctx.lineWidth=2.4;ctx.lineCap="round";
     ctx.beginPath();ctx.moveTo(r*.5,0);ctx.lineTo(r*2.1,0);ctx.stroke();
@@ -1675,16 +1770,15 @@ function drawAlly(u){
     ctx.restore();
     if(u.anim&&u.anim.t>SWING.up&&u.anim.t<SWING.up+SWING.down+.05){
       ctx.strokeStyle="rgba(242,215,78,.55)";ctx.lineWidth=r*.7;ctx.lineCap="round";
-      ctx.beginPath();ctx.arc(0,0,r*2.1,-1.4,1.1);ctx.stroke();}
+      ctx.beginPath();ctx.arc(0,0,r*2.1,-1.1,1.4);ctx.stroke();}
   }
-  ctx.restore();
-  ctx.beginPath();ctx.arc(0,0,r,0,7);
-  ctx.fillStyle=u.flash>0?"#fff":u.color;ctx.fill();
-  ctx.lineWidth=2;ctx.strokeStyle="rgba(255,255,255,.85)";ctx.stroke();
-  ctx.restore();
-  bar(u,x,y-r-7,"#6BD98F",r);
+  ctx.restore();          // 무기·방패 회전 해제
+
+  ctx.restore();          // translate 해제
+  const topY=img?r*3.0:r+7, botY=img?r*1.2:r+10;
+  bar(u,x,y-topY,"#6BD98F",r);
   ctx.fillStyle="rgba(234,230,242,.7)";ctx.font="600 8.5px system-ui";ctx.textAlign="center";
-  ctx.fillText(u.name,x,y+r+10);
+  ctx.fillText(u.name,x,y+botY);
 }
 function drawFoe(f){
   const x=f.x*SX,y=f.y*SY,r=f.r*Math.min(SX,SY);
@@ -1932,12 +2026,68 @@ function bar(u,x,y,c,r){
 function loop(ts){
   if(!last)last=ts;
   const dt=Math.min(.05,(ts-last)/1000);last=ts;
-  if(B&&!B.over)tick(dt);
+  if(B&&!B.over&&!B.paused)tick(dt);
   if(B)paint();
+  if(B&&B.paused)paintPause();
   raf=requestAnimationFrame(loop);
 }
 function startLoop(){if(raf)return;last=0;raf=requestAnimationFrame(loop)}
 function stopLoop(){if(raf)cancelAnimationFrame(raf);raf=null}
+/* 전투 일시정지 — 화면 위에 덮개를 그린다. 계산(tick)만 멈추고 그리기는 계속한다 */
+function paintPause(){
+  if(!ctx)return;
+  ctx.save();
+  ctx.fillStyle="rgba(0,0,0,.55)";ctx.fillRect(0,0,W,H);
+  ctx.fillStyle="#fff";ctx.textAlign="center";ctx.textBaseline="middle";
+  ctx.font="bold 22px system-ui,sans-serif";
+  ctx.fillText("일시정지",W/2,H/2-12);
+  ctx.font="13px system-ui,sans-serif";ctx.fillStyle="rgba(255,255,255,.82)";
+  ctx.fillText("화면을 누르면 계속",W/2,H/2+16);
+  ctx.restore();
+}
+function togglePause(){
+  if(!B||B.over)return;
+  B.paused=!B.paused;
+  if(!raf)startLoop();
+}
+/* ═══════════ 뒤로가기 (안드로이드 하드웨어 버튼 · Esc) ═══════════
+   게이트 전투 중이면 일시정지 토글, 캠퍼스에서는 방 → 건물 → 캠퍼스 순으로 한 단계 올라간다.
+   최상위 화면(캠퍼스·타이틀)에서는 한 번 더 누르면 종료. 그 밖(게이트 진행)은 무시. */
+const BACK_FAC_SCENES=["office","shop","admissions","union","clinic","tower","arcade","dept","soon"];
+let backExitArm=0;
+function appExit(){
+  try{
+    const C=window.Capacitor;
+    if(C&&C.Plugins&&C.Plugins.App&&C.Plugins.App.exitApp){C.Plugins.App.exitApp();return}
+    if(navigator.app&&navigator.app.exitApp){navigator.app.exitApp();return}
+  }catch(e){}
+  history.go(-2);   // 웹에서는 트랩과 원래 항목을 건너뛴다 (최선)
+}
+function goBack(){
+  const S=G.scene;
+  if(S==="battle"){togglePause();return}
+  if(S==="spidergame"||S==="stargame"||S==="huntgame"){arcadeStop();AR=null;G.scene="arcade";render();return}
+  if(S==="spiderend"||S==="starend"||S==="huntend"){AR=null;G.scene="arcade";render();return}
+  if(S==="hall"||S==="gates"){G.scene="campus";render();return}
+  if(BACK_FAC_SCENES.includes(S)){
+    const b=BUILDINGS.find(x=>x.facs&&x.facs.includes(G.soonName));
+    if(b){G.hallId=b.id;G.scene="hall"}else G.scene="campus";
+    render();return;
+  }
+  if(S==="campus"||S==="title"){
+    if(Date.now()-backExitArm<2000){appExit();return}
+    backExitArm=Date.now();
+    toast("한 번 더 누르면 종료됩니다");
+    return;
+  }
+  /* 게이트 진행 중 화면 — 그대로 둔다 */
+}
+/* history 트랩 — 뒤로가기를 popstate 로 받아 앱 안에서 처리한다 */
+function armBack(){try{history.pushState({uch:1},"")}catch(e){}}
+addEventListener("popstate",()=>{
+  armBack();
+  goBack();
+});
 function fitCanvas(){
   cv=document.getElementById("cv");ctx=cv.getContext("2d");
   const dpr=window.devicePixelRatio||1;
@@ -2945,8 +3095,9 @@ function render(){
       <span class="tag">적 ${B.foes.filter(f=>f.hp>0).length}</span></div>
       <canvas id="cv"></canvas>
       <div id="feed">${feed.map(x=>`<div>${x}</div>`).join("")}</div>
-      <div class="tag">진한 지형은 아무도 못 지나가고, 옅은 점선 지형은 기어다니는 것만 통과합니다.</div>`;
+      ${ROOM&&BG_ART[ROOM.id]?"":`<div class="tag">진한 지형은 아무도 못 지나가고, 옅은 점선 지형은 기어다니는 것만 통과합니다.</div>`}`;
     fitCanvas();startLoop();
+    cv.onclick=()=>{if(B&&B.paused)B.paused=false};
     return;
   }
   if(S==="reward"){
@@ -3480,7 +3631,7 @@ function render(){
         :` <b style="color:var(--mark)">군인</b>과 <b style="color:var(--mark)">경찰대학생</b>만 총을 다룰 수 있습니다.`}</p></div>
       ${G.roster.map((r,i)=>`<div class="app">
         ${faceTag(r)}<div class="hd"><b>${r.name}</b><span>${r.major?majorOf(r.major).n:`Lv ${r.lvl}`}</span></div>
-        ${r.major?`<div class="tag">${majorOf(r.major).d} · 이미 정해졌습니다</div>`
+        ${r.major?`<div class="tag">${majorOf(r.major).d}</div>`
           :r.lvl<MAJOR_LV?`<div class="tag">Lv ${MAJOR_LV}이 되어야 전공을 정할 수 있습니다 (현재 Lv ${r.lvl})</div>`
           :`<div class="chips" style="margin-top:6px">${pool.map(m=>
             `<button class="pickb" data-maj="${i}|${m.id}">${m.n}</button>`).join("")}</div>`}
@@ -3585,6 +3736,7 @@ function render(){
   }
 }
 addEventListener("keydown",onKeyJump);
+addEventListener("keydown",e=>{if(e.key==="Escape"){e.preventDefault();goBack()}});
 addEventListener("resize",()=>{if(G.scene==="battle")fitCanvas()});
 bootGame();
 
