@@ -679,7 +679,7 @@ function rollStudent(){
   const d=[-1,0,0,0,1][(Math.random()*5)|0];
   if(d){const k=keys[(Math.random()*6)|0];st[k]=Math.max(6,Math.min(15,st[k]+d))}
   const nm=randName();
-  const s={name:nm.name,sex:nm.sex,face:pickFace(nm.sex,st),
+  const s={name:nm.name,sex:nm.sex,face:pickFace(nm.sex),
            lvl:1,exp:0,major:null,stats:st,gear:emptyGear(),bag:[],
            points:0,inParty:true,log:[]};
   s.hp=derive(s).maxHp;
@@ -864,21 +864,19 @@ const BUILDINGS=[
   {id:"gate",  n:"정문",        box:[46.0,82.7,60.7,86.5], facs:null},
 ];
 const facOf=id=>FACILITIES.find(f=>f.id===id);
-const bldOpen=b=>b.facs===null||b.facs.some(id=>facOf(id).cond(G));
+/* 이름이 붙는 건물 = 시설이 하나라도 배정된 건물. 들어가서 잠긴 시설도 볼 수 있습니다.
+   bldLit = 그중 지금 당장 쓸 수 있는 시설이 있는 건물(지도에서 밝게 표시). */
+const bldNamed=b=>b.facs===null||(b.facs&&b.facs.length>0);
+const bldLit=b=>b.facs===null||b.facs.some(id=>facOf(id).cond(G));
 
-/* 얼굴 — 성별과 가장 높은 스탯으로 후보를 고르고 그중 하나를 무작위로 받습니다.
-   열쇠는 "성별-스탯"(예: m-str). 그 칸이 비면 "m"/"f"로, 그것도 없으면 빈 자리로 나옵니다.
-   스탯 열쇠: vit 체력 · str 힘 · spd 속도 · agi 순발력 · luk 운 · maj 전공활용 */
+/* 얼굴 — 성별 풀에서 무작위로 하나 받습니다. 스탯은 보지 않습니다.
+   풀이 비거나 이미 다 나갔으면 얼굴 없는 anon 그림으로 나옵니다. */
 const FACE_ART={
-  m:[], f:[],                       /* 스탯을 안 가리는 공용 초상 */
-  "m-vit":["face/m-vit-1.webp"], "m-str":[], "m-spd":["face/m-spd-1.webp"],
-  "m-agi":[], "m-luk":[], "m-maj":[],
-  "f-vit":[], "f-str":[], "f-spd":["face/f-spd-1.webp"],
-  "f-agi":[], "f-luk":[], "f-maj":[],
+  m:["face/m-vit-1.webp","face/m-spd-1.webp"],
+  f:["face/f-spd-1.webp"],
   /* 줄 초상이 다 떨어졌을 때 쓰는 얼굴 없는 그림. 여럿이 같이 써도 됩니다 */
   anon:{m:"face/m-anon.webp", f:"face/f-anon.webp"},
 };
-const topStat=st=>Object.keys(st).reduce((a,b)=>st[b]>st[a]?b:a);
 const isAnon=f=>f===FACE_ART.anon.m||f===FACE_ART.anon.f;
 /* 이미 나간 초상은 다시 주지 않습니다.
    지원자 명단에 걸려 있는 것도 그동안은 빼둡니다(같은 얼굴 셋이 나란히 서지 않게). */
@@ -887,12 +885,10 @@ function facesTaken(){
   for(const r of (G&&G.applicants)||[])if(r&&r.face)t.add(r.face);
   return t;
 }
-function pickFace(sex,st){
+function pickFace(sex){
   const t=facesTaken();
-  const free=a=>(a||[]).filter(f=>!t.has(f));
-  const pool=free(FACE_ART[sex+"-"+topStat(st)]);
-  const list=pool.length?pool:free(FACE_ART[sex]);
-  if(list.length)return list[(Math.random()*list.length)|0];
+  const pool=(FACE_ART[sex]||[]).filter(f=>!t.has(f));
+  if(pool.length)return pool[(Math.random()*pool.length)|0];
   return FACE_ART.anon[sex]||"";     // 남은 초상이 없으면 어나니머스
 }
 /* 명단에 들어오는 순간 그 초상을 쓴 것으로 적어 둡니다 */
@@ -3116,10 +3112,10 @@ function render(){
       <span class="tag">골드 <b>${G.gold}</b></span></div>
       <div class="tag" style="margin-top:-4px">탄약 · ${ammoLine()}</div>
       <div id="map"><img src="${artUrl(CAMPUS_ART)}" alt="캠퍼스">
-      ${BUILDINGS.map(b=>{const o=bldOpen(b),x=b.box;
-        return `<button class="pin ${o?"":"lock"} ${b.id==="gate"?"gate":""}" data-b="${b.id}"
+      ${BUILDINGS.map(b=>{const named=bldNamed(b),lit=bldLit(b),x=b.box;
+        return `<button class="pin ${lit?"":"lock"} ${b.id==="gate"?"gate":""}" data-b="${b.id}"
           style="left:${x[0]}%;top:${x[1]}%;width:${x[2]-x[0]}%;height:${x[3]-x[1]}%"
-          >${o?b.n:"???"}</button>`}).join("")}</div>
+          >${named?b.n:"???"}</button>`}).join("")}</div>
       ${G.mapMsg?`<div class="tag" style="color:var(--dim)">${G.mapMsg}</div>`:""}
       <div class="card"><h2>명단 · ${G.roster.length}명</h2>\n      <p style="font-size:12px;color:var(--dim);margin-bottom:9px">여기서 바로 착용하고, 서로 물건을 넘겨줄 수 있습니다.</p>
       ${G.bedKick?`<div class="tag" style="color:var(--bad);margin-bottom:8px">골드가 모자라 ${G.bedKick}이(가) 퇴원했습니다</div>`:""}
@@ -3134,13 +3130,8 @@ function render(){
       const b=BUILDINGS.find(x=>x.id===bt.dataset.b);
       if(b.facs===null){G.mapMsg=null;G.scene="gates";render();return}   // 정문 = 게이트
       if(!b.facs.length){G.mapMsg=`${b.n} — 아직 쓸 일이 없습니다.`;render();return}
-      const open=b.facs.filter(id=>facOf(id).cond(G));
-      if(!open.length){
-        const f=facOf(b.facs[0]);
-        G.mapMsg=DEV_SHOW_UNLOCK?`${b.n} · ${f.n} — ${f.prog(G)}`:`${b.n} — 아직 들어갈 수 없습니다.`;
-        render();return}
       G.mapMsg=null;
-      /* 시설이 하나뿐이어도 건물 안을 한 번 보여줍니다. 건물마다 배경이 있으니까요. */
+      /* 잠긴 시설만 있어도 건물 안으로 들어갑니다. 안에서 해금 조건을 보여줍니다. */
       G.hallId=b.id;G.scene="hall";render()});
     return;
   }
@@ -3153,8 +3144,8 @@ function render(){
       ${b.facs.map(id=>{const f=facOf(id),o=f.cond(G);
         return `<button class="fac ${o?"":"lock"}" ${o?`data-f="${id}"`:"disabled"}>
           <span class="ic">${o?facIcon(id,f.ic):"🔒"}</span>
-          <span class="tx"><b>${o?f.n:"잠겨 있다"}</b><span>${
-            o?f.d:(DEV_SHOW_UNLOCK?`${f.n} · <i>${f.prog(G)}</i>`:"아직 들어갈 수 없습니다")}</span></span></button>`}).join("")}
+          <span class="tx"><b>${o||DEV_SHOW_UNLOCK?f.n:"잠겨 있다"}</b><span>${
+            o?f.d:`<i>${f.prog(G)}</i>`}</span></span></button>`}).join("")}
       </div>
       <div class="bar"><span class="tag"></span><button class="ghost" id="bk">밖으로</button></div>`;
     el.querySelectorAll("[data-f]").forEach(bt=>bt.onclick=()=>enterFac(bt.dataset.f));
