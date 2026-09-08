@@ -35,10 +35,6 @@
     border:1px solid var(--line);border-radius:4px;padding:20px;overflow:hidden}
   #intro .scrim{position:absolute;inset:0;pointer-events:none;
     background:linear-gradient(180deg,rgba(20,17,32,.20) 0%,rgba(20,17,32,.45) 38%,rgba(20,17,32,.90) 78%,rgba(20,17,32,.97) 100%)}
-  #intro .artslot{position:absolute;top:10px;left:12px;font-size:10.5px;color:var(--dim);
-    border:1px dashed var(--line);border-radius:3px;padding:3px 7px}
-  #intro .artslot b{color:var(--gate)}
-  #intro .artslot{background:rgba(20,17,32,.6)}
   #intro .lines{position:relative;display:flex;flex-direction:column;gap:13px}
   #intro .ln{font-size:14.5px;line-height:1.9;text-shadow:0 1px 4px rgba(0,0,0,.8)}
   #intro .ln.q{color:var(--dim);font-size:13.5px}
@@ -704,7 +700,14 @@ const FACILITIES=[
    msg:"행정실에 불이 켜졌습니다. 게이트에서 가져온 물건을 학교가 값을 쳐서 사들이겠다고 합니다."},
   {id:"shop",ic:"🏪",n:"창고 겸 학생회 매점",d:"학생회가 돈 되는 물건은 다 팝니다",
    cond:g=>g.goldEarned>=25,prog:g=>`누적 골드 ${Math.min(g.goldEarned,25)} / 25`,
-   msg:"학생회가 매점 셔터를 올렸습니다.<br><br>매점은 생각보다 다양한 물품을 팔고 있습니다. 학생회는 돈 되는 물건이면 무엇이든 팔 생각입니다."},
+   msg:"학생회가 매점 셔터를 올렸습니다.<br><br>매점은 생각보다 다양한 물품을 팔고 있습니다. 학생회는 돈 되는 물건이면 무엇이든 팔 생각입니다.",
+   /* 해금을 안내문 대신 대사로 연출합니다. [화자, 대사] — 화자 shop=NPC, pc=주인공, na=나레이션 */
+   intro:[["shop","저기 안녕하세요? 방금 행정실에서 나오셨죠?"],
+          ["pc","아 네 맞습니다. 무슨 일이시죠?"],
+          ["shop","게이트의 생환자... 앞으로 돈을 많이 벌겠군..."],
+          ["pc","네? 방금 뭐라고?"],
+          ["shop","아닙니다. 꼭 본관의 매점을 방문해 주세요. 학생회에서 다양한 물품을 준비하고 있습니다."],
+          ["na","수상한 여자가 황망히 가버렸다. 본관의 매점을 방문해 보자."]]},
   {id:"adm",ic:"📋",n:"입학처",d:"신입생을 모집합니다",
    cond:g=>g.explores>=2,prog:g=>`탐색 ${Math.min(g.explores,2)} / 2회`,
    msg:"소문이 돌았는지 입학처에 지원서가 쌓이기 시작했습니다.<br><br>혼자 들어가지 않아도 됩니다."},
@@ -759,10 +762,9 @@ const NPCS={
            "요즘은 안쪽 물건이라면 뭐든 팔린다네.",
            "장부는 내가 맞출 테니 자네는 들고 오기만 하게."]},
   shop:{n:"매점 총무",role:"창고 겸 학생회 매점",ic:"🏪",
-    first:["학생회에서 나왔습니다. 재고는 제가 관리해요.",
-           "돈 되는 물건이면 뭐든 들여옵니다. 총알도요.",
-           "외상은 안 됩니다. 그건 학생회장이 정한 겁니다."],
-    again:["오늘은 뭐 필요하세요?","재고는 그때그때 다릅니다.","골드부터 확인하고 오세요."]},
+    first:["호ㄱ.. 아니 고객님 어서오세요. 정말 와주셨군요.",
+           "오늘은 처음이라 준비한 물품이 많지는 않아요. 당신이 게이트에서 많은 물품을 가져와 행정실에 넘길 수록 우리가 준비할 수 있는 물건이 많아져요."],
+    again:["아직 살아있네요? 학생회에서 보증하는 물품들을 사용해 보세요. 다음에도 살아서 돌아오고 싶다면."]},
   adm:{n:"입학처 직원",role:"입학처",ic:"📋",
     first:["지원서가 계속 들어옵니다. 밖이 더 무서운 모양이에요.",
            "한 명 받는 데 20골드입니다. 서류값이라고 해 두죠.",
@@ -2666,7 +2668,7 @@ function render(){
   if(S!=="title")titleStop();
   if(CAMPUS_SCENES.includes(S)){
     const nf=pendingUnlock();
-    if(nf){G.unlockFrom=S;G.unlockId=nf.id;S=G.scene="unlocked"}
+    if(nf){G.unlockFrom=S;G.unlockId=nf.id;G.introStep=0;S=G.scene="unlocked"}
   }
   const p=G.player;
 
@@ -2724,15 +2726,33 @@ function render(){
 
   if(S==="unlocked"){
     const f=FACILITIES.find(x=>x.id===G.unlockId);
-    el.innerHTML=logo+`
-      <div class="bar"><span class="tag">캠퍼스</span><span class="tag">새로 열림</span></div>
-      <div class="card" style="border-color:var(--mark)"><h2>${f.ic} ${f.n}</h2><p>${f.msg}</p></div>
-      <div class="bar"><span class="tag"></span><button id="ok">확인</button></div>`;
-    document.getElementById("ok").onclick=()=>{
+    const finish=()=>{
+      G.introStep=0;
       G.announced.push(f.id);
       if(f.onUnlock)f.onUnlock();
       G.scene=G.freeRecruit?"volunteer":(G.unlockFrom||"campus");
       render()};
+    if(f.intro){                       // 안내문 대신 대사로 연출하는 시설
+      const i=G.introStep||0,ln=f.intro[i],last=i>=f.intro.length-1;
+      const pc=G.roster[0]||G.player;
+      let body;
+      if(ln[0]==="na")        body=`<p>${ln[1]}</p>`;
+      else if(ln[0]==="pc")   body=`<div class="npc">${pc.face?`<div class="face img"><img src="${artUrl(pc.face)}" alt=""></div>`:`<div class="face">🙂</div>`}<div class="who"><b>${pc.name}</b><span>게이트 생환자</span></div></div><p class="say">${ln[1]}</p>`;
+      else                    body=`${npcHead(ln[0])}<p class="say">${ln[1]}</p>`;
+      el.innerHTML=logo+`
+        <div class="bar"><span class="tag">캠퍼스</span><span class="tag">새로 열림</span></div>
+        <div class="card" style="border-color:var(--mark)">${body}</div>
+        <div class="bar"><button class="ghost" id="sk">건너뛴다</button>
+        <button id="nx">${last?"확인":"계속"}</button></div>`;
+      document.getElementById("nx").onclick=()=>{if(last)finish();else{G.introStep=i+1;render()}};
+      document.getElementById("sk").onclick=finish;
+      return;
+    }
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">캠퍼스</span><span class="tag">새로 열림</span></div>
+      <div class="card" style="border-color:var(--mark)"><h2>${f.ic} ${f.n}</h2><p>${f.msg}</p></div>
+      <div class="bar"><span class="tag"></span><button id="ok">확인</button></div>`;
+    document.getElementById("ok").onclick=finish;
     return;
   }
   if(S==="volunteer"){
@@ -2754,7 +2774,6 @@ function render(){
     const cur=INTRO[G.introLine],art=INTRO_ART[cur.bg]||INTRO_ART._default||"";
     el.innerHTML=logo+`<div id="intro" style="${art?`background-image:url('${artUrl(art)}')`:""}">
       <div class="scrim"></div>
-      ${INTRO_ART[cur.bg]||!DEV_SHOW_UNLOCK?"":`<div class="artslot">배경 자리 · <b>${cur.bg}</b></div>`}
       <div class="lines">${INTRO.slice(0,G.introLine+1).map((o,i)=>
         `<div class="ln ${i<G.introLine?"q":""}">${o.t}${i===G.introLine?'<span class="cursor"></span>':""}</div>`).join("")}</div>
       </div>
