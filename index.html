@@ -701,7 +701,9 @@ const FACILITIES=[
   {id:"shop",ic:"🏪",n:"창고 겸 학생회 매점",d:"학생회가 돈 되는 물건은 다 팝니다",
    cond:g=>g.goldEarned>=25,prog:g=>`누적 골드 ${Math.min(g.goldEarned,25)} / 25`,
    msg:"학생회가 매점 셔터를 올렸습니다.<br><br>매점은 생각보다 다양한 물품을 팔고 있습니다. 학생회는 돈 되는 물건이면 무엇이든 팔 생각입니다.",
-   /* 해금을 안내문 대신 대사로 연출합니다. [화자, 대사] — 화자 shop=NPC, pc=주인공, na=나레이션 */
+   /* 해금을 안내문 대신 대사로 연출합니다. [화자, 대사] — 화자 shop=NPC, pc=주인공, na=나레이션
+      introTo: 대사가 끝나면 원래 화면 대신 이 건물 안(hall)으로 들어갑니다 */
+   introTo:"main",
    intro:[["shop","저기 안녕하세요? 방금 행정실에서 나오셨죠?"],
           ["pc","아 네 맞습니다. 무슨 일이시죠?"],
           ["shop","게이트의 생환자... 앞으로 돈을 많이 벌겠군..."],
@@ -2730,7 +2732,9 @@ function render(){
       G.introStep=0;
       G.announced.push(f.id);
       if(f.onUnlock)f.onUnlock();
-      G.scene=G.freeRecruit?"volunteer":(G.unlockFrom||"campus");
+      if(G.freeRecruit)G.scene="volunteer";
+      else if(f.introTo){G.hallId=f.introTo;G.scene="hall"}   // 대사 뒤엔 건물 안으로
+      else G.scene=G.unlockFrom||"campus";
       render()};
     if(f.intro){                       // 안내문 대신 대사로 연출하는 시설
       const i=G.introStep||0,ln=f.intro[i],last=i>=f.intro.length-1;
