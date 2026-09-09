@@ -33,13 +33,19 @@
   .hint{color:var(--dim);margin-top:6px;font-size:12px}
   .ord{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
   .ord .oe{color:var(--dim);font-size:11px}
-  .ord .chip{background:#1f1e28;border:1px solid var(--line);border-radius:6px;padding:2px 8px}
+  .ord .chip{background:#1f1e28;border:1px solid var(--line);border-radius:6px;padding:2px 6px;
+    display:inline-flex;align-items:center;gap:5px}
   .ord .chip.body{opacity:.7}
-  .ord .chip.btn{cursor:pointer;border-color:var(--cy)}
+  .ord .oz{border:1px solid var(--line);background:#2c2a37;color:var(--ink);border-radius:4px;
+    padding:0 6px;cursor:pointer;font-size:12px;line-height:1.7}
+  .ord .oz:disabled{opacity:.28;cursor:default}
+  button.mir{border:1px solid var(--line);background:var(--panel);color:var(--dim);border-radius:6px;padding:2px 12px;cursor:pointer}
+  button.mir.on{border-color:var(--cy);color:var(--cy);background:#2e3b38}
   footer{padding:14px;max-width:760px}
   textarea{width:100%;height:240px;background:#15141b;color:var(--ink);border:1px solid var(--line);
            border-radius:8px;padding:10px;font:12px/1.5 ui-monospace,Consolas,monospace;resize:vertical}
   .fbar{display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+  #status{padding:6px 14px;font-size:12px;color:var(--dim);border-bottom:1px solid var(--line)}
 </style>
 
 <header>
@@ -53,9 +59,13 @@
       <button data-t="rh" class="on">무기</button><button data-t="lh">방패</button>
     </span></span>
   <label class="f"><input type="checkbox" id="bg" checked> 음식점 배경</label>
+  <button class="go" id="reload">index.html 불러오기</button>
+  <button class="go" id="write" hidden>▶ index.html 에 바로 쓰기</button>
   <button id="reset">기본값으로</button>
-  <label class="f">index.html 열기 <input type="file" id="pick" accept=".html,text/html"></label>
+  <label class="f">직접 선택 <input type="file" id="pick" accept=".html,text/html"></label>
 </header>
+
+<div id="status">index.html 불러오는 중…</div>
 
 <div class="grid" id="grid"></div>
 
@@ -64,16 +74,18 @@
     <strong>BATTLE_RIG</strong>
     <button class="go" id="copy">클립보드 복사</button>
     <button id="load">텍스트 적용</button>
-    <span class="hint">x·y = 전투 반지름 r 의 배수 · rot 라디안 · scale = r*1.7 배수 · behind = 대원 뒤 · 자동 저장됨</span>
+    <span class="hint">헤더의 <b>'바로 쓰기'</b>(크롬·엣지) 로 index.html 에 직접 저장 · 안 되면 이 텍스트를 복사해 붙여넣기 · x·y=r 배수, rot 라디안, scale=r*1.7 배수</span>
   </div>
   <textarea id="out" spellcheck="false"></textarea>
 </footer>
 
 <script>
 /* ─── 규약(index.html 와 동일) ───────────────────────────────────────────────
-   앵커 = 대원 발밑. 장비: 앵커+(x*r, y*r) 이동 → (rot) 회전 → drawImage(icon,-w/2,-s/2,w,s)
-   s = r*1.7*scale, w = s*(icon.w/icon.h). behind=true 면 대원 스프라이트보다 먼저 그린다.
-   좌우 반전만 하므로 left/right 를 따로 잡는다. 손장비(무기·방패) 하나하나 값이 다르다. */
+   앵커 = 대원 발밑. 장비: 앵커+(x*r, y*r) 이동 → (rot) 회전 → (mir 면 좌우반전) → drawImage(icon,-w/2,-s/2,w,s)
+   s = r*1.7*scale, w = s*(icon.w/icon.h).
+   z = 겹침 순서 — 대원 몸통 0 기준, 뒤 −2‥−1 · 앞 1‥2 (◀▶ 로 조정).
+   방향은 북동/북서/남동/남서 4등분(ne/nw/se/sw). 몸통 스프라이트만 서쪽에서 좌우반전하고
+   손장비는 방향마다 좌표·반전·순서를 따로 잡는다. */
 const CW=340, CH=380, R=36, AX=CW/2, AY=272;
 
 const WEAPONS=[["ladle","국자"],["pen","만년필"],["weight","벼려진 문진"],["bat","야구 배트"],
@@ -86,34 +98,40 @@ const NAME_OF=id=>([...WEAPONS,...SHIELDS].find(a=>a[0]===id)||[id,id])[1];
 const EXT={ladle:"webp",pen:"webp",spray:"webp",lid:"webp",book:"webp",doorpanel:"webp"};
 const iconSrc=id=>`art/item/${id}.${EXT[id]||"png"}`;
 
+/* 그리드는 2열이라 [북서 북동 / 남서 남동] 순서로 나침반처럼 배치한다.
+   spr: n*=등 그림, s*=정면 그림.
+   flip: 대원 그림은 기본이 서향이라 *e(동쪽)에서 몸통을 좌우반전한다(index.html 과 동일).
+         손장비는 반전하지 않으므로 방향마다 좌표를 따로 잡는다. */
 const DIRS=[
-  {key:"front",title:"정면",note:"카메라 쪽",spr:"front",flip:false},
-  {key:"back", title:"후면",note:"등 쪽 · 기본 전투 자세",spr:"back",flip:false},
-  {key:"left", title:"좌측",note:"정면 그림 미러",spr:"front",flip:true},
-  {key:"right",title:"우측",note:"정면 그림",spr:"front",flip:false},
+  {key:"nw", title:"북서 ↖", note:"등 · 왼쪽 적", spr:"back",  flip:false},
+  {key:"ne", title:"북동 ↗", note:"등 · 오른쪽 적", spr:"back",  flip:true },
+  {key:"sw", title:"남서 ↙", note:"정면 · 왼쪽 적", spr:"front", flip:false},
+  {key:"se", title:"남동 ↘", note:"정면 · 오른쪽 적", spr:"front", flip:true },
 ];
 
 function defFor(id,dir){
-  if(IS_RH(id)) return dir==="back" ? {x:0.30,y:-1.50,rot:0.5,scale:1,behind:true}
-    : dir==="left" ? {x:-1.05,y:-1.55,rot:0.5,scale:1,behind:false}
-    : {x:1.05,y:-1.55,rot:0.5,scale:1,behind:false};
-  return dir==="back" ? {x:-0.30,y:-1.40,rot:-0.4,scale:1,behind:true}
-    : dir==="right" ? {x:1.05,y:-1.40,rot:-0.4,scale:1,behind:false}
-    : {x:-1.05,y:-1.40,rot:-0.4,scale:1,behind:false};
+  const north = dir[0]==="n";
+  if(IS_RH(id)) return north ? {x:0.30,y:-1.50,rot:0.5,scale:1,z:-1,mir:false}
+    : dir==="sw" ? {x:-1.05,y:-1.55,rot:0.5,scale:1,z:1,mir:false}
+    : {x:1.05,y:-1.55,rot:0.5,scale:1,z:1,mir:false};
+  return north ? {x:-0.30,y:-1.40,rot:-0.4,scale:1,z:-1,mir:false}
+    : dir==="se" ? {x:1.05,y:-1.40,rot:-0.4,scale:1,z:1,mir:false}
+    : {x:-1.05,y:-1.40,rot:-0.4,scale:1,z:1,mir:false};
 }
+const zOf=e=>e&&e.z!=null?+e.z:(e&&e.behind?-1:1);
 const freshRIG=()=>{ const R2={}; for(const id of ALL_IDS){ R2[id]={}; for(const d of DIRS) R2[id][d.key]=defFor(id,d.key); } return R2; };
 
 let RIG=freshRIG(), sex="m", curW="ladle", curS="lid", target="rh", bgOn=true;
 const curId=()=>target==="rh"?curW:curS;
 
 /* ─── 자동 저장/복원 ─── */
-const LS="uch-battle-rig-v2";
-let saveT;
+const LS="uch-battle-rig-v4";     // 방향 ne/nw/se/sw · behind → z(겹침순서) · mir(좌우반전) 추가
+let saveT, hadSaved=false;
 function save(){ clearTimeout(saveT); saveT=setTimeout(()=>{
   try{ localStorage.setItem(LS,JSON.stringify({RIG,sex,curW,curS,target,bgOn})); }catch(e){} },200); }
 function restore(){ try{
   const d=JSON.parse(localStorage.getItem(LS)||"null"); if(!d) return;
-  if(d.RIG && ALL_IDS.every(id=>d.RIG[id]&&DIRS.every(x=>d.RIG[id][x.key]))) RIG=d.RIG;
+  if(d.RIG && ALL_IDS.every(id=>d.RIG[id]&&DIRS.every(x=>d.RIG[id][x.key]))){ RIG=d.RIG; hadSaved=true; }
   if(d.sex==="m"||d.sex==="f") sex=d.sex;
   if(ALL_IDS.includes(d.curW)) curW=d.curW;
   if(ALL_IDS.includes(d.curS)) curS=d.curS;
@@ -147,8 +165,11 @@ for(const d of DIRS){
         <span style="color:var(--dim)">크기</span>
         <input type="range" min="0.3" max="3" step="0.01" data-k="${d.key}" data-p="scale">
         <span class="v" data-v="${d.key}-scale"></span></div>
+      <div class="r"><span class="tag"></span>
+        <button class="mir" data-k="${d.key}">좌우반전</button>
+        <span class="v" data-v="${d.key}-mir" style="width:auto"></span></div>
       <div class="r ord" data-ord="${d.key}"></div>
-      <div class="hint">아이콘을 끌어 위치 · 휠로 크기 · 방향키 미세조정 · 칩을 눌러 대원 앞뒤로</div>
+      <div class="hint">아이콘을 끌어 위치 · 휠로 크기 · 방향키 미세조정 · ◀▶ 로 겹침 순서</div>
     </div>`;
   grid.appendChild(el); cells[d.key]=el;
 }
@@ -161,18 +182,36 @@ document.getElementById("sex").value=sex;
 document.getElementById("bg").checked=bgOn;
 for(const b of document.querySelectorAll('#target button')) b.classList.toggle("on",b.dataset.t===target);
 
-/* ─── 겹침 순서 칩 ─── */
+/* ─── 겹침 순서: 대원 몸통(0) 기준으로 무기·방패 z 를 매긴다 ─── */
+const OTOK={body:0, rh:1, lh:2};                 // z 동점일 때의 기준 순서(index.html 과 동일)
+function orderTokens(key){
+  return [
+    {tok:"lh",   z:zOf(RIG[curS][key])},
+    {tok:"body", z:0},
+    {tok:"rh",   z:zOf(RIG[curW][key])},
+  ].sort((a,b)=> a.z-b.z || OTOK[a.tok]-OTOK[b.tok]).map(o=>o.tok);
+}
+function moveInOrder(key,which,dir){
+  const ord=orderTokens(key), i=ord.indexOf(which), j=i+dir;
+  if(j<0||j>2) return;
+  ord.splice(i,1); ord.splice(j,0,which);
+  const bi=ord.indexOf("body");
+  for(const tok of ["lh","rh"]){
+    (tok==="lh"?RIG[curS]:RIG[curW])[key].z = ord.indexOf(tok)-bi;   // ∈ {-2,-1,1,2}
+  }
+}
 function renderOrder(key){
   const box=cells[key].querySelector(".ord");
-  const wb=RIG[curW][key].behind, sb=RIG[curS][key].behind;
-  const list=[
-    {t:`🛡 ${NAME_OF(curS)}`, cls:"chip btn", act:"lh", z:sb?0:2},
-    {t:"🧍 대원", cls:"chip body", z:1},
-    {t:`🗡 ${NAME_OF(curW)}`, cls:"chip btn", act:"rh", z:wb?0:2},
-  ].sort((a,b)=>a.z-b.z);
-  box.innerHTML='<span class="oe">뒤</span>'+list.map(c=>
-    `<span class="${c.cls}"${c.act?` data-k="${key}" data-act="${c.act}"`:""}>${c.t}</span>`
-  ).join("")+'<span class="oe">앞</span>';
+  const label={ body:"🧍 대원", lh:`🛡 ${NAME_OF(curS)}`, rh:`🗡 ${NAME_OF(curW)}` };
+  const ord=orderTokens(key);
+  box.innerHTML='<span class="oe">뒤</span>'+ ord.map((tok,i)=>{
+    if(tok==="body") return `<span class="chip body">${label.body}</span>`;
+    return `<span class="chip">`
+      +`<button class="oz" data-k="${key}" data-tok="${tok}" data-dir="-1" ${i===0?"disabled":""}>◀</button>`
+      +`<b style="font-weight:600">${label[tok]}</b>`
+      +`<button class="oz" data-k="${key}" data-tok="${tok}" data-dir="1" ${i===2?"disabled":""}>▶</button>`
+      +`</span>`;
+  }).join('')+'<span class="oe">앞</span>';
 }
 
 /* ─── 그리기 ─── */
@@ -190,13 +229,31 @@ function drawPanel(key){
     c.fillStyle="rgba(12,10,18,.34)"; c.fillRect(0,0,CW,CH); } }
   else { c.fillStyle="#111019"; c.fillRect(0,0,CW,CH); }
 
+  /* ── 바라보는 방향 표식 ──
+     등/정면 그림 두 장을 좌우반전만 해서 쓰므로 몸만으로는 네 방향이 잘 구별되지 않는다.
+     발밑에 바닥 화살표를 깔아 북동/북서/남동/남서를 구분한다. */
+  { const dv={ne:[0.72,-0.72],nw:[-0.72,-0.72],se:[0.72,0.72],sw:[-0.72,0.72]}[key];
+    if(dv){
+      c.save();
+      c.translate(AX, AY+R*0.35);
+      c.scale(1,0.48);                       // 바닥에 눕힌 원근
+      c.rotate(Math.atan2(dv[1],dv[0]));
+      c.fillStyle="rgba(127,215,196,.45)";
+      c.beginPath();
+      c.moveTo(R*1.7,0); c.lineTo(R*0.7,-R*0.95); c.lineTo(R*0.7,-R*0.38);
+      c.lineTo(-R*1.0,-R*0.38); c.lineTo(-R*1.0,R*0.38);
+      c.lineTo(R*0.7,R*0.38); c.lineTo(R*0.7,R*0.95); c.closePath();
+      c.fill();
+      c.restore();
+    } }
+
   const drawBody=()=>{ const s=spriteImg(d.spr);
     if(!s.complete||!s.naturalWidth) return;
     const h=R*4.2, w=h*(s.width/s.height);
     c.save(); c.translate(AX,AY); if(d.flip)c.scale(-1,1);
     c.drawImage(s,-w/2,-h+R*0.55,w,h); c.restore(); };
   const drawEquip=id=>{ const e=RIG[id][key], i=iconImg(id), p=handlePos(id,key);
-    c.save(); c.translate(p.x,p.y); c.rotate(e.rot);
+    c.save(); c.translate(p.x,p.y); c.rotate(e.rot); if(e.mir)c.scale(-1,1);
     if(i.complete&&i.naturalWidth){
       const s=R*1.7*e.scale, w=s*(i.width/i.height);
       c.drawImage(i,-w/2,-s/2,w,s);
@@ -207,10 +264,10 @@ function drawPanel(key){
     }
     c.restore(); };
 
-  const layers=[{z:0,f:drawBody}];
-  layers.push({z:RIG[curS][key].behind?-1:1, f:()=>drawEquip(curS)});
-  layers.push({z:RIG[curW][key].behind?-1:1, f:()=>drawEquip(curW)});
-  layers.sort((a,b)=>a.z-b.z);
+  const layers=[{z:0,o:OTOK.body,f:drawBody}];
+  layers.push({z:zOf(RIG[curS][key]),o:OTOK.lh, f:()=>drawEquip(curS)});
+  layers.push({z:zOf(RIG[curW][key]),o:OTOK.rh, f:()=>drawEquip(curW)});
+  layers.sort((a,b)=>a.z-b.z||a.o-b.o);
   for(const l of layers) l.f();
 
   /* 앵커 + 손잡이 표식 */
@@ -229,8 +286,8 @@ function drawAll(){ for(const d of DIRS){ renderOrder(d.key); drawPanel(d.key); 
 /* ─── 결과 텍스트 ─── */
 const n2=v=>(Math.round(v*100)/100).toFixed(2);
 function line(id){
-  const p=d=>{ const e=RIG[id][d]; return `{ x:${n2(e.x)}, y:${n2(e.y)}, rot:${n2(e.rot)}, scale:${n2(e.scale)}, behind:${!!e.behind} }`; };
-  return `  ${(id+":").padEnd(11)}{ front:${p("front")}, back:${p("back")}, left:${p("left")}, right:${p("right")} }`;
+  const p=d=>{ const e=RIG[id][d]; return `{ x:${n2(e.x)}, y:${n2(e.y)}, rot:${n2(e.rot)}, scale:${n2(e.scale)}, z:${zOf(e)}, mir:${!!e.mir} }`; };
+  return `  ${(id+":").padEnd(11)}{ ne:${p("ne")}, nw:${p("nw")}, se:${p("se")}, sw:${p("sw")} }`;
 }
 function syncUI(){
   for(const d of DIRS){
@@ -241,12 +298,15 @@ function syncUI(){
       if(inp && document.activeElement!==inp) inp.value=e[p];
       cells[d.key].querySelector(`[data-v="${d.key}-${p}"]`).textContent=n2(e[p]);
     }
+    const mb=cells[d.key].querySelector("button.mir");
+    mb.classList.toggle("on", !!e.mir);
+    cells[d.key].querySelector(`[data-v="${d.key}-mir"]`).textContent = e.mir ? "(적용됨)" : "";
   }
   const out=document.getElementById("out");
   if(document.activeElement!==out)
     out.value=
       "/* 전투 손장비 배치 — '전투장비배치.html' 산출물. index.html 의 BATTLE_RIG 를 이 블록으로 교체한다.\n"+
-      "   x·y = 전투 반지름 r 의 배수, rot 라디안, scale = r*1.7 배수, behind = 대원 스프라이트 뒤 */\n"+
+      "   x·y = r 배수, rot 라디안, scale = r*1.7 배수, mir = 아이콘 좌우반전, z = 겹침순서(몸통 0, 뒤 −2‥−1 · 앞 1‥2) */\n"+
       "const BATTLE_RIG = {\n"+
       "  /* ── 오른손(무기) ── */\n"+
       WEAPONS.map(w=>line(w[0])+",").join("\n")+"\n"+
@@ -282,12 +342,99 @@ function loadObj(obj){
   for(const id of ALL_IDS) for(const d of DIRS){
     const e=obj && obj[id] && obj[id][d.key];
     if(e){ hit++; RIG[id][d.key]={ x:+e.x||0, y:+e.y||0, rot:+e.rot||0,
-      scale:e.scale?+e.scale:1, behind:!!e.behind }; }
+      scale:e.scale?+e.scale:1, z:zOf(e), mir:!!e.mir }; }
     else RIG[id][d.key]=defFor(id,d.key);
   }
   drawAll();
   return hit;
 }
+const RIG_RE=/const\s+BATTLE_RIG\s*=\s*\{[\s\S]*?\n\};/;
+/* index.html 통째 텍스트에서 BATTLE_RIG 블록만 뽑아 적용 */
+function applyRigText(txt){
+  const m=txt.match(RIG_RE);
+  if(!m) throw new Error("BATTLE_RIG 블록을 못 찾음");
+  const n=loadObj((new Function("return ("+m[0].replace(/^const\s+BATTLE_RIG\s*=\s*/,"").replace(/;\s*$/,"")+")"))());
+  loadedOnce=true;
+  return n;
+}
+/* 출력 텍스트에서 index.html 에 그대로 넣을 BATTLE_RIG 블록만 추출 */
+function outBlock(){
+  const m=document.getElementById("out").value.match(RIG_RE);
+  if(!m) throw new Error("출력 텍스트에 BATTLE_RIG 블록이 없음");
+  return m[0];
+}
+const statusEl=document.getElementById("status");
+function setStatus(txt,ok){ statusEl.textContent=txt;
+  statusEl.style.color = ok===true ? "var(--cy)" : ok===false ? "var(--mark)" : "var(--dim)"; }
+
+/* ─── index.html 파일 핸들 (File System Access API) ───
+   한 번 고르면 IndexedDB 에 저장해 새로고침 후에도 다시 고르지 않는다. 크롬/엣지 전용. */
+let idxHandle=null, loadedOnce=false;
+const FS_OK = !!window.showOpenFilePicker;
+function hdb(){ return new Promise((res,rej)=>{ const r=indexedDB.open("uch-rig-tool",1);
+  r.onupgradeneeded=()=>r.result.createObjectStore("h"); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+async function hget(){ try{ const d=await hdb(); return await new Promise((res,rej)=>{
+  const t=d.transaction("h").objectStore("h").get("index"); t.onsuccess=()=>res(t.result); t.onerror=()=>rej(t.error); }); }catch(e){ return null; } }
+async function hset(v){ try{ const d=await hdb(); await new Promise((res,rej)=>{
+  const t=d.transaction("h","readwrite"); t.objectStore("h").put(v,"index"); t.oncomplete=()=>res(); t.onerror=()=>rej(t.error); }); }catch(e){} }
+async function perm(h,mode){
+  if(!h.queryPermission) return true;
+  if(await h.queryPermission({mode})==="granted") return true;
+  return (await h.requestPermission({mode}))==="granted";
+}
+async function pickIndex(){
+  const [h]=await window.showOpenFilePicker({ types:[{description:"HTML",accept:{"text/html":[".html",".htm"]}}] });
+  idxHandle=h; await hset(h); return h;
+}
+
+/* 같은 폴더 index.html 을 읽어 반영한다.
+   ① 저장된 파일 핸들이 있으면 그걸로 (디스크에서 바로 읽음)  ② 없으면 fetch  */
+async function fetchIndex(force){
+  if(!force && hadSaved){
+    setStatus("로컬에서 편집하던 값을 씁니다. index.html 최신값을 반영하려면 '불러오기'.", null);
+    return;
+  }
+  try{
+    let txt;
+    if(idxHandle && await perm(idxHandle,"read")){
+      txt=await (await idxHandle.getFile()).text();
+    }else{
+      const res=await fetch("index.html",{cache:"no-store"});
+      if(!res.ok) throw new Error("HTTP "+res.status);
+      txt=await res.text();
+    }
+    const n=applyRigText(txt);
+    setStatus("index.html 반영됨 ("+n+"칸)."+(FS_OK?" 편집한 뒤 '바로 쓰기' 로 저장하세요.":" 편집한 뒤 아래 텍스트를 복사해 붙여넣으세요."), true);
+  }catch(err){
+    setStatus("불러오기 실패("+err.message+"). "+(FS_OK?"'불러오기' 를 눌러 index.html 을 직접 고르세요.":"로컬 파일이면 브라우저가 fetch 를 막습니다 — 서버로 열거나 '직접 선택' 을 쓰세요."), false);
+  }
+}
+
+/* 편집한 값을 index.html 의 BATTLE_RIG 블록에 바로 덮어쓴다 */
+async function writeIndex(){
+  try{
+    if(!FS_OK) throw new Error("이 브라우저는 파일 쓰기를 지원하지 않음 (크롬/엣지 필요)");
+    if(!idxHandle) await pickIndex();
+    if(!await perm(idxHandle,"readwrite")) throw new Error("쓰기 권한이 없음");
+    if(!loadedOnce && !confirm("index.html 을 아직 불러오지 않았습니다.\n지금 화면 값(기본값일 수 있음)으로 BATTLE_RIG 를 덮어씁니다. 계속할까요?")) return;
+    const cur=await (await idxHandle.getFile()).text();
+    if(!RIG_RE.test(cur)) throw new Error("index.html 에서 BATTLE_RIG 블록을 못 찾음");
+    const next=cur.replace(RIG_RE, ()=>outBlock());
+    if(next===cur){ setStatus("바뀐 내용이 없습니다.", null); return; }
+    const w=await idxHandle.createWritable();
+    await w.write(next); await w.close();
+    loadedOnce=true;
+    setStatus("index.html 저장 완료. 게임을 새로고침하면 반영됩니다.", true);
+    flash("write","저장됨");
+  }catch(err){
+    if(err.name==="AbortError") return;   // 파일 선택 취소
+    setStatus("바로 쓰기 실패: "+err.message, false);
+  }
+}
+
+document.getElementById("reload").onclick=()=>fetchIndex(true);
+if(FS_OK){ const wb=document.getElementById("write"); wb.hidden=false; wb.onclick=writeIndex; }
+
 document.getElementById("load").onclick=()=>{
   const t=document.getElementById("out").value;
   try{
@@ -300,24 +447,21 @@ document.getElementById("pick").onchange=e=>{
   const f=e.target.files&&e.target.files[0]; if(!f) return;
   const rd=new FileReader();
   rd.onload=()=>{
-    try{
-      const m=rd.result.match(/const\s+BATTLE_RIG\s*=\s*(\{[\s\S]*?\n\});/);
-      if(!m) throw new Error("파일에서 BATTLE_RIG 블록을 못 찾음");
-      const obj=(new Function("return "+m[1]))();
-      const n=loadObj(obj);
-      alert("index.html 에서 "+n+"칸 불러옴");
-    }catch(err){ alert("불러오기 실패: "+err.message); }
+    try{ setStatus("index.html 에서 "+applyRigText(rd.result)+"칸 불러옴.", true); }
+    catch(err){ alert("불러오기 실패: "+err.message); }
     e.target.value="";
   };
   rd.readAsText(f);
 };
 
-/* ─── 겹침 칩 클릭 ─── */
+/* ─── 겹침 순서 ◀▶ · 좌우반전 버튼 ─── */
 grid.addEventListener("click",e=>{
-  const t=e.target.closest("[data-act]"); if(!t) return;
-  const id=t.dataset.act==="rh"?curW:curS;
-  RIG[id][t.dataset.k].behind=!RIG[id][t.dataset.k].behind;
-  renderOrder(t.dataset.k); drawPanel(t.dataset.k); syncUI();
+  const oz=e.target.closest("button.oz");
+  if(oz){ moveInOrder(oz.dataset.k, oz.dataset.tok, +oz.dataset.dir);
+    renderOrder(oz.dataset.k); drawPanel(oz.dataset.k); syncUI(); return; }
+  const mb=e.target.closest("button.mir");
+  if(mb){ const en=RIG[curId()][mb.dataset.k]; en.mir=!en.mir;
+    drawPanel(mb.dataset.k); syncUI(); return; }
 });
 /* ─── 슬라이더 ─── */
 grid.addEventListener("input",e=>{
@@ -371,5 +515,9 @@ for(const d of DIRS){
 /* 미리 로드 후 첫 렌더 */
 bgImg(); DIRS.forEach(d=>spriteImg(d.spr)); ALL_IDS.forEach(iconImg);
 drawAll();
+(async()=>{                       /* 저장된 파일 핸들 복원 후 index.html 자동 반영 */
+  if(FS_OK){ try{ idxHandle=await hget(); }catch(e){} }
+  fetchIndex(false);
+})();
 </script>
 </html>

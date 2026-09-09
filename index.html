@@ -105,8 +105,10 @@
   .app .grid,.app .inv{clear:both}
   .app .hd b{font-size:15px;font-weight:800}
   .app .hd span{font-size:11.5px;color:var(--dim)}
-  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
-  .g{background:var(--panel2);border-radius:3px;padding:6px 7px;font-size:11px;color:var(--dim);line-height:1.4}
+  /* 능력치 6칸을 한 줄에 — 이름 위, 값 아래 */
+  .grid{display:grid;grid-template-columns:repeat(6,1fr);gap:3px}
+  .g{background:var(--panel2);border-radius:3px;padding:5px 2px;font-size:10px;color:var(--dim);
+     line-height:1.3;text-align:center;white-space:nowrap}
   .g b{display:block;font-size:14px;font-weight:800;color:var(--ink);margin-top:1px}
   .g.hi b{color:var(--mark)} .g.lo b{color:var(--bad)} .g.off b{color:var(--dim)}
   .expb{height:5px;background:#221C30;border-radius:3px;overflow:hidden;margin-top:7px}
@@ -279,7 +281,7 @@
 
 /* ═════════════════════════════════════════════════════
    ▼▼▼ 개발용 스위치 — 정식 배포 전에 false로 바꾸세요 ▼▼▼ */
-const DEV_SHOW_UNLOCK=true;
+const DEV_SHOW_UNLOCK=false;
 /* ▲▲▲ 여기까지 ▲▲▲ */
 
 const L1=1,L2=2,L3=4;
@@ -327,6 +329,8 @@ const MAJORS=[
   {id:"mil",    n:"군사학",      d:"총기를 다룰 수 있습니다"},
 ];
 const majorOf=id=>MAJORS.find(m=>m.id===id)||null;
+/* 전공은 Lv MAJOR_LV 부터 고를 수 있고, 정하기 전까지는 모두 '새내기' 입니다 */
+const majorName=p=>(p&&p.major&&majorOf(p.major))?majorOf(p.major).n:"새내기";
 const GUN_MAJORS=["soldier","police","mil"];
 /* 파티에서 가장 높은 레벨 — 학과사무실 해금에 씁니다 */
 const topLvl=g=>Math.max(1,...(g.roster||[]).map(r=>r.lvl));
@@ -1005,10 +1009,11 @@ function sprite(key){
   if(!rel)return null;
   let s=SPR[key];
   if(s===undefined){
-    s=new Image();s.ok=false;
-    s.onload=()=>{s.ok=true};
-    s.onerror=()=>{s.ok=false};
+    s=new Image();s.ok=false;s.done=false;
+    s.onload=()=>{s.ok=true;s.done=true};
+    s.onerror=()=>{s.done=true};
     s.src=artUrl(rel);
+    if(s.complete)s.done=true;
     SPR[key]=s;
   }
   return s.ok?s:null;
@@ -1028,9 +1033,9 @@ function allySprite(key){
   if(!rel)return null;
   let s=ASPR[key];
   if(s===undefined){
-    s=new Image();s.ok=false;
-    s.onload=()=>{s.ok=true};s.onerror=()=>{s.ok=false};
-    s.src=artUrl(rel);ASPR[key]=s;
+    s=new Image();s.ok=false;s.done=false;
+    s.onload=()=>{s.ok=true;s.done=true};s.onerror=()=>{s.done=true};
+    s.src=artUrl(rel);if(s.complete)s.done=true;ASPR[key]=s;
   }
   return s.ok?s:null;
 }
@@ -1053,7 +1058,7 @@ function bgSprite(id){
   const rel=BG_ART[id];
   if(!rel)return null;
   let s=BGSPR[id];
-  if(s===undefined){s=new Image();s.ok=false;s.onload=()=>{s.ok=true};s.onerror=()=>{s.ok=false};s.src=artUrl(rel);BGSPR[id]=s}
+  if(s===undefined){s=new Image();s.ok=false;s.done=false;s.onload=()=>{s.ok=true;s.done=true};s.onerror=()=>{s.done=true};s.src=artUrl(rel);if(s.complete)s.done=true;BGSPR[id]=s}
   return s.ok?s:null;
 }
 
@@ -1134,9 +1139,9 @@ function itemSprite(id){
   if(!rel)return null;
   let s=ISPR[id];
   if(s===undefined){
-    s=new Image();s.ok=false;
-    s.onload=()=>{s.ok=true};s.onerror=()=>{s.ok=false};
-    s.src=artUrl(rel);ISPR[id]=s;
+    s=new Image();s.ok=false;s.done=false;
+    s.onload=()=>{s.ok=true;s.done=true};s.onerror=()=>{s.done=true};
+    s.src=artUrl(rel);if(s.complete)s.done=true;ISPR[id]=s;
   }
   return s.ok?s:null;
 }
@@ -1373,42 +1378,44 @@ const GUN_TOTAL=GUNA.up+GUNA.go+GUNA.rec;
 
 /* ═══════════ 전투 손장비 배치 ═══════════
    '전투장비배치.html' 에서 튜닝한 값을 그대로 붙여넣는다.
-   아이템 id → 방향(front 카메라쪽 / back 등쪽 / left / right) → 배치.
+   아이템 id → 방향(ne 북동 / nw 북서 / se 남동 / sw 남서) → 배치.
+   n* 는 등 스프라이트, s* 는 정면 스프라이트. 몸통만 서쪽에서 좌우반전하고
+   손장비는 방향마다 좌표를 따로 잡는다(항상 오른손 무기라 통째로 안 뒤집는다).
    x·y = 전투 반지름 r 의 배수(앵커=대원 발밑, y 는 위가 −), rot 라디안,
-   scale = 기본 아이콘 크기(r*1.7) 배수, behind=true 면 대원 스프라이트 뒤에 그린다.
-   회전 없이 좌우 반전만 하므로 left/right 를 따로 잡는다. */
+   scale = 기본 아이콘 크기(r*1.7) 배수, mir=true 면 아이콘 좌우반전,
+   z = 겹침 순서(대원 몸통 0 기준, 뒤 −2‥−1 · 앞 1‥2). */
 const BATTLE_RIG = {
   /* ── 오른손(무기) ── */
-  ladle:     { front:{ x:-1.61, y:-0.36, rot:0.50, scale:1.00, behind:false }, back:{ x:0.79, y:-1.39, rot:2.67, scale:1.00, behind:true }, left:{ x:0.33, y:0.13, rot:-1.71, scale:1.01, behind:false }, right:{ x:-1.49, y:-0.39, rot:0.50, scale:1.00, behind:false } },
-  pen:       { front:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, back:{ x:0.30, y:-1.50, rot:0.50, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, right:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false } },
-  weight:    { front:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, back:{ x:0.30, y:-1.50, rot:0.50, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, right:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false } },
-  bat:       { front:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, back:{ x:0.30, y:-1.50, rot:0.50, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, right:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false } },
-  bottle:    { front:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, back:{ x:0.30, y:-1.50, rot:0.50, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, right:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false } },
-  cutter:    { front:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, back:{ x:0.30, y:-1.50, rot:0.50, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, right:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false } },
-  tongs:     { front:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, back:{ x:0.30, y:-1.50, rot:0.50, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, right:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false } },
-  mic:       { front:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, back:{ x:0.30, y:-1.50, rot:0.50, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, right:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false } },
-  spray:     { front:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, back:{ x:0.30, y:-1.50, rot:0.50, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, right:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false } },
-  pistol:    { front:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, back:{ x:0.30, y:-1.50, rot:0.50, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, right:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false } },
-  shotgun:   { front:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, back:{ x:0.30, y:-1.50, rot:0.50, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, right:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false } },
-  rifle:     { front:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, back:{ x:0.30, y:-1.50, rot:0.50, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, right:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false } },
-  baton:     { front:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, back:{ x:0.30, y:-1.50, rot:0.50, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, right:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false } },
+  ladle:     { ne:{ x:0.79, y:-1.39, rot:2.67, scale:1.00, z:-1, mir:false }, nw:{ x:-0.79, y:-1.39, rot:-2.67, scale:1.00, z:-1, mir:true }, se:{ x:0.33, y:0.13, rot:-1.71, scale:1.01, z:1, mir:false }, sw:{ x:-1.49, y:-0.39, rot:0.50, scale:1.00, z:1, mir:false } },
+  pen:       { ne:{ x:1.39, y:-0.91, rot:-2.91, scale:1.00, z:-1, mir:false }, nw:{ x:-0.29, y:-1.21, rot:1.47, scale:1.00, z:-1, mir:false }, se:{ x:0.54, y:-0.96, rot:-2.78, scale:1.00, z:1, mir:false }, sw:{ x:-1.52, y:-1.30, rot:1.42, scale:1.00, z:1, mir:false } },
+  weight:    { ne:{ x:0.96, y:-0.84, rot:0.50, scale:0.70, z:-1, mir:false }, nw:{ x:0.83, y:-1.16, rot:0.50, scale:0.72, z:-1, mir:false }, se:{ x:-0.49, y:-0.62, rot:0.50, scale:0.69, z:1, mir:false }, sw:{ x:-0.61, y:-0.93, rot:0.50, scale:0.69, z:-1, mir:false } },
+  bat:       { ne:{ x:1.34, y:-0.93, rot:0.50, scale:1.00, z:-1, mir:false }, nw:{ x:-0.13, y:-1.17, rot:-1.35, scale:1.00, z:-1, mir:false }, se:{ x:0.29, y:-0.91, rot:0.50, scale:1.00, z:1, mir:false }, sw:{ x:-1.30, y:-1.19, rot:-1.46, scale:1.00, z:1, mir:false } },
+  bottle:    { ne:{ x:0.96, y:-1.08, rot:0.50, scale:1.00, z:-1, mir:false }, nw:{ x:0.77, y:-1.21, rot:0.46, scale:1.00, z:-1, mir:false }, se:{ x:0.05, y:-0.97, rot:0.50, scale:1.00, z:1, mir:false }, sw:{ x:-1.15, y:-1.29, rot:-0.66, scale:1.00, z:1, mir:false } },
+  cutter:    { ne:{ x:1.28, y:-0.91, rot:0.50, scale:1.00, z:-1, mir:false }, nw:{ x:1.22, y:-1.02, rot:0.50, scale:1.00, z:-1, mir:false }, se:{ x:0.29, y:-0.79, rot:0.50, scale:1.00, z:1, mir:false }, sw:{ x:-1.38, y:-0.98, rot:-1.54, scale:1.00, z:1, mir:false } },
+  tongs:     { ne:{ x:1.23, y:-1.01, rot:-2.75, scale:1.00, z:-1, mir:false }, nw:{ x:1.10, y:-0.99, rot:-2.74, scale:1.00, z:-1, mir:false }, se:{ x:0.29, y:-0.86, rot:-2.75, scale:1.00, z:1, mir:false }, sw:{ x:-1.41, y:-1.03, rot:1.55, scale:1.00, z:1, mir:false } },
+  mic:       { ne:{ x:1.28, y:-0.93, rot:0.50, scale:1.00, z:-1, mir:false }, nw:{ x:1.09, y:-0.99, rot:0.50, scale:1.00, z:-1, mir:false }, se:{ x:0.28, y:-0.89, rot:0.50, scale:1.00, z:1, mir:false }, sw:{ x:-1.32, y:-1.20, rot:-1.33, scale:1.00, z:1, mir:false } },
+  spray:     { ne:{ x:0.96, y:-1.02, rot:0.50, scale:0.60, z:-1, mir:false }, nw:{ x:0.83, y:-0.93, rot:0.50, scale:0.60, z:-1, mir:false }, se:{ x:-0.06, y:-0.76, rot:0.50, scale:0.60, z:1, mir:false }, sw:{ x:-0.98, y:-1.01, rot:-0.82, scale:0.61, z:1, mir:false } },
+  pistol:    { ne:{ x:0.91, y:-0.69, rot:0.50, scale:0.63, z:-1, mir:false }, nw:{ x:0.69, y:-0.76, rot:0.50, scale:0.61, z:-1, mir:false }, se:{ x:-0.02, y:-0.64, rot:0.50, scale:0.63, z:1, mir:false }, sw:{ x:-1.04, y:-0.87, rot:-0.50, scale:0.64, z:1, mir:true } },
+  shotgun:   { ne:{ x:0.30, y:-1.50, rot:0.50, scale:1.00, z:-1, mir:false }, nw:{ x:-0.30, y:-1.50, rot:-0.50, scale:1.00, z:-1, mir:true }, se:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, z:1, mir:false }, sw:{ x:-1.05, y:-1.55, rot:0.50, scale:1.00, z:1, mir:false } },
+  rifle:     { ne:{ x:0.30, y:-1.50, rot:0.50, scale:1.00, z:-1, mir:false }, nw:{ x:-0.30, y:-1.50, rot:-0.50, scale:1.00, z:-1, mir:true }, se:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, z:1, mir:false }, sw:{ x:-1.05, y:-1.55, rot:0.50, scale:1.00, z:1, mir:false } },
+  baton:     { ne:{ x:0.30, y:-1.50, rot:0.50, scale:1.00, z:-1, mir:false }, nw:{ x:-0.30, y:-1.50, rot:-0.50, scale:1.00, z:-1, mir:true }, se:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, z:1, mir:false }, sw:{ x:-1.05, y:-1.55, rot:0.50, scale:1.00, z:1, mir:false } },
   /* ── 왼손(방패) ── */
-  lid:       { front:{ x:0.42, y:-0.60, rot:2.36, scale:1.00, behind:false }, back:{ x:-0.63, y:-0.51, rot:-1.33, scale:1.00, behind:false }, left:{ x:0.70, y:-0.70, rot:2.39, scale:1.00, behind:true }, right:{ x:0.41, y:-0.61, rot:2.40, scale:1.00, behind:false } },
-  book:      { front:{ x:-1.05, y:-1.40, rot:-0.40, scale:1.00, behind:false }, back:{ x:-0.30, y:-1.40, rot:-0.40, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.40, rot:-0.40, scale:1.00, behind:false }, right:{ x:1.05, y:-1.40, rot:-0.40, scale:1.00, behind:false } },
-  tray:      { front:{ x:-1.05, y:-1.40, rot:-0.40, scale:1.00, behind:false }, back:{ x:-0.30, y:-1.40, rot:-0.40, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.40, rot:-0.40, scale:1.00, behind:false }, right:{ x:1.05, y:-1.40, rot:-0.40, scale:1.00, behind:false } },
-  signboard: { front:{ x:-1.05, y:-1.40, rot:-0.40, scale:1.00, behind:false }, back:{ x:-0.30, y:-1.40, rot:-0.40, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.40, rot:-0.40, scale:1.00, behind:false }, right:{ x:1.05, y:-1.40, rot:-0.40, scale:1.00, behind:false } },
-  doorpanel: { front:{ x:-1.05, y:-1.40, rot:-0.40, scale:1.00, behind:false }, back:{ x:-0.30, y:-1.40, rot:-0.40, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.40, rot:-0.40, scale:1.00, behind:false }, right:{ x:1.05, y:-1.40, rot:-0.40, scale:1.00, behind:false } },
+  lid:       { ne:{ x:-0.28, y:-0.73, rot:-1.33, scale:1.00, z:-1, mir:false }, nw:{ x:-0.63, y:-0.51, rot:-1.33, scale:1.00, z:1, mir:false }, se:{ x:0.70, y:-0.70, rot:2.39, scale:1.00, z:-1, mir:false }, sw:{ x:0.41, y:-0.61, rot:2.40, scale:1.00, z:1, mir:false } },
+  book:      { ne:{ x:0.01, y:-0.52, rot:0.34, scale:1.00, z:-1, mir:false }, nw:{ x:-0.29, y:-0.78, rot:-0.21, scale:1.00, z:-1, mir:false }, se:{ x:0.53, y:-0.61, rot:0.70, scale:1.00, z:1, mir:false }, sw:{ x:-0.40, y:-0.59, rot:0.42, scale:1.00, z:1, mir:false } },
+  tray:      { ne:{ x:-0.34, y:-1.75, rot:-1.63, scale:1.00, z:-1, mir:false }, nw:{ x:-1.08, y:-1.60, rot:1.39, scale:1.00, z:1, mir:false }, se:{ x:1.17, y:-1.87, rot:-1.26, scale:1.00, z:-1, mir:false }, sw:{ x:1.05, y:-1.40, rot:-1.27, scale:1.00, z:1, mir:false } },
+  signboard: { ne:{ x:-0.48, y:-0.88, rot:-0.40, scale:1.00, z:-1, mir:false }, nw:{ x:-0.55, y:-1.14, rot:-0.40, scale:1.00, z:-1, mir:false }, se:{ x:0.72, y:-1.26, rot:-0.40, scale:1.00, z:-1, mir:false }, sw:{ x:0.32, y:-0.89, rot:0.14, scale:1.00, z:1, mir:false } },
+  doorpanel: { ne:{ x:-0.73, y:-1.12, rot:-0.40, scale:1.00, z:-1, mir:false }, nw:{ x:-0.85, y:-1.02, rot:-0.40, scale:1.00, z:-1, mir:false }, se:{ x:0.74, y:-1.12, rot:-0.40, scale:1.00, z:-1, mir:false }, sw:{ x:0.17, y:-0.88, rot:-0.40, scale:1.00, z:1, mir:false } },
 };
 /* BATTLE_RIG 에 없는 아이템·방향이 나오면 기대는 기본값 */
 const RIG_FB={
-  rh:{ front:{x:1.05,y:-1.55,rot:.5,scale:1,behind:false}, back:{x:.30,y:-1.50,rot:.5,scale:1,behind:true},
-       left:{x:-1.05,y:-1.55,rot:.5,scale:1,behind:false}, right:{x:1.05,y:-1.55,rot:.5,scale:1,behind:false} },
-  lh:{ front:{x:-1.05,y:-1.40,rot:-.4,scale:1,behind:false}, back:{x:-.30,y:-1.40,rot:-.4,scale:1,behind:true},
-       left:{x:-1.05,y:-1.40,rot:-.4,scale:1,behind:false}, right:{x:1.05,y:-1.40,rot:-.4,scale:1,behind:false} },
+  rh:{ ne:{x:.30,y:-1.50,rot:.5,scale:1,behind:true}, nw:{x:.30,y:-1.50,rot:.5,scale:1,behind:true},
+       se:{x:1.05,y:-1.55,rot:.5,scale:1,behind:false}, sw:{x:-1.05,y:-1.55,rot:.5,scale:1,behind:false} },
+  lh:{ ne:{x:-.30,y:-1.40,rot:-.4,scale:1,behind:true}, nw:{x:-.30,y:-1.40,rot:-.4,scale:1,behind:true},
+       se:{x:1.05,y:-1.40,rot:-.4,scale:1,behind:false}, sw:{x:-1.05,y:-1.40,rot:-.4,scale:1,behind:false} },
 };
 function rigFor(id,slot,dir){
   const e=BATTLE_RIG[id]&&BATTLE_RIG[id][dir];
-  return e||RIG_FB[slot][dir]||RIG_FB[slot].front;
+  return e||RIG_FB[slot][dir]||RIG_FB[slot].se;
 }
 const HOP_AIR=0.26;
 const CRIT_MUL=1.6;              /* 치명타 배율 */
@@ -1657,6 +1664,30 @@ function startBattle(list,keys){
   const bs=B.foes.find(f=>f.boss);
   say(bs?`${bs.name}이(가) 천천히 몸을 일으킨다. 적 ${keys.length}체.`:`적 ${keys.length}체가 다가온다.`);
 }
+/* 이 전투에서 쓸 그림들(적·대원·손장비·배경)을 모은다.
+   비어 있는 ART 항목은 Image 를 안 만들므로 캐시에 없고, 여기서도 빠진다. */
+function battleImgs(){
+  if(!B)return[];
+  const out=[],add=s=>{if(s)out.push(s)};
+  const fk=new Set(B.foes.map(f=>f.key));fk.add("zomb");
+  for(const k of fk){add(SPR[k]);add(SPR[k+"Fly"])}
+  for(const u of B.allies){
+    const g=u.sex||"m";
+    add(ASPR[g+"-front"]);add(ASPR[g+"-back"]);
+    if(u.wid)add(ISPR[u.wid]);
+    if(u.sid)add(ISPR[u.sid]);
+  }
+  if(ROOM)add(BGSPR[ROOM.id]);
+  return out;
+}
+/* startBattle 은 그림 로딩만 걸어 두므로, 싸우는 도중에 배경·대원 그림이
+   뒤늦게 뜬다. 여기서 로딩이 끝날 때까지(최대 4초) 대기 화면을 거친다. */
+function enterBattle(list,keys){
+  startBattle(list,keys);
+  G._blAt=Date.now();
+  G.scene="battleload";
+  render();
+}
 function say(t){feed.push(t);if(feed.length>3)feed.shift();
   const f=document.getElementById("feed");if(f)f.innerHTML=feed.map(x=>`<div>${x}</div>`).join("")}
 function hurt(t,amt,c,type,src){
@@ -1876,7 +1907,10 @@ function drawAtkFx(u,r){
 function drawAlly(u){
   const x=u.x*SX,y=u.y*SY,r=u.r*Math.min(SX,SY);
   const fx=Math.cos(u.face),fy=Math.sin(u.face);
-  const flip=fx<0, back=fy<-0.15;
+  const west=fx<0, back=fy<0;    // west=서쪽 절반, back=북쪽 절반(등 스프라이트)
+  /* 대원 그림(앞·뒤)은 기본이 서쪽을 향해 있다. 그래서 동쪽을 볼 때 몸통을 좌우반전한다.
+     손장비는 반전하지 않고 rdir 별 좌표를 그대로 쓴다(항상 오른손 무기). */
+  const flip=!west;
   /* 걷는 중인지 — 지난 프레임과의 위치차로 판단. 공격 중엔 걷기 흔들림을 끈다 */
   const mv=Math.hypot(u.x-(u._px===undefined?u.x:u._px),u.y-(u._py===undefined?u.y:u._py));
   u._px=u.x;u._py=u.y;
@@ -1894,10 +1928,11 @@ function drawAlly(u){
   ctx.fillStyle="rgba(0,0,0,.30)";ctx.fill();ctx.restore();
 
   /* 몸 + 손장비 — 대원 스프라이트를 기준으로 무기·방패를 얹는다.
-     방향(rdir)별 BATTLE_RIG 좌표를 쓰고, behind 면 스프라이트 뒤에 그린다.
-     rdir: back 등쪽(적을 보는 기본 자세) · front 카메라쪽 · left/right 옆모습 */
+     목표를 향하는 방향을 북동/북서/남동/남서로 4등분한다 (rdir = ne/nw/se/sw).
+     몸통 스프라이트만 서쪽일 때 좌우반전하고, 손장비는 rdir 별 좌표로 직접 잡는다
+     (항상 오른손에 무기라서 통째로 반전하지 않는다). */
   const img=allySprite((u.sex||"m")+(back?"-back":"-front"));
-  const rdir=back?"back":(fy>0.15?"front":(flip?"left":"right"));
+  const rdir=(back?"n":"s")+(west?"w":"e");
 
   const drawBody=()=>{
     ctx.save();ctx.translate(lx,ly+bobY);
@@ -1920,6 +1955,7 @@ function drawAlly(u){
     ctx.save();
     ctx.translate(lx+rg.x*r, ly+bobY+rg.y*r);   // 손 위치(몸통 런지만 따라감), 회전은 rig 고정
     ctx.rotate(rg.rot);
+    if(rg.mir)ctx.scale(-1,1);                  // 손장비 좌우반전(회전만으론 안 되는 포즈용)
     if(u.flash>0)ctx.filter="brightness(0) invert(1)";
     if(im){
       const s=r*1.7*rg.scale, w=s*(im.width/im.height);
@@ -1933,10 +1969,12 @@ function drawAlly(u){
     ctx.restore();
   };
 
-  const layers=[{z:0,f:drawBody}];
-  if(u.hasW&&u.wid)layers.push({z:rigFor(u.wid,"rh",rdir).behind?-1:1,f:()=>drawHand("rh",u.wid)});
-  if(u.hasS&&u.sid)layers.push({z:rigFor(u.sid,"lh",rdir).behind?-1:1,f:()=>drawHand("lh",u.sid)});
-  layers.sort((a,b)=>a.z-b.z);
+  /* 겹침 순서: 대원 몸통은 z=0, 손장비는 rig 의 z (뒤 −2‥−1, 앞 1‥2). 옛 데이터의 behind 도 받는다 */
+  const zOf=e=>e&&e.z!=null?+e.z:(e&&e.behind?-1:1);
+  const layers=[{z:0,o:0,f:drawBody}];
+  if(u.hasW&&u.wid)layers.push({z:zOf(rigFor(u.wid,"rh",rdir)),o:1,f:()=>drawHand("rh",u.wid)});
+  if(u.hasS&&u.sid)layers.push({z:zOf(rigFor(u.sid,"lh",rdir)),o:2,f:()=>drawHand("lh",u.sid)});
+  layers.sort((a,b)=>a.z-b.z||a.o-b.o);
   for(const l of layers)l.f();
   drawAtkFx(u,r);         // 무기는 고정, 잔상만
 
@@ -1945,6 +1983,16 @@ function drawAlly(u){
   bar(u,x,y-topY,"#6BD98F",r);
   ctx.fillStyle="rgba(234,230,242,.7)";ctx.font="600 8.5px system-ui";ctx.textAlign="center";
   ctx.fillText(u.name,x,y+botY);
+}
+/* 몬스터 그림·도형은 옆모습(머리가 오른쪽)이다. face 를 그대로 rotate 하면
+   왼쪽이나 아래를 향할 때 배가 하늘로 가서 뒤집힌 꼴이 된다.
+   서쪽을 볼 때는 회전 대신 좌우반전으로 돌리고, 위아래 기울기는 ±90° 안으로만 준다.
+   extra 는 애니메이션용 추가 회전 — 반전 시 부호도 뒤집어야 같은 방향으로 흔들린다. */
+function faceFoe(g,ang,extra){
+  const flip=Math.cos(ang)<0;
+  const a=Math.atan2(Math.sin(ang),Math.abs(Math.cos(ang)));   // [-90°, +90°]
+  g.scale(flip?-1:1,1);
+  g.rotate(a+(flip?-(extra||0):(extra||0)));
 }
 function drawFoe(f){
   const x=f.x*SX,y=f.y*SY,r=f.r*Math.min(SX,SY);
@@ -1967,7 +2015,8 @@ function drawFoe(f){
       const hx=r*1.15;                   // 머리는 판정 원보다 조금 앞
       const wg=f.wig||0, amp=r*0.42*(0.25+su*0.9);
       ctx.save();
-      ctx.translate(x,y);ctx.rotate(f.face);
+      ctx.translate(x,y);faceFoe(ctx,f.face);
+      ctx.scale(1,-1);                                     // 애벌레 그림은 상하가 뒤집혀 있어 바로 세운다
       if(f.flash>0)ctx.filter="brightness(0) invert(1)";   // 맞으면 하얗게
       for(let i=0;i<N;i++){
         const u=i/N, un=(i+1)/N;         // 0 꼬리 ~ 1 머리
@@ -2005,7 +2054,7 @@ function drawFoe(f){
       const flap=flying?1+Math.sin((f.wig||0)*7)*0.06:1;   // 날개 파닥임
       ctx.save();
       ctx.translate(x,y-j*r*1.7);            // 화면상 위로 뜬다
-      ctx.rotate(f.face);
+      faceFoe(ctx,f.face);
       ctx.translate(r*0.9,0);                // 눈이 판정 원보다 조금 앞
       /* 웅크리면 앞뒤로 짧아지고 옆으로 퍼집니다 */
       ctx.scale(1-crouch*0.22,(1+crouch*0.18)*flap);
@@ -2013,7 +2062,7 @@ function drawFoe(f){
       ctx.drawImage(sp,-S/2,-S/2,S,S);
       ctx.restore();
     }else{
-      ctx.save();ctx.translate(x,y-j*r*1.6);ctx.rotate(f.face);ctx.scale(1+j*.12,1+j*.12);
+      ctx.save();ctx.translate(x,y-j*r*1.6);faceFoe(ctx,f.face);ctx.scale(1+j*.12,1+j*.12);
       const spread=j>0?r*.9:-crouch*r*.35;
       ctx.strokeStyle=col;ctx.lineWidth=2.2;ctx.lineCap="round";
       ctx.beginPath();ctx.moveTo(-r*.3,-r*.5);ctx.lineTo(-r*1.2,-r*1.0-spread);ctx.lineTo(-r*.3,-r*1.5-spread*.5);ctx.stroke();
@@ -2024,7 +2073,7 @@ function drawFoe(f){
       ctx.restore();
     }
   }else if(f.key==="spider"){
-    ctx.save();ctx.translate(x,y);ctx.rotate(f.face);
+    ctx.save();ctx.translate(x,y);faceFoe(ctx,f.face);
     ctx.strokeStyle=col;ctx.lineWidth=2.1;ctx.lineCap="round";
     for(let i=0;i<8;i++){                       // 긴 다리 여덟 개
       const side=i<4?1:-1,k=i%4;
@@ -2051,7 +2100,7 @@ function drawFoe(f){
     ctx.fillText("BOSS",x,y-r-12);
   }else if(f.key==="zombie"||f.key==="zomb"){
     const lp=f.limp||0, tilt=lp*0.20;
-    ctx.save();ctx.translate(x,y);ctx.rotate(f.face+tilt);
+    ctx.save();ctx.translate(x,y);faceFoe(ctx,f.face,tilt);
     // 끌리는 다리
     ctx.strokeStyle="#2F6B2A";ctx.lineWidth=r*0.30;ctx.lineCap="round";
     ctx.beginPath();ctx.moveTo(-r*0.2,r*0.45);
@@ -2083,7 +2132,7 @@ function drawFoe(f){
     ctx.globalAlpha=.22;ctx.fillStyle=f.color;
     ctx.beginPath();ctx.arc(x-Math.cos(f.face)*r*.7,y-Math.sin(f.face)*r*.7,r*.85,0,7);ctx.fill();
     ctx.globalAlpha=1;
-    ctx.save();ctx.translate(x,y);ctx.rotate(f.face);
+    ctx.save();ctx.translate(x,y);faceFoe(ctx,f.face);
     ctx.beginPath();                                  // 꿈틀대는 덩어리
     for(let i=0;i<=28;i++){
       const a=i/28*Math.PI*2;
@@ -2126,14 +2175,14 @@ function drawFoe(f){
       const S=r*4.6;
       ctx.save();
       ctx.translate(x,y);
-      ctx.rotate(f.face+sway);
+      faceFoe(ctx,f.face,sway);
       ctx.translate(st*r*0.55,0);            // 찌를 때 앞으로
       ctx.scale(1+st*0.10,1-st*0.06);
       if(f.flash>0)ctx.filter="brightness(0) invert(1)";
       ctx.drawImage(sp,-S/2,-S/2,S,S);
       ctx.restore();
     }else{
-      ctx.save();ctx.translate(x,y);ctx.rotate(f.face);
+      ctx.save();ctx.translate(x,y);faceFoe(ctx,f.face);
       const sw=Math.sin(f.wig*1.1)*0.28;
       ctx.strokeStyle=col;ctx.lineWidth=3;ctx.lineCap="round";
       for(const s of [-1,1]){ctx.save();ctx.rotate(s*(0.5+sw));
@@ -3164,8 +3213,7 @@ function render(){
       <p>게이트에 들어서자 기묘한 힘이 온몸에 흐르는 것이 느껴집니다.<br><br>
       당신은 이 구역에서 사용할 수 있는 새로운 힘이 있음을 본능적으로 깨닫습니다.</p></div>
       <div class="card"><h2>이 힘에 대하여</h2>
-      <p>하루가 지날 때마다 새로운 힘 하나를 고를 수 있습니다. 고른 힘은 나갈 때까지 쌓이지만,
-      문을 나서는 순간 전부 사라집니다.<br><br>안에서 주운 물건도 마찬가지입니다.
+      <p>문을 나서는 순간 전부 사라집니다.<br><br>안에서 주운 물건도 마찬가지입니다.
       <b style="color:var(--gate)">현장</b> 표시가 붙은 것은 나가면 사라지고,
       <b style="color:var(--ok)">반출</b> 표시가 붙은 것만 살아서 나가야 지킬 수 있습니다.</p></div>
       <div class="bar"><span class="tag"></span><button id="ok">힘을 받아들인다</button></div>`;
@@ -3217,7 +3265,7 @@ function render(){
     document.getElementById("eq-s").onclick=()=>{markSeen("lid");p.gear.lh=p.gear.lh?null:"lid";p.hp=derive(p).maxHp;render()};
     document.getElementById("go").onclick=()=>{
       if(!p.bag.includes("tuna")){markSeen("tuna");p.bag.push("tuna")}
-      G.here=PLACES[0];ROOM=ROOMS[G.here.room];G.scene="battle";startBattle([p],["worm","worm"]);render()};
+      G.here=PLACES[0];ROOM=ROOMS[G.here.room];enterBattle([p],["worm","worm"])};
     return;
   }
   if(S==="encounter"){
@@ -3233,7 +3281,7 @@ function render(){
       <div class="tag">탄약 · ${ammoLine()}</div>
       ${chips()}
       <div class="card"><h2>어디로 갈까</h2>
-      <p>하루가 지날 때마다 안쪽의 것들이 강해집니다.${bossHint(G.day)}
+      <p>${bossHint(G.day).trim()}
       체력은 회복되지 않습니다.${G.day===1?" 첫날은 안전한 곳만 눈에 띕니다.":""}</p></div>
       ${t.length===1&&G.day>=2?`<div class="card" style="border-color:var(--bad)">
         <h2>혼자입니다</h2><p>여기서 더 들어가면 쓰러졌을 때 아무도 끌어내 줄 사람이 없습니다.
@@ -3250,9 +3298,18 @@ function render(){
         ${hpLine(r)}</div>`).join("")}</div>`;
     el.querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{
       const pl=G.offer[+b.dataset.p];G.here=pl;ROOM=ROOMS[pl.room];
-      G.scene="battle";startBattle(party(),rollEncounter(G.day,pl.risk,party().length));render()});
+      enterBattle(party(),rollEncounter(G.day,pl.risk,party().length))});
     document.getElementById("pass").onclick=()=>{G.day++;G.offer=null;G.skillOffer=null;G.scene="instant";render()};
     document.getElementById("out").onclick=()=>{G.scene="retreat";render()};
+    return;
+  }
+  if(S==="battleload"){
+    const imgs=battleImgs(),ok=imgs.filter(s=>s.done).length;
+    if(ok>=imgs.length||Date.now()-(G._blAt||0)>4000){G.scene="battle";render();return}
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">${G.here?G.here.n:"음식점"} · ${G.mode==="tutorial"?1:G.day}일차</span></div>
+      <div class="card"><h2>전투 준비</h2><p>그림을 불러오는 중입니다… ${ok}/${imgs.length}</p></div>`;
+    setTimeout(render,90);
     return;
   }
   if(S==="battle"){
@@ -3261,7 +3318,7 @@ function render(){
       <span class="tag">적 ${B.foes.filter(f=>f.hp>0).length}</span></div>
       <canvas id="cv"></canvas>
       <div id="feed">${feed.map(x=>`<div>${x}</div>`).join("")}</div>
-      ${ROOM&&BG_ART[ROOM.id]?"":`<div class="tag">진한 지형은 아무도 못 지나가고, 옅은 점선 지형은 기어다니는 것만 통과합니다.</div>`}`;
+      `;
     fitCanvas();startLoop();
     cv.onclick=()=>{if(B&&B.paused)B.paused=false};
     return;
@@ -3310,7 +3367,7 @@ function render(){
         </div>`}).join("")
         :`<div class="tag" style="margin-top:8px">전부 정리했습니다.</div>`}
       </div>
-      ${t.map((r,i)=>`<div class="app">${faceTag(r)}<div class="hd"><b>${r.name}</b><span>Lv ${r.lvl}</span></div>
+      ${t.map((r,i)=>`<div class="app">${faceTag(r)}<div class="hd"><b>${r.name}</b><span>${majorName(r)} · Lv ${r.lvl}</span></div>
         ${hpLine(r)}${invPanel(r,G.roster.indexOf(r),"manage",t)}${gearLine(r)}</div>`).join("")}
       <div class="bar">
         <button class="ghost" id="all" ${G.ground.length&&free>0?"":"disabled"}>${
@@ -3434,13 +3491,13 @@ function render(){
           style="left:${x[0]}%;top:${x[1]}%;width:${x[2]-x[0]}%;height:${x[3]-x[1]}%"
           >${named?b.n:"???"}</button>`}).join("")}</div>
       ${G.mapMsg?`<div class="tag" style="color:var(--dim)">${G.mapMsg}</div>`:""}
-      <div class="card"><h2>명단 · ${G.roster.length}명</h2>\n      <p style="font-size:12px;color:var(--dim);margin-bottom:9px">여기서 바로 착용하고, 서로 물건을 넘겨줄 수 있습니다.</p>
+      <div class="card"><h2>명단 · ${G.roster.length}명</h2>
       ${G.bedKick?`<div class="tag" style="color:var(--bad);margin-bottom:8px">골드가 모자라 ${G.bedKick}이(가) 퇴원했습니다</div>`:""}
       ${G.roster.map(r=>{
         const on=party().includes(r);
         const st=r.resting?'<span style="color:var(--ok)">입원</span>':on?'<span style="color:var(--mark)">출동</span>':"대기";
         return `<div class="app ${r.resting?"":on?"sel":"out"}">
-          ${faceTag(r)}<div class="hd"><b>${r.name}</b><span>${st} · Lv ${r.lvl}</span></div>
+          ${faceTag(r)}<div class="hd"><b>${r.name}</b><span>${st} · ${majorName(r)} · Lv ${r.lvl}</span></div>
           ${hpLine(r)}${statGrid(r)}${invPanel(r,G.roster.indexOf(r),"manage",G.roster)}${gearLine(r)}${expBar(r)}</div>`}).join("")}</div>`;
     bindInv();
     el.querySelectorAll("[data-b]").forEach(bt=>bt.onclick=()=>{
@@ -3518,7 +3575,6 @@ function render(){
       <div class="bar"><span class="tag">창고 겸 학생회 매점</span><span class="tag">골드 <b id="goldnum">${G.gold}</b></span></div>
       ${npcBar("shop")}
       ${who?`<div class="card"><h2>지금 입고 있는 것</h2>
-      <p>고른 사람을 기준으로 판매대의 물건과 비교해 보여줍니다.</p>
       ${G.roster.length>1?`<div class="chips">${G.roster.map((r,i)=>
         `<button class="pickb ${i===wi?"on":""}" data-who="${i}">${r.name}</button>`).join("")}</div>`:""}
       ${gearLine(who)}
@@ -3546,7 +3602,6 @@ function render(){
       })()}
       </div>
       <div class="card"><h2>창고에서 꺼내주기</h2>
-      <p>배낭에 자리가 있어야 넣을 수 있습니다.</p>
       ${Object.entries(G.store).filter(([,n])=>n>0).map(([id,n])=>{const o=G.rowSel==="hand:"+id;
         return `<div class="buyrow tap ${o?"open":""}" data-row="hand:${id}">
         <div><b>${itemIcon(id)}${ITEMS[id].n}</b> × ${n}<br><span class="tag">${ITEMS[id].d}</span>
@@ -3556,7 +3611,7 @@ function render(){
           <div class="chips">${G.roster.map((r,i)=>`<button class="pickb" data-hand="${id}|${i}" ${bagRoom(r)<=0?"disabled":""}>${r.name}</button>`).join("")}</div>
         </div>`:""}</div>`}).join("")||`<div class="tag" style="margin-top:10px">창고가 비었습니다.</div>`}
       </div>
-      ${G.roster.map(r=>`<div class="app">${faceTag(r)}<div class="hd"><b>${r.name}</b><span>Lv ${r.lvl}</span></div>
+      ${G.roster.map(r=>`<div class="app">${faceTag(r)}<div class="hd"><b>${r.name}</b><span>${majorName(r)} · Lv ${r.lvl}</span></div>
         ${invPanel(r,G.roster.indexOf(r),"manage",G.roster)}${gearLine(r)}</div>`).join("")}
       <div class="bar"><span class="tag"></span><button class="ghost" id="bk">캠퍼스로</button></div>`;
     el.querySelectorAll("[data-who]").forEach(b=>b.onclick=()=>{
@@ -3609,7 +3664,7 @@ function render(){
       <div class="card"><h2>파티 편성과 장비</h2>
       <p>최대 넷까지 고릅니다. 이름을 누르면 출동·대기가 바뀝니다.</p></div>
       ${G.roster.map((r,i)=>`<div class="app ${r.resting?"out":r.inParty?"sel":"out"}">
-        ${faceTag(r)}<div class="hd"><b>${r.name}</b><span>${r.resting?"입원 중":r.inParty?"출동":"대기"} · Lv ${r.lvl}</span></div>
+        ${faceTag(r)}<div class="hd"><b>${r.name}</b><span>${r.resting?"입원 중":r.inParty?"출동":"대기"} · ${majorName(r)} · Lv ${r.lvl}</span></div>
         ${hpLine(r)}${statGrid(r)}${invPanel(r,i,"manage",G.roster)}${gearLine(r)}
         <div class="bar" style="margin-top:9px"><span class="tag"></span>
         <button class="ghost" data-t="${i}" ${r.resting?"disabled":""}>${r.inParty?"대기시킨다":"출동시킨다"}</button></div>
@@ -3792,9 +3847,9 @@ function render(){
       <div class="bar"><span class="tag">${fac.n}</span><span class="tag">Lv ${MAJOR_LV}부터 전공 선택</span></div>
       ${npcBar(fac.id)}
       <div class="card"><h2>전공 배정</h2>
-      <p>한 번 정하면 바꿀 수 없습니다.${fac.major
-        ?` 이곳에서 정할 수 있는 전공은 <b style="color:var(--mark)">${pool[0].n}</b> 하나입니다.`
-        :` <b style="color:var(--mark)">군인</b>과 <b style="color:var(--mark)">경찰대학생</b>만 총을 다룰 수 있습니다.`}</p></div>
+      <p>${fac.major
+        ?`이곳에서 정할 수 있는 전공은 <b style="color:var(--mark)">${pool[0].n}</b> 하나입니다.`
+        :`<b style="color:var(--mark)">군인</b>과 <b style="color:var(--mark)">경찰대학생</b>만 총을 다룰 수 있습니다.`}</p></div>
       ${G.roster.map((r,i)=>`<div class="app">
         ${faceTag(r)}<div class="hd"><b>${r.name}</b><span>${r.major?majorOf(r.major).n:`Lv ${r.lvl}`}</span></div>
         ${r.major?`<div class="tag">${majorOf(r.major).d}</div>`
@@ -3848,8 +3903,7 @@ function render(){
     el.innerHTML=logo+`
       <div class="bar"><span class="tag">게이트 선택</span><span class="tag">출동 <b>${party().length}</b>명</span></div>
       <div class="card"><h2>어디로 들어갈까</h2>
-      <p>하루가 지날 때마다 안쪽의 것들이 강해집니다.<br><br>
-      돌아온 사람들 말로는, <b style="color:var(--gate)">사흘째부터 결이 다른 것이 돌아다닌다</b>고 합니다.
+      <p>돌아온 사람들 말로는, <b style="color:var(--gate)">사흘째부터 결이 다른 것이 돌아다닌다</b>고 합니다.
       닷새를 넘겨 본 사람은 아직 없습니다.</p></div>
       <div class="bldbg" ${BLD_ART.gate?`style="background-image:url('${artUrl(BLD_ART.gate)}')"`:""}>
       ${GATES.map((g,i)=>`<button class="fac ${g.open?"":"lock"}" ${g.open?`data-g="${i}"`:"disabled"}>
@@ -3877,7 +3931,6 @@ function render(){
       ${t.some(r=>{const g=ITEMS[r.gear.rh];return g&&g.ammo&&(G.ammo[g.ammo]||0)<10})?
         `<div class="tag" style="color:var(--bad)">탄약이 부족한 총이 있습니다. 떨어지면 맨손으로 싸웁니다.</div>`:""}
       <div class="card"><h2>창고에서 꺼내기</h2>
-      <p>들어가기 전 마지막입니다. 배낭에 자리가 있어야 넣을 수 있습니다.</p>
       ${Object.entries(G.store).filter(([,n])=>n>0).map(([id,n])=>{const o=G.rowSel==="hand:"+id;
         return `<div class="buyrow tap ${o?"open":""}" data-row="hand:${id}">
         <div><b>${itemIcon(id)}${ITEMS[id].n}</b> × ${n}<br><span class="tag">${ITEMS[id].d}</span></div>

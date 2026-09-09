@@ -28,6 +28,7 @@
   textarea{width:100%;height:260px;background:#15141b;color:var(--ink);border:1px solid var(--line);
            border-radius:8px;padding:10px;font:12px/1.5 ui-monospace,Consolas,monospace;resize:vertical}
   .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+  #status{padding:6px 14px;font-size:12px;color:var(--dim);border-bottom:1px solid var(--line)}
 </style>
 
 <header>
@@ -43,8 +44,12 @@
   <label class="f"><input type="checkbox" id="snap" checked> 0.5% 스냅</label>
   <button id="add">+ 벽</button>
   <button id="addslow">+ 감속</button>
-  <label class="f">index.html 열기 <input type="file" id="pick" accept=".html,text/html"></label>
+  <button class="go" id="reload">index.html 불러오기</button>
+  <button class="go" id="write" hidden>▶ index.html 에 바로 쓰기</button>
+  <label class="f">직접 선택 <input type="file" id="pick" accept=".html,text/html"></label>
 </header>
+
+<div id="status">index.html 읽는 중…</div>
 
 <div class="wrap">
   <canvas id="cv" width="680" height="626"></canvas>
@@ -80,7 +85,8 @@
     <strong>ROOMS + DOOR</strong>
     <button class="go" id="copy">클립보드 복사</button>
     <button id="load">텍스트 적용</button>
-    <span class="hint">index.html 의 <code>const ROOMS={…}</code> 와 <code>const DOOR={…}</code> 를 이 블록으로 교체 · 자동 저장됨</span>
+    <span class="hint">헤더의 <b>'바로 쓰기'</b>(크롬·엣지) 로 index.html 에 직접 저장 · 안 되면 이 텍스트를 복사해
+      <code>const ROOMS={…}</code> 와 <code>const DOOR={…}</code> 자리에 붙여넣기</span>
   </div>
   <textarea id="out" spellcheck="false"></textarea>
 </div>
@@ -134,12 +140,12 @@ let curRoom="diner", sel=-1, showSpawn=false, showLayer=0, overlayA=0.5, snap=tr
 
 /* ─── 자동 저장/복원 ─── */
 const LS="uch-terrain-v2";
-let saveT;
+let saveT, hadSaved=false;
 function save(){ clearTimeout(saveT); saveT=setTimeout(()=>{
   try{ localStorage.setItem(LS,JSON.stringify({rooms,DOOR,curRoom})); }catch(e){} },200); }
 (function restore(){ try{
   const d=JSON.parse(localStorage.getItem(LS)||"null"); if(!d) return;
-  if(d.rooms&&ROOM_KEYS.every(k=>Array.isArray(d.rooms[k]))) rooms=d.rooms;
+  if(d.rooms&&ROOM_KEYS.every(k=>Array.isArray(d.rooms[k]))){ rooms=d.rooms; hadSaved=true; }
   if(d.DOOR&&"x"in d.DOOR) DOOR=d.DOOR;
   if(ROOM_KEYS.includes(d.curRoom)) curRoom=d.curRoom;
 }catch(e){} })();
@@ -371,13 +377,91 @@ P("load").onclick=()=>{
 P("pick").onchange=e=>{
   const f=e.target.files&&e.target.files[0]; if(!f) return;
   const rd=new FileReader();
-  rd.onload=()=>{ try{ const n=ingest(rd.result); alert("index.html 에서 "+n+"칸 불러옴"); }
+  rd.onload=()=>{ try{ setStatus("index.html 에서 "+ingest(rd.result)+"칸 불러옴.",true); }
     catch(err){ alert("불러오기 실패: "+err.message); } e.target.value=""; };
   rd.readAsText(f);
 };
 
+/* ─── index.html 자동 불러오기 / 바로 쓰기 ───────────────────────────────────
+   ROOMS 와 DOOR 두 블록만 통째로 갈아끼운다. 나머지 줄은 손대지 않는다. */
+const ROOMS_RE=/^const\s+ROOMS\s*=\s*\{[\s\S]*?\n\};/m;
+const DOOR_RE =/^const\s+DOOR\s*=\s*\{[^}]*\};/m;
+let loadedOnce=false;
+function setStatus(t,ok){ const s=P("status"); s.textContent=t;
+  s.style.color = ok===true?"var(--cy)" : ok===false?"var(--mark)" : "var(--dim)"; }
+
+/* 파일 핸들 (File System Access API) — 한 번 고르면 IndexedDB 에 남는다. 크롬/엣지 전용 */
+const FS_OK=!!window.showOpenFilePicker;
+let idxHandle=null;
+function hdb(){ return new Promise((res,rej)=>{ const r=indexedDB.open("uch-rig-tool",1);
+  r.onupgradeneeded=()=>{ if(!r.result.objectStoreNames.contains("h")) r.result.createObjectStore("h"); };
+  r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+async function hget(){ try{ const d=await hdb(); return await new Promise((res,rej)=>{
+  const t=d.transaction("h").objectStore("h").get("index");
+  t.onsuccess=()=>res(t.result); t.onerror=()=>rej(t.error); }); }catch(e){ return null; } }
+async function hset(v){ try{ const d=await hdb(); await new Promise((res,rej)=>{
+  const t=d.transaction("h","readwrite"); t.objectStore("h").put(v,"index");
+  t.oncomplete=()=>res(); t.onerror=()=>rej(t.error); }); }catch(e){} }
+async function perm(h,mode){
+  if(!h.queryPermission) return true;
+  if(await h.queryPermission({mode})==="granted") return true;
+  return (await h.requestPermission({mode}))==="granted";
+}
+async function pickIndex(){
+  const [h]=await window.showOpenFilePicker({types:[{description:"HTML",accept:{"text/html":[".html",".htm"]}}]});
+  idxHandle=h; await hset(h); return h;
+}
+
+async function loadIndex(force){
+  if(!force && hadSaved){
+    setStatus("로컬에서 편집하던 값을 씁니다. index.html 최신값을 반영하려면 '불러오기'.",null);
+    return;
+  }
+  try{
+    let txt;
+    if(idxHandle && await perm(idxHandle,"read")) txt=await (await idxHandle.getFile()).text();
+    else{
+      const res=await fetch("index.html",{cache:"no-store"});
+      if(!res.ok) throw new Error("HTTP "+res.status);
+      txt=await res.text();
+    }
+    const n=ingest(txt); loadedOnce=true;
+    setStatus("index.html 반영됨 (사각형 "+n+"개)."+(FS_OK?" 편집한 뒤 '바로 쓰기' 로 저장하세요.":" 편집한 뒤 아래 텍스트를 복사해 붙여넣으세요."),true);
+  }catch(err){
+    setStatus("불러오기 실패("+err.message+"). "+(FS_OK?"'불러오기' 를 눌러 index.html 을 직접 고르세요.":"로컬 파일이면 브라우저가 fetch 를 막습니다 — 서버로 열거나 '직접 선택' 을 쓰세요."),false);
+  }
+}
+
+async function writeIndex(){
+  try{
+    if(!FS_OK) throw new Error("이 브라우저는 파일 쓰기를 지원하지 않음 (크롬/엣지 필요)");
+    if(!idxHandle) await pickIndex();
+    if(!await perm(idxHandle,"readwrite")) throw new Error("쓰기 권한이 없음");
+    if(!loadedOnce && !confirm("index.html 을 아직 불러오지 않았습니다.\n지금 화면 값으로 ROOMS·DOOR 를 덮어씁니다. 계속할까요?")) return;
+    const src=P("out").value;
+    const rm=src.match(ROOMS_RE), dm=src.match(DOOR_RE);
+    if(!rm||!dm) throw new Error("출력 텍스트에서 ROOMS/DOOR 블록을 못 찾음");
+    const cur=await (await idxHandle.getFile()).text();
+    if(!ROOMS_RE.test(cur)) throw new Error("index.html 에서 ROOMS 블록을 못 찾음");
+    if(!DOOR_RE.test(cur))  throw new Error("index.html 에서 DOOR 블록을 못 찾음");
+    const next=cur.replace(ROOMS_RE,()=>rm[0]).replace(DOOR_RE,()=>dm[0]);
+    if(next===cur){ setStatus("바뀐 내용이 없습니다.",null); return; }
+    const w=await idxHandle.createWritable();
+    await w.write(next); await w.close();
+    loadedOnce=true;
+    setStatus("index.html 저장 완료. 게임을 새로고침하면 반영됩니다.",true);
+    flash("write","저장됨");
+  }catch(err){
+    if(err.name==="AbortError") return;
+    setStatus("바로 쓰기 실패: "+err.message,false);
+  }
+}
+P("reload").onclick=()=>loadIndex(true);
+if(FS_OK){ const wb=P("write"); wb.hidden=false; wb.onclick=writeIndex; }
+
 /* 첫 렌더 */
 if(HAS_BG[curRoom]) img(HAS_BG[curRoom]);
 draw();
+(async()=>{ if(FS_OK){ try{ idxHandle=await hget(); }catch(e){} } loadIndex(false); })();
 </script>
 </html>
