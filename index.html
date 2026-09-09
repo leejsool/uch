@@ -447,21 +447,22 @@ const kindTag=it=>it.kind==="inst"?'<span class="kd inst">현장</span>'
   :it.kind==="junk"?'<span class="kd junk">잡화</span>':'<span class="kd perm">반출</span>';
 
 /* ═══════════ 장소와 전리품 ═══════════ */
+/* room = 장소별 지형·배경 slug. 지형은 ROOMS[slug], 배경은 BG_ART[slug](없으면 격자). */
 const PLACES=[
-  {n:"음식점",room:"in",d:"식은 기름 냄새가 난다",risk:0,junk:["tuna"],gear:["tray","apron"]},
-  {n:"주점",room:"in",d:"엎어진 잔이 그대로 놓여 있다",risk:1,junk:["soju","lighter"],gear:["bottle"]},
-  {n:"지하 노래방",room:"under",d:"복도 끝에서 잡음이 새어 나온다",risk:1,junk:["earphone","mug"],gear:["mic"]},
-  {n:"포장마차",room:"street",d:"천막이 반쯤 내려앉았다",risk:0,junk:["lighter","tuna"],gear:["tongs","signboard"]},
-  {n:"서점",room:"in",d:"책이 바닥에 쏟아져 있다",risk:0,junk:["oldbook","planner"],gear:["cap"]},
-  {n:"문구점",room:"in",d:"진열대가 텅 비어 있다",risk:0,junk:["ballpen"],gear:["cutter"]},
-  {n:"골목길",room:"street",d:"어디로도 이어지지 않는 것 같다",risk:0,junk:["snack","coin"],gear:["helmet","track"]},
-  {n:"대로",room:"street",d:"차들이 그대로 멈춰 서 있다",risk:1,junk:["coin"],gear:["doorpanel","workpants","boots"]},
-  {n:"지하철역",room:"under",d:"개찰구 너머가 캄캄하다",risk:2,junk:["tcard","lost","brief","coin"],gear:["vest"]},
-  {n:"버스 정류장",room:"street",d:"전광판에 아무것도 뜨지 않는다",risk:0,junk:["coin","snack"],gear:["sneakers"]},
-  {n:"독서실",room:"under",d:"칸막이마다 스탠드가 켜져 있다",risk:1,junk:["planner","mug"],gear:["weight"]},
-  {n:"원룸빌라",room:"in",d:"현관문이 전부 열려 있다",risk:1,junk:["battery","tuna"],gear:["bat","hoodie","jeans","slippers"]},
-  {n:"화장품가게",room:"in",d:"거울에 아무것도 비치지 않는다",risk:1,junk:["balm"],gear:["spray","hairband"]},
-  {n:"경찰 본부",room:"under",d:"유리문이 안쪽에서 깨져 있다",risk:2,
+  {n:"음식점",room:"diner",d:"식은 기름 냄새가 난다",risk:0,junk:["tuna"],gear:["tray","apron"]},
+  {n:"주점",room:"pub",d:"엎어진 잔이 그대로 놓여 있다",risk:1,junk:["soju","lighter"],gear:["bottle"]},
+  {n:"지하 노래방",room:"karaoke",d:"복도 끝에서 잡음이 새어 나온다",risk:1,junk:["earphone","mug"],gear:["mic"]},
+  {n:"포장마차",room:"tent",d:"천막이 반쯤 내려앉았다",risk:0,junk:["lighter","tuna"],gear:["tongs","signboard"]},
+  {n:"서점",room:"bookstore",d:"책이 바닥에 쏟아져 있다",risk:0,junk:["oldbook","planner"],gear:["cap"]},
+  {n:"문구점",room:"stationery",d:"진열대가 텅 비어 있다",risk:0,junk:["ballpen"],gear:["cutter"]},
+  {n:"골목길",room:"alley",d:"어디로도 이어지지 않는 것 같다",risk:0,junk:["snack","coin"],gear:["helmet","track"]},
+  {n:"대로",room:"avenue",d:"차들이 그대로 멈춰 서 있다",risk:1,junk:["coin"],gear:["doorpanel","workpants","boots"]},
+  {n:"지하철역",room:"subway",d:"개찰구 너머가 캄캄하다",risk:2,junk:["tcard","lost","brief","coin"],gear:["vest"]},
+  {n:"버스 정류장",room:"busstop",d:"전광판에 아무것도 뜨지 않는다",risk:0,junk:["coin","snack"],gear:["sneakers"]},
+  {n:"독서실",room:"study",d:"칸막이마다 스탠드가 켜져 있다",risk:1,junk:["planner","mug"],gear:["weight"]},
+  {n:"원룸빌라",room:"villa",d:"현관문이 전부 열려 있다",risk:1,junk:["battery","tuna"],gear:["bat","hoodie","jeans","slippers"]},
+  {n:"화장품가게",room:"cosmetics",d:"거울에 아무것도 비치지 않는다",risk:1,junk:["balm"],gear:["spray","hairband"]},
+  {n:"경찰 본부",room:"police",d:"유리문이 안쪽에서 깨져 있다",risk:2,
    junk:["cuffs","radio"],gear:["baton","vestp"],
    special:{ids:["pistol","shotgun","rifle"],chance:0.70},
    /* 골드는 박하지만 탄약이 쌓입니다. 총을 든 파티에게는 여기가 보급소입니다. */
@@ -495,30 +496,111 @@ function rollLoot(place,day){
 }
 
 /* ═══════════ 방 배치 ═══════════ */
+/* 장소마다 지형 한 벌(전투지형관리.html 로 다듬는다). 좌표는 전투 필드 % (화면 비율 100:92).
+   음식점은 restaurant.jpg 에 맞춰 다듬었고, 나머지는 실내/거리/지하 기본형을 복사해 둔 것.
+   blocked() 는 사각형 모서리까지 거리 < 유닛 반지름이면 막으므로 실제 폭은 그림보다 조금 넓다. */
 const ROOMS={
-  /* 음식점 배경(art/battle/restaurant.jpg)에 맞춘 부딪침 판정 — 그림 기준 %.
-     주방·냉장고는 전층(TALL), 식탁은 L1(거미는 넘음), 의자는 L2, 화분은 낮음. */
-  in:{id:"in",obs:[
+  diner:{id:"diner",obs:[
       {x:3,y:3,w:56,h:23,l:"주방",lv:TALL},
-      {x:70,y:3,w:26,h:22,l:"냉장고",lv:TALL},
-      {x:21,y:30,w:14,h:41,l:"식탁",lv:L1},
-      {x:13,y:36,w:9,h:12,lv:L2},{x:35,y:36,w:9,h:12,lv:L2},
-      {x:13,y:52,w:9,h:12,lv:L2},{x:35,y:52,w:9,h:12,lv:L2},
-      {x:59,y:40,w:14,h:37,l:"식탁",lv:L1},
-      {x:50,y:44,w:10,h:13,lv:L2},{x:73,y:44,w:10,h:13,lv:L2},
-      {x:50,y:61,w:10,h:13,lv:L2},{x:73,y:61,w:10,h:13,lv:L2},
+      {x:72.5,y:3,w:23.5,h:21.5,l:"냉장고",lv:TALL},
+      {x:21,y:30,w:13.5,h:33,l:"식탁",lv:L1},
+      {x:15,y:36,w:7,h:7.5,lv:L2},{x:35,y:36,w:6.5,h:9,lv:L2},
+      {x:15,y:52,w:6,h:7,lv:L2},{x:35,y:52,w:6.5,h:7.5,lv:L2},
+      {x:59,y:38,w:14,h:32.5,l:"식탁",lv:L1},
+      {x:52.5,y:44,w:7.5,h:8,lv:L2},{x:73,y:44,w:7,h:7.5,lv:L2},
+      {x:52.5,y:60,w:7.5,h:7,lv:L2},{x:73,y:59.5,w:6.5,h:6.5,lv:L2},
       {x:2,y:88,w:12,h:9,lv:L1|L2},{x:85,y:88,w:12,h:9,lv:L1|L2}]},
-  street:{id:"street",obs:[{x:4,y:8,w:17,h:42,l:"건물",lv:TALL},{x:79,y:12,w:17,h:40,l:"건물",lv:TALL},
+  pub:{id:"pub",obs:[
+      {x:3,y:3,w:56,h:23,l:"주방",lv:TALL},{x:72.5,y:3,w:23.5,h:21.5,l:"냉장고",lv:TALL},
+      {x:21,y:30,w:13.5,h:33,l:"식탁",lv:L1},
+      {x:15,y:36,w:7,h:7.5,lv:L2},{x:35,y:36,w:6.5,h:9,lv:L2},
+      {x:15,y:52,w:6,h:7,lv:L2},{x:35,y:52,w:6.5,h:7.5,lv:L2},
+      {x:59,y:38,w:14,h:32.5,l:"식탁",lv:L1},
+      {x:52.5,y:44,w:7.5,h:8,lv:L2},{x:73,y:44,w:7,h:7.5,lv:L2},
+      {x:52.5,y:60,w:7.5,h:7,lv:L2},{x:73,y:59.5,w:6.5,h:6.5,lv:L2},
+      {x:2,y:88,w:12,h:9,lv:L1|L2},{x:85,y:88,w:12,h:9,lv:L1|L2}]},
+  karaoke:{id:"karaoke",obs:[
+      {x:4,y:4,w:15,h:14,l:"계단",lv:L1|L2},
+      {x:22,y:22,w:8,h:8,lv:TALL},{x:70,y:22,w:8,h:8,lv:TALL},
+      {x:22,y:62,w:8,h:8,lv:TALL},{x:70,y:62,w:8,h:8,lv:TALL},
+      {x:37,y:30,w:26,h:12,l:"소파",lv:L1},{x:42,y:52,w:18,h:10,l:"테이블",lv:L1},
+      {x:84,y:44,w:10,h:16,l:"칸막이",lv:L2}]},
+  tent:{id:"tent",obs:[
+      {x:4,y:8,w:17,h:42,l:"건물",lv:TALL},{x:79,y:12,w:17,h:40,l:"건물",lv:TALL},
       {x:34,y:16,w:18,h:10,l:"쓰레기",lv:L1|L2},{x:38,y:52,w:28,h:13,l:"차",lv:L1|L2},
       {x:28,y:76,w:15,h:7,l:"화단",lv:L1},{x:57,y:76,w:15,h:7,l:"화단",lv:L1},
-      {x:66,y:30,w:5,h:5,l:"",lv:TALL}]},
-  under:{id:"under",obs:[{x:4,y:4,w:15,h:14,l:"계단",lv:L1|L2},
-      {x:22,y:22,w:8,h:8,l:"",lv:TALL},{x:70,y:22,w:8,h:8,l:"",lv:TALL},
-      {x:22,y:62,w:8,h:8,l:"",lv:TALL},{x:70,y:62,w:8,h:8,l:"",lv:TALL},
+      {x:66,y:30,w:5,h:5,lv:TALL}]},
+  bookstore:{id:"bookstore",obs:[
+      {x:3,y:3,w:56,h:23,l:"주방",lv:TALL},{x:72.5,y:3,w:23.5,h:21.5,l:"냉장고",lv:TALL},
+      {x:21,y:30,w:13.5,h:33,l:"식탁",lv:L1},
+      {x:15,y:36,w:7,h:7.5,lv:L2},{x:35,y:36,w:6.5,h:9,lv:L2},
+      {x:15,y:52,w:6,h:7,lv:L2},{x:35,y:52,w:6.5,h:7.5,lv:L2},
+      {x:59,y:38,w:14,h:32.5,l:"식탁",lv:L1},
+      {x:52.5,y:44,w:7.5,h:8,lv:L2},{x:73,y:44,w:7,h:7.5,lv:L2},
+      {x:52.5,y:60,w:7.5,h:7,lv:L2},{x:73,y:59.5,w:6.5,h:6.5,lv:L2},
+      {x:2,y:88,w:12,h:9,lv:L1|L2},{x:85,y:88,w:12,h:9,lv:L1|L2}]},
+  stationery:{id:"stationery",obs:[
+      {x:3,y:3,w:56,h:23,l:"주방",lv:TALL},{x:72.5,y:3,w:23.5,h:21.5,l:"냉장고",lv:TALL},
+      {x:21,y:30,w:13.5,h:33,l:"식탁",lv:L1},
+      {x:15,y:36,w:7,h:7.5,lv:L2},{x:35,y:36,w:6.5,h:9,lv:L2},
+      {x:15,y:52,w:6,h:7,lv:L2},{x:35,y:52,w:6.5,h:7.5,lv:L2},
+      {x:59,y:38,w:14,h:32.5,l:"식탁",lv:L1},
+      {x:52.5,y:44,w:7.5,h:8,lv:L2},{x:73,y:44,w:7,h:7.5,lv:L2},
+      {x:52.5,y:60,w:7.5,h:7,lv:L2},{x:73,y:59.5,w:6.5,h:6.5,lv:L2},
+      {x:2,y:88,w:12,h:9,lv:L1|L2},{x:85,y:88,w:12,h:9,lv:L1|L2}]},
+  alley:{id:"alley",obs:[
+      {x:4,y:8,w:17,h:42,l:"건물",lv:TALL},{x:79,y:12,w:17,h:40,l:"건물",lv:TALL},
+      {x:34,y:16,w:18,h:10,l:"쓰레기",lv:L1|L2},{x:38,y:52,w:28,h:13,l:"차",lv:L1|L2},
+      {x:28,y:76,w:15,h:7,l:"화단",lv:L1},{x:57,y:76,w:15,h:7,l:"화단",lv:L1},
+      {x:66,y:30,w:5,h:5,lv:TALL}]},
+  avenue:{id:"avenue",obs:[
+      {x:4,y:8,w:17,h:42,l:"건물",lv:TALL},{x:79,y:12,w:17,h:40,l:"건물",lv:TALL},
+      {x:34,y:16,w:18,h:10,l:"쓰레기",lv:L1|L2},{x:38,y:52,w:28,h:13,l:"차",lv:L1|L2},
+      {x:28,y:76,w:15,h:7,l:"화단",lv:L1},{x:57,y:76,w:15,h:7,l:"화단",lv:L1},
+      {x:66,y:30,w:5,h:5,lv:TALL}]},
+  subway:{id:"subway",obs:[
+      {x:4,y:4,w:15,h:14,l:"계단",lv:L1|L2},
+      {x:22,y:22,w:8,h:8,lv:TALL},{x:70,y:22,w:8,h:8,lv:TALL},
+      {x:22,y:62,w:8,h:8,lv:TALL},{x:70,y:62,w:8,h:8,lv:TALL},
+      {x:37,y:30,w:26,h:12,l:"소파",lv:L1},{x:42,y:52,w:18,h:10,l:"테이블",lv:L1},
+      {x:84,y:44,w:10,h:16,l:"칸막이",lv:L2}]},
+  busstop:{id:"busstop",obs:[
+      {x:4,y:8,w:17,h:42,l:"건물",lv:TALL},{x:79,y:12,w:17,h:40,l:"건물",lv:TALL},
+      {x:34,y:16,w:18,h:10,l:"쓰레기",lv:L1|L2},{x:38,y:52,w:28,h:13,l:"차",lv:L1|L2},
+      {x:28,y:76,w:15,h:7,l:"화단",lv:L1},{x:57,y:76,w:15,h:7,l:"화단",lv:L1},
+      {x:66,y:30,w:5,h:5,lv:TALL}]},
+  study:{id:"study",obs:[
+      {x:4,y:4,w:15,h:14,l:"계단",lv:L1|L2},
+      {x:22,y:22,w:8,h:8,lv:TALL},{x:70,y:22,w:8,h:8,lv:TALL},
+      {x:22,y:62,w:8,h:8,lv:TALL},{x:70,y:62,w:8,h:8,lv:TALL},
+      {x:37,y:30,w:26,h:12,l:"소파",lv:L1},{x:42,y:52,w:18,h:10,l:"테이블",lv:L1},
+      {x:84,y:44,w:10,h:16,l:"칸막이",lv:L2}]},
+  villa:{id:"villa",obs:[
+      {x:3,y:3,w:56,h:23,l:"주방",lv:TALL},{x:72.5,y:3,w:23.5,h:21.5,l:"냉장고",lv:TALL},
+      {x:21,y:30,w:13.5,h:33,l:"식탁",lv:L1},
+      {x:15,y:36,w:7,h:7.5,lv:L2},{x:35,y:36,w:6.5,h:9,lv:L2},
+      {x:15,y:52,w:6,h:7,lv:L2},{x:35,y:52,w:6.5,h:7.5,lv:L2},
+      {x:59,y:38,w:14,h:32.5,l:"식탁",lv:L1},
+      {x:52.5,y:44,w:7.5,h:8,lv:L2},{x:73,y:44,w:7,h:7.5,lv:L2},
+      {x:52.5,y:60,w:7.5,h:7,lv:L2},{x:73,y:59.5,w:6.5,h:6.5,lv:L2},
+      {x:2,y:88,w:12,h:9,lv:L1|L2},{x:85,y:88,w:12,h:9,lv:L1|L2}]},
+  cosmetics:{id:"cosmetics",obs:[
+      {x:3,y:3,w:56,h:23,l:"주방",lv:TALL},{x:72.5,y:3,w:23.5,h:21.5,l:"냉장고",lv:TALL},
+      {x:21,y:30,w:13.5,h:33,l:"식탁",lv:L1},
+      {x:15,y:36,w:7,h:7.5,lv:L2},{x:35,y:36,w:6.5,h:9,lv:L2},
+      {x:15,y:52,w:6,h:7,lv:L2},{x:35,y:52,w:6.5,h:7.5,lv:L2},
+      {x:59,y:38,w:14,h:32.5,l:"식탁",lv:L1},
+      {x:52.5,y:44,w:7.5,h:8,lv:L2},{x:73,y:44,w:7,h:7.5,lv:L2},
+      {x:52.5,y:60,w:7.5,h:7,lv:L2},{x:73,y:59.5,w:6.5,h:6.5,lv:L2},
+      {x:2,y:88,w:12,h:9,lv:L1|L2},{x:85,y:88,w:12,h:9,lv:L1|L2}]},
+  police:{id:"police",obs:[
+      {x:4,y:4,w:15,h:14,l:"계단",lv:L1|L2},
+      {x:22,y:22,w:8,h:8,lv:TALL},{x:70,y:22,w:8,h:8,lv:TALL},
+      {x:22,y:62,w:8,h:8,lv:TALL},{x:70,y:62,w:8,h:8,lv:TALL},
       {x:37,y:30,w:26,h:12,l:"소파",lv:L1},{x:42,y:52,w:18,h:10,l:"테이블",lv:L1},
       {x:84,y:44,w:10,h:16,l:"칸막이",lv:L2}]},
 };
-let ROOM=ROOMS.in;
+let ROOM=ROOMS[PLACES[0].room];
 const DOOR={x:43,y:95,w:14,h:4};
 
 const ENEMIES={
@@ -957,7 +1039,15 @@ const preloadAllies=list=>{for(const u of list){const g=(u.sex||"m");allySprite(
 /* ═══════════ 전투 배경 그림 ═══════════
    방 종류(ROOM.id)별로 한 장. 있으면 격자·도형·입구 표시를 빼고 이 그림을 깐다.
    그림은 전투 화면 비율(가로:세로 = 100:92)로 미리 눌러 두면 왜곡이 없다. */
-const BG_ART={in:"battle/restaurant.jpg"};
+/* 장소 slug 별 전투 배경. 준비되는 대로 한 줄씩 채운다 → art/battle/<slug>.(webp|jpg)
+   미정: pub karaoke tent alley avenue subway busstop villa cosmetics */
+const BG_ART={
+  diner:"battle/restaurant.jpg",
+  study:"battle/study.webp",
+  bookstore:"battle/bookstore.webp",
+  stationery:"battle/stationery.webp",
+  police:"battle/police.webp",
+};
 const BGSPR={};
 function bgSprite(id){
   const rel=BG_ART[id];
@@ -1036,6 +1126,20 @@ const itemArt=id=>ITEM_ART[id]
   ?`<img class="bigart" src="${artUrl(ITEM_ART[id])}" alt="">`
   :`<span class="bigart none"></span>`;
 const facIcon=(id,fb)=>FAC_ART[id]?`<img class="bigico" src="${artUrl(FAC_ART[id])}" alt="">`:fb;
+
+/* 전투용 아이템 이미지 — 손장비를 대원 손에 그릴 때 쓴다. 다 읽히기 전엔 null. */
+const ISPR={};
+function itemSprite(id){
+  const rel=ITEM_ART[id];
+  if(!rel)return null;
+  let s=ISPR[id];
+  if(s===undefined){
+    s=new Image();s.ok=false;
+    s.onload=()=>{s.ok=true};s.onerror=()=>{s.ok=false};
+    s.src=artUrl(rel);ISPR[id]=s;
+  }
+  return s.ok?s:null;
+}
 
 /* ═══════════ 제목 그림 ═══════════
    그림이 준비되면 TITLE_ART에 경로만 넣으면 됩니다. 비어 있으면 아래 코드로 그립니다. */
@@ -1266,6 +1370,46 @@ const THRUST={up:.18,go:.07,rec:.20};
 const THRUST_TOTAL=THRUST.up+THRUST.go+THRUST.rec;
 const GUNA={up:.13,go:.05,rec:.17};            // 총 — 겨누고 쏘고 반동
 const GUN_TOTAL=GUNA.up+GUNA.go+GUNA.rec;
+
+/* ═══════════ 전투 손장비 배치 ═══════════
+   '전투장비배치.html' 에서 튜닝한 값을 그대로 붙여넣는다.
+   아이템 id → 방향(front 카메라쪽 / back 등쪽 / left / right) → 배치.
+   x·y = 전투 반지름 r 의 배수(앵커=대원 발밑, y 는 위가 −), rot 라디안,
+   scale = 기본 아이콘 크기(r*1.7) 배수, behind=true 면 대원 스프라이트 뒤에 그린다.
+   회전 없이 좌우 반전만 하므로 left/right 를 따로 잡는다. */
+const BATTLE_RIG = {
+  /* ── 오른손(무기) ── */
+  ladle:     { front:{ x:-1.61, y:-0.36, rot:0.50, scale:1.00, behind:false }, back:{ x:0.79, y:-1.39, rot:2.67, scale:1.00, behind:true }, left:{ x:0.33, y:0.13, rot:-1.71, scale:1.01, behind:false }, right:{ x:-1.49, y:-0.39, rot:0.50, scale:1.00, behind:false } },
+  pen:       { front:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, back:{ x:0.30, y:-1.50, rot:0.50, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, right:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false } },
+  weight:    { front:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, back:{ x:0.30, y:-1.50, rot:0.50, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, right:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false } },
+  bat:       { front:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, back:{ x:0.30, y:-1.50, rot:0.50, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, right:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false } },
+  bottle:    { front:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, back:{ x:0.30, y:-1.50, rot:0.50, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, right:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false } },
+  cutter:    { front:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, back:{ x:0.30, y:-1.50, rot:0.50, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, right:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false } },
+  tongs:     { front:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, back:{ x:0.30, y:-1.50, rot:0.50, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, right:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false } },
+  mic:       { front:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, back:{ x:0.30, y:-1.50, rot:0.50, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, right:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false } },
+  spray:     { front:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, back:{ x:0.30, y:-1.50, rot:0.50, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, right:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false } },
+  pistol:    { front:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, back:{ x:0.30, y:-1.50, rot:0.50, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, right:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false } },
+  shotgun:   { front:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, back:{ x:0.30, y:-1.50, rot:0.50, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, right:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false } },
+  rifle:     { front:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, back:{ x:0.30, y:-1.50, rot:0.50, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, right:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false } },
+  baton:     { front:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, back:{ x:0.30, y:-1.50, rot:0.50, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.55, rot:0.50, scale:1.00, behind:false }, right:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, behind:false } },
+  /* ── 왼손(방패) ── */
+  lid:       { front:{ x:0.42, y:-0.60, rot:2.36, scale:1.00, behind:false }, back:{ x:-0.63, y:-0.51, rot:-1.33, scale:1.00, behind:false }, left:{ x:0.70, y:-0.70, rot:2.39, scale:1.00, behind:true }, right:{ x:0.41, y:-0.61, rot:2.40, scale:1.00, behind:false } },
+  book:      { front:{ x:-1.05, y:-1.40, rot:-0.40, scale:1.00, behind:false }, back:{ x:-0.30, y:-1.40, rot:-0.40, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.40, rot:-0.40, scale:1.00, behind:false }, right:{ x:1.05, y:-1.40, rot:-0.40, scale:1.00, behind:false } },
+  tray:      { front:{ x:-1.05, y:-1.40, rot:-0.40, scale:1.00, behind:false }, back:{ x:-0.30, y:-1.40, rot:-0.40, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.40, rot:-0.40, scale:1.00, behind:false }, right:{ x:1.05, y:-1.40, rot:-0.40, scale:1.00, behind:false } },
+  signboard: { front:{ x:-1.05, y:-1.40, rot:-0.40, scale:1.00, behind:false }, back:{ x:-0.30, y:-1.40, rot:-0.40, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.40, rot:-0.40, scale:1.00, behind:false }, right:{ x:1.05, y:-1.40, rot:-0.40, scale:1.00, behind:false } },
+  doorpanel: { front:{ x:-1.05, y:-1.40, rot:-0.40, scale:1.00, behind:false }, back:{ x:-0.30, y:-1.40, rot:-0.40, scale:1.00, behind:true }, left:{ x:-1.05, y:-1.40, rot:-0.40, scale:1.00, behind:false }, right:{ x:1.05, y:-1.40, rot:-0.40, scale:1.00, behind:false } },
+};
+/* BATTLE_RIG 에 없는 아이템·방향이 나오면 기대는 기본값 */
+const RIG_FB={
+  rh:{ front:{x:1.05,y:-1.55,rot:.5,scale:1,behind:false}, back:{x:.30,y:-1.50,rot:.5,scale:1,behind:true},
+       left:{x:-1.05,y:-1.55,rot:.5,scale:1,behind:false}, right:{x:1.05,y:-1.55,rot:.5,scale:1,behind:false} },
+  lh:{ front:{x:-1.05,y:-1.40,rot:-.4,scale:1,behind:false}, back:{x:-.30,y:-1.40,rot:-.4,scale:1,behind:true},
+       left:{x:-1.05,y:-1.40,rot:-.4,scale:1,behind:false}, right:{x:1.05,y:-1.40,rot:-.4,scale:1,behind:false} },
+};
+function rigFor(id,slot,dir){
+  const e=BATTLE_RIG[id]&&BATTLE_RIG[id][dir];
+  return e||RIG_FB[slot][dir]||RIG_FB[slot].front;
+}
 const HOP_AIR=0.26;
 const CRIT_MUL=1.6;              /* 치명타 배율 */
 const DODGE_PER_SPD=0.3;         /* 속도 1점당 회피 % */
@@ -1275,11 +1419,21 @@ const SPLASH_PAD=2;      // 주 대상보다 조금 더 넓게 훑는다
 function blocked(x,y,r,mask){
   if(x<r||x>100-r||y<r||y>100-r)return true;
   for(const o of ROOM.obs){
+    if(o.mul)continue;                       // mul 있는 칸은 벽이 아니라 감속 지대
     if(!(o.lv&mask))continue;
     const cx=Math.max(o.x,Math.min(x,o.x+o.w)),cy=Math.max(o.y,Math.min(y,o.y+o.h));
     if((x-cx)**2+(y-cy)**2<r*r)return true;
   }
   return false;
+}
+/* 감속·가속 지대 — mul 있는 사각형 안에 중심이 들어가면 이동 속도에 곱해진다. lv 로 대상 층 선택. */
+function terrainMul(x,y,mask){
+  let m=1;
+  for(const o of ROOM.obs){
+    if(!o.mul||!(o.lv&mask))continue;
+    if(x>=o.x&&x<=o.x+o.w&&y>=o.y&&y<=o.y+o.h)m*=o.mul;
+  }
+  return m;
 }
 function freeSpot(x,y,r,mask){
   if(!blocked(x,y,r,mask))return{x,y};
@@ -1394,7 +1548,7 @@ function moveTo(u,tx,ty,dt){
   const way=nextStep(u,tx,ty,(u.stuck||0)>0.20);
   if(way){tx=way.x;ty=way.y}
   const ox=u.x,oy=u.y;
-  const vx=tx-u.x,vy=ty-u.y,d=Math.hypot(vx,vy)||1,st=u.vspeed*dt;
+  const vx=tx-u.x,vy=ty-u.y,d=Math.hypot(vx,vy)||1,st=u.vspeed*dt*terrainMul(u.x,u.y,u.lvm);
   u.face=Math.atan2(vy,vx);
   const nx=u.x+vx/d*st,ny=u.y+vy/d*st;
   if(!blocked(nx,u.y,u.r,u.lvm))u.x=nx;
@@ -1436,7 +1590,7 @@ function makeFighter(p,i,n){
     range:7+d.rng,guard:d.guard,guardVar:0,dodge:d.dodge,crit:d.crit,cool:.3+i*.15,anim:null,color:"#4FC3D9",
     style:d.style,dmgType:d.dmg,broken:[],wid:p.gear.rh,
     wearing:SLOTS.map(s=>({slot:s.k,it:ITEMS[p.gear[s.k]]})).filter(w=>w.it),
-    hasW:!!p.gear.rh,hasS:!!p.gear.lh};
+    hasW:!!p.gear.rh,hasS:!!p.gear.lh,sid:p.gear.lh};
   for(const s of G.instants)s.f(u);
   u.dodge=Math.min(60,u.dodge||0);      // 아무리 쌓아도 다 피하지는 못한다
   u.crit=Math.min(80,u.crit||0);
@@ -1497,6 +1651,7 @@ function startBattle(list,keys){
   B={ammo:{...G.ammo},allies:list.map((p,i)=>makeFighter(p,i,list.length)),
      foes:keys.map((k,i)=>makeEnemy(k,i,G.day)),fx:[],shots:[],fallen:[],over:false};
   preloadAllies(B.allies);
+  for(const u of B.allies){if(u.wid)itemSprite(u.wid);if(u.sid)itemSprite(u.sid);}
   if(ROOM)bgSprite(ROOM.id);
   feed=[];
   const bs=B.foes.find(f=>f.boss);
@@ -1649,6 +1804,15 @@ function paint(){
     ctx.fillStyle="rgba(234,230,242,.6)";ctx.font="700 9px system-ui";ctx.textAlign="center";
     ctx.fillText("입구",px(DOOR.x+DOOR.w/2),py(DOOR.y)-3);
     for(const o of ROOM.obs){
+      if(o.mul){                              // 감속 지대 — 채우지 않고 빗금만
+        ctx.fillStyle=o.mul<1?"rgba(90,180,200,.16)":"rgba(200,180,90,.16)";
+        ctx.fillRect(px(o.x),py(o.y),px(o.w),py(o.h));
+        ctx.setLineDash([2,3]);ctx.strokeStyle="rgba(120,205,225,.6)";ctx.lineWidth=1;
+        ctx.strokeRect(px(o.x)+.5,py(o.y)+.5,px(o.w)-1,py(o.h)-1);ctx.setLineDash([]);
+        ctx.fillStyle="rgba(200,235,245,.6)";ctx.font="700 9px system-ui";ctx.textAlign="center";
+        ctx.fillText((o.l?o.l+" ":"")+"×"+o.mul,px(o.x+o.w/2),py(o.y+o.h/2)+3);
+        continue;
+      }
       const high=(o.lv&L3)!==0,mid=(o.lv&L2)!==0,low=(o.lv&L1)!==0;
       ctx.fillStyle=high?"#43414F":mid&&low?"#3A3948":"rgba(120,112,140,.32)";
       ctx.fillRect(px(o.x),py(o.y),px(o.w),py(o.h));
@@ -1676,6 +1840,39 @@ function bodyLunge(u){
   if(t<S.up+go)return -0.12+1.12*((t-S.up)/go);
   return Math.max(0,1-(t-S.up-go)/S.rec);
 }
+/* 공격 이펙트 — 무기 아이콘은 손에 고정된 채, 타겟 방향(u.face)으로 잔상만 그린다.
+   원점은 대원 중심(drawAlly 의 translate(x,y) 프레임), 손 높이로 옮겨 face 로 회전. */
+function drawAtkFx(u,r){
+  if(!u.anim||u.style===undefined)return;
+  const t=u.anim.t;
+  ctx.save();
+  ctx.translate(0,-r*1.35);
+  ctx.rotate(u.face);
+  ctx.lineCap="round";
+  if(u.style==="gun"){
+    if(t>=GUNA.up&&t<GUNA.up+GUNA.go+0.05){          // 총구 섬광
+      ctx.fillStyle="rgba(255,236,160,.9)";
+      ctx.beginPath();ctx.arc(r*2.0,0,r*0.5,0,7);ctx.fill();
+      ctx.strokeStyle="rgba(255,236,160,.5)";ctx.lineWidth=r*0.2;
+      ctx.beginPath();ctx.moveTo(r*1.5,0);ctx.lineTo(r*3.1,0);ctx.stroke();
+    }
+  }else if(u.style==="thrust"||u.wid==="spray"){
+    const S=THRUST;
+    if(t>S.up&&t<S.up+S.go+0.07){                     // 찌르기 섬광
+      const p=Math.min(1,(t-S.up)/S.go);
+      ctx.strokeStyle="rgba(242,215,78,.55)";ctx.lineWidth=r*0.5;
+      ctx.beginPath();ctx.moveTo(r*0.6,0);ctx.lineTo(r*(1.4+2.1*p),0);ctx.stroke();
+    }
+  }else{
+    const S=SWING;
+    if(t>S.up&&t<S.up+S.down+0.06){                   // 휘두르기 호
+      const p=(t-S.up)/S.down, a=-1.2+2.6*p;
+      ctx.strokeStyle="rgba(242,215,78,.55)";ctx.lineWidth=r*0.7;
+      ctx.beginPath();ctx.arc(0,0,r*2.0,a-0.95,a+0.15);ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
 function drawAlly(u){
   const x=u.x*SX,y=u.y*SY,r=u.r*Math.min(SX,SY);
   const fx=Math.cos(u.face),fy=Math.sin(u.face);
@@ -1696,83 +1893,52 @@ function drawAlly(u){
   ctx.beginPath();ctx.arc(0,0,r*0.95,0,7);
   ctx.fillStyle="rgba(0,0,0,.30)";ctx.fill();ctx.restore();
 
-  /* 몸 — 스프라이트가 있으면 그림, 없으면 기존 도형(다른 대원은 아직 그림 없음) */
+  /* 몸 + 손장비 — 대원 스프라이트를 기준으로 무기·방패를 얹는다.
+     방향(rdir)별 BATTLE_RIG 좌표를 쓰고, behind 면 스프라이트 뒤에 그린다.
+     rdir: back 등쪽(적을 보는 기본 자세) · front 카메라쪽 · left/right 옆모습 */
   const img=allySprite((u.sex||"m")+(back?"-back":"-front"));
-  ctx.save();ctx.translate(lx,ly+bobY);
-  if(img){
-    const h=r*4.2, w=h*(img.width/img.height);
-    if(walk)ctx.rotate(Math.sin(u.bob)*0.05);
-    ctx.scale((flip?-1:1)*(1+0.08*Math.max(0,P)),1-0.06*Math.max(0,P));
-    if(u.flash>0)ctx.filter="brightness(0) invert(1)";
-    ctx.drawImage(img,-w/2,-h+r*0.55,w,h);
-    ctx.filter="none";
-  }else{
-    ctx.beginPath();ctx.arc(0,0,r,0,7);
-    ctx.fillStyle=u.flash>0?"#fff":u.color;ctx.fill();
-    ctx.lineWidth=2;ctx.strokeStyle="rgba(255,255,255,.85)";ctx.stroke();
-  }
-  ctx.restore();
+  const rdir=back?"back":(fy>0.15?"front":(flip?"left":"right"));
 
-  /* 무기·방패 — 손 높이에서 타겟 방향으로. 방패는 왼손(local -y), 무기는 오른손(local +y) */
-  ctx.save();ctx.translate(0,-r*1.35);ctx.rotate(u.face);
-  if(u.hasS){ctx.save();ctx.translate(-r*.15,-r*1.05);ctx.rotate(-.5);ctx.scale(1,.6);
-    ctx.beginPath();ctx.arc(0,0,r*.62,0,7);
-    ctx.fillStyle="#8F87A6";ctx.fill();ctx.strokeStyle="#B9B2CC";ctx.lineWidth=2.5;ctx.stroke();ctx.restore()}
-  if(u.hasW)ctx.translate(0,r*.42);
-  if(u.hasW&&u.wid==="spray"){
-    // 분무기 — 손에 들린 통, 누를 때 앞으로 안개가 퍼진다
-    const t=u.anim?u.anim.t:-1;
-    const firing=t>=THRUST.up&&t<THRUST.up+THRUST.go+.14;
-    const push=u.anim?(t<THRUST.up?-r*.25*(t/THRUST.up):r*.35):0;
-    ctx.fillStyle="#C9C2D8";
-    ctx.fillRect(r*.55+push,-r*.42,r*.85,r*.84);          // 통
-    ctx.fillStyle="#8F87A6";
-    ctx.fillRect(r*1.4+push,-r*.2,r*.3,r*.4);             // 노즐
-    ctx.fillStyle="#F2D74E";
-    ctx.fillRect(r*.6+push,-r*.6,r*.5,r*.2);              // 누름 버튼
-    if(firing){
-      const g=ctx.createLinearGradient(r*1.7+push,0,r*3.4+push,0);
-      g.addColorStop(0,"rgba(180,230,190,.75)");g.addColorStop(1,"rgba(180,230,190,0)");
-      ctx.fillStyle=g;
-      ctx.beginPath();ctx.moveTo(r*1.7+push,-r*.18);
-      ctx.lineTo(r*3.5+push,-r*1.05);ctx.lineTo(r*3.5+push,r*1.05);
-      ctx.lineTo(r*1.7+push,r*.18);ctx.closePath();ctx.fill();
-      ctx.fillStyle="rgba(200,240,210,.85)";
-      for(let i=0;i<5;i++){
-        const d2=r*(2+Math.random()*1.4)+push, sp=(Math.random()-.5)*r*1.7;
-        ctx.beginPath();ctx.arc(d2,sp,r*.13,0,7);ctx.fill();
-      }
+  const drawBody=()=>{
+    ctx.save();ctx.translate(lx,ly+bobY);
+    if(img){
+      const h=r*4.2, w=h*(img.width/img.height);
+      if(walk)ctx.rotate(Math.sin(u.bob)*0.05);
+      ctx.scale((flip?-1:1)*(1+0.08*Math.max(0,P)),1-0.06*Math.max(0,P));
+      if(u.flash>0)ctx.filter="brightness(0) invert(1)";
+      ctx.drawImage(img,-w/2,-h+r*0.55,w,h);
+      ctx.filter="none";
+    }else{
+      ctx.beginPath();ctx.arc(0,0,r,0,7);
+      ctx.fillStyle=u.flash>0?"#fff":u.color;ctx.fill();
+      ctx.lineWidth=2;ctx.strokeStyle="rgba(255,255,255,.85)";ctx.stroke();
     }
-  }else if(u.hasW&&u.style==="thrust"){
-    let ext=0;
-    if(u.anim){const t=u.anim.t;
-      if(t<THRUST.up)ext=-r*.55*(t/THRUST.up);
-      else if(t<THRUST.up+THRUST.go){const p=(t-THRUST.up)/THRUST.go;ext=-r*.55+r*2.6*(p*p)}
-      else{const p=(t-THRUST.up-THRUST.go)/THRUST.rec;ext=r*2.05*(1-p*p)}}
-    if(u.anim&&u.anim.t>THRUST.up&&u.anim.t<THRUST.up+THRUST.go+.06){
-      ctx.strokeStyle="rgba(242,215,78,.5)";ctx.lineWidth=r*.5;ctx.lineCap="round";
-      ctx.beginPath();ctx.moveTo(r*.6,0);ctx.lineTo(r*2.3+ext,0);ctx.stroke();}
-    ctx.strokeStyle="#C9C2D8";ctx.lineWidth=2;ctx.lineCap="round";
-    ctx.beginPath();ctx.moveTo(r*.4+ext,0);ctx.lineTo(r*1.7+ext,0);ctx.stroke();
-    ctx.strokeStyle="#F2D74E";ctx.lineWidth=1.4;
-    ctx.beginPath();ctx.moveTo(r*1.7+ext,0);ctx.lineTo(r*2.15+ext,0);ctx.stroke();
-  }else if(u.hasW){
-    /* 오른손잡이 휘두르기 — 오른쪽(+)에서 왼쪽(−)으로, 반시계 방향 */
-    let ang=0.5;
-    if(u.anim){const t=u.anim.t;
-      if(t<SWING.up){const p=t/SWING.up;ang=0.5+1.25*(p*p*(3-2*p))}
-      else if(t<SWING.up+SWING.down){const p=(t-SWING.up)/SWING.down;ang=1.75-3.1*(p*p)}
-      else{const p=(t-SWING.up-SWING.down)/SWING.rec;ang=-1.35+1.85*p}}
-    ctx.save();ctx.rotate(ang);
-    ctx.strokeStyle="#C9C2D8";ctx.lineWidth=2.4;ctx.lineCap="round";
-    ctx.beginPath();ctx.moveTo(r*.5,0);ctx.lineTo(r*2.1,0);ctx.stroke();
-    ctx.beginPath();ctx.arc(r*2.4,0,r*.42,0,7);ctx.fillStyle="#D8D2E4";ctx.fill();
     ctx.restore();
-    if(u.anim&&u.anim.t>SWING.up&&u.anim.t<SWING.up+SWING.down+.05){
-      ctx.strokeStyle="rgba(242,215,78,.55)";ctx.lineWidth=r*.7;ctx.lineCap="round";
-      ctx.beginPath();ctx.arc(0,0,r*2.1,-1.1,1.4);ctx.stroke();}
-  }
-  ctx.restore();          // 무기·방패 회전 해제
+  };
+  const drawHand=(slot,id)=>{
+    const rg=rigFor(id,slot,rdir), im=itemSprite(id);
+    ctx.save();
+    ctx.translate(lx+rg.x*r, ly+bobY+rg.y*r);   // 손 위치(몸통 런지만 따라감), 회전은 rig 고정
+    ctx.rotate(rg.rot);
+    if(u.flash>0)ctx.filter="brightness(0) invert(1)";
+    if(im){
+      const s=r*1.7*rg.scale, w=s*(im.width/im.height);
+      ctx.drawImage(im,-w/2,-s/2,w,s);
+    }else{                                   // 아이콘이 아직 안 읽혔을 때 임시 도형
+      ctx.fillStyle=u.flash>0?"#fff":"#9a92ad";
+      if(slot==="lh"){ctx.beginPath();ctx.arc(0,0,r*0.6,0,7);ctx.fill();}
+      else ctx.fillRect(0,-r*0.12,r*1.6,r*0.24);
+    }
+    ctx.filter="none";
+    ctx.restore();
+  };
+
+  const layers=[{z:0,f:drawBody}];
+  if(u.hasW&&u.wid)layers.push({z:rigFor(u.wid,"rh",rdir).behind?-1:1,f:()=>drawHand("rh",u.wid)});
+  if(u.hasS&&u.sid)layers.push({z:rigFor(u.sid,"lh",rdir).behind?-1:1,f:()=>drawHand("lh",u.sid)});
+  layers.sort((a,b)=>a.z-b.z);
+  for(const l of layers)l.f();
+  drawAtkFx(u,r);         // 무기는 고정, 잔상만
 
   ctx.restore();          // translate 해제
   const topY=img?r*3.0:r+7, botY=img?r*1.2:r+10;
@@ -3051,7 +3217,7 @@ function render(){
     document.getElementById("eq-s").onclick=()=>{markSeen("lid");p.gear.lh=p.gear.lh?null:"lid";p.hp=derive(p).maxHp;render()};
     document.getElementById("go").onclick=()=>{
       if(!p.bag.includes("tuna")){markSeen("tuna");p.bag.push("tuna")}
-      ROOM=ROOMS.in;G.here=PLACES[0];G.scene="battle";startBattle([p],["worm","worm"]);render()};
+      G.here=PLACES[0];ROOM=ROOMS[G.here.room];G.scene="battle";startBattle([p],["worm","worm"]);render()};
     return;
   }
   if(S==="encounter"){

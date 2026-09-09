@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>전투 장비 배치 — 손장비별 위치 세팅</title>
+<style>
+  :root{ --bg:#1b1a22; --panel:#26242f; --line:#3a3848; --ink:#eae6f2; --dim:#a79fbb;
+         --cy:#7fd7c4; --mark:#d8477e; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.5 system-ui,"Segoe UI",sans-serif}
+  header{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);
+         padding:10px 14px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+  header h1{font-size:14px;margin:0 6px 0 0;font-weight:800}
+  label.f{display:flex;gap:6px;align-items:center;color:var(--dim)}
+  select,button,input[type=file]{font:inherit;background:var(--panel);color:var(--ink);
+    border:1px solid var(--line);border-radius:6px;padding:4px 8px}
+  button{cursor:pointer}
+  button.go{border-color:var(--cy);color:var(--cy)}
+  .seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .seg button{border:0;border-radius:0;background:var(--panel)}
+  .seg button.on{background:#463A5F;color:var(--ink)}
+  .grid{display:grid;grid-template-columns:repeat(2,minmax(340px,1fr));gap:14px;padding:14px;max-width:760px}
+  .cell{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px}
+  .cell h2{margin:0 0 8px;font-size:13px;font-weight:700}
+  .cell h2 small{color:var(--dim);font-weight:400}
+  canvas{width:100%;height:auto;background:#000;border-radius:8px;display:block;touch-action:none;cursor:grab}
+  canvas:active{cursor:grabbing}
+  .rows{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+  .r{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .r .tag{width:60px;color:var(--dim)}
+  .r input[type=range]{flex:1;min-width:90px;accent-color:var(--mark)}
+  .r .v{width:44px;text-align:right;color:var(--dim);font-variant-numeric:tabular-nums}
+  .hint{color:var(--dim);margin-top:6px;font-size:12px}
+  .ord{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+  .ord .oe{color:var(--dim);font-size:11px}
+  .ord .chip{background:#1f1e28;border:1px solid var(--line);border-radius:6px;padding:2px 8px}
+  .ord .chip.body{opacity:.7}
+  .ord .chip.btn{cursor:pointer;border-color:var(--cy)}
+  footer{padding:14px;max-width:760px}
+  textarea{width:100%;height:240px;background:#15141b;color:var(--ink);border:1px solid var(--line);
+           border-radius:8px;padding:10px;font:12px/1.5 ui-monospace,Consolas,monospace;resize:vertical}
+  .fbar{display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+</style>
+
+<header>
+  <h1>전투 장비 배치</h1>
+  <label class="f">성별
+    <select id="sex"><option value="m">남</option><option value="f">여</option></select></label>
+  <label class="f">무기 <select id="wsel"></select></label>
+  <label class="f">방패 <select id="ssel"></select></label>
+  <span class="f">편집 대상
+    <span class="seg" id="target">
+      <button data-t="rh" class="on">무기</button><button data-t="lh">방패</button>
+    </span></span>
+  <label class="f"><input type="checkbox" id="bg" checked> 음식점 배경</label>
+  <button id="reset">기본값으로</button>
+  <label class="f">index.html 열기 <input type="file" id="pick" accept=".html,text/html"></label>
+</header>
+
+<div class="grid" id="grid"></div>
+
+<footer>
+  <div class="fbar">
+    <strong>BATTLE_RIG</strong>
+    <button class="go" id="copy">클립보드 복사</button>
+    <button id="load">텍스트 적용</button>
+    <span class="hint">x·y = 전투 반지름 r 의 배수 · rot 라디안 · scale = r*1.7 배수 · behind = 대원 뒤 · 자동 저장됨</span>
+  </div>
+  <textarea id="out" spellcheck="false"></textarea>
+</footer>
+
+<script>
+/* ─── 규약(index.html 와 동일) ───────────────────────────────────────────────
+   앵커 = 대원 발밑. 장비: 앵커+(x*r, y*r) 이동 → (rot) 회전 → drawImage(icon,-w/2,-s/2,w,s)
+   s = r*1.7*scale, w = s*(icon.w/icon.h). behind=true 면 대원 스프라이트보다 먼저 그린다.
+   좌우 반전만 하므로 left/right 를 따로 잡는다. 손장비(무기·방패) 하나하나 값이 다르다. */
+const CW=340, CH=380, R=36, AX=CW/2, AY=272;
+
+const WEAPONS=[["ladle","국자"],["pen","만년필"],["weight","벼려진 문진"],["bat","야구 배트"],
+  ["bottle","깨진 소주병"],["cutter","커터칼"],["tongs","연탄집게"],["mic","마이크"],
+  ["spray","헤어스프레이"],["pistol","권총"],["shotgun","진압용 산탄총"],["rifle","소총"],["baton","경찰봉"]];
+const SHIELDS=[["lid","냄비뚜껑"],["book","전공책"],["tray","쟁반"],["signboard","입간판"],["doorpanel","자동차 문짝"]];
+const ALL_IDS=[...WEAPONS,...SHIELDS].map(a=>a[0]);
+const IS_RH=id=>WEAPONS.some(w=>w[0]===id);
+const NAME_OF=id=>([...WEAPONS,...SHIELDS].find(a=>a[0]===id)||[id,id])[1];
+const EXT={ladle:"webp",pen:"webp",spray:"webp",lid:"webp",book:"webp",doorpanel:"webp"};
+const iconSrc=id=>`art/item/${id}.${EXT[id]||"png"}`;
+
+const DIRS=[
+  {key:"front",title:"정면",note:"카메라 쪽",spr:"front",flip:false},
+  {key:"back", title:"후면",note:"등 쪽 · 기본 전투 자세",spr:"back",flip:false},
+  {key:"left", title:"좌측",note:"정면 그림 미러",spr:"front",flip:true},
+  {key:"right",title:"우측",note:"정면 그림",spr:"front",flip:false},
+];
+
+function defFor(id,dir){
+  if(IS_RH(id)) return dir==="back" ? {x:0.30,y:-1.50,rot:0.5,scale:1,behind:true}
+    : dir==="left" ? {x:-1.05,y:-1.55,rot:0.5,scale:1,behind:false}
+    : {x:1.05,y:-1.55,rot:0.5,scale:1,behind:false};
+  return dir==="back" ? {x:-0.30,y:-1.40,rot:-0.4,scale:1,behind:true}
+    : dir==="right" ? {x:1.05,y:-1.40,rot:-0.4,scale:1,behind:false}
+    : {x:-1.05,y:-1.40,rot:-0.4,scale:1,behind:false};
+}
+const freshRIG=()=>{ const R2={}; for(const id of ALL_IDS){ R2[id]={}; for(const d of DIRS) R2[id][d.key]=defFor(id,d.key); } return R2; };
+
+let RIG=freshRIG(), sex="m", curW="ladle", curS="lid", target="rh", bgOn=true;
+const curId=()=>target==="rh"?curW:curS;
+
+/* ─── 자동 저장/복원 ─── */
+const LS="uch-battle-rig-v2";
+let saveT;
+function save(){ clearTimeout(saveT); saveT=setTimeout(()=>{
+  try{ localStorage.setItem(LS,JSON.stringify({RIG,sex,curW,curS,target,bgOn})); }catch(e){} },200); }
+function restore(){ try{
+  const d=JSON.parse(localStorage.getItem(LS)||"null"); if(!d) return;
+  if(d.RIG && ALL_IDS.every(id=>d.RIG[id]&&DIRS.every(x=>d.RIG[id][x.key]))) RIG=d.RIG;
+  if(d.sex==="m"||d.sex==="f") sex=d.sex;
+  if(ALL_IDS.includes(d.curW)) curW=d.curW;
+  if(ALL_IDS.includes(d.curS)) curS=d.curS;
+  if(d.target==="rh"||d.target==="lh") target=d.target;
+  if(typeof d.bgOn==="boolean") bgOn=d.bgOn;
+}catch(e){} }
+restore();
+
+/* ─── 이미지 캐시 ─── */
+const IMG={};
+function img(src){ let i=IMG[src];
+  if(!i){ i=IMG[src]=new Image(); i.onload=()=>drawAll(); i.src=src; }
+  return i; }
+const spriteImg=spr=>img(`art/ally/${sex}-${spr}.png`);
+const iconImg=id=>img(iconSrc(id));
+const bgImg=()=>img("art/battle/restaurant.jpg");
+
+/* ─── UI 만들기 ─── */
+const grid=document.getElementById("grid");
+const cells={};
+for(const d of DIRS){
+  const el=document.createElement("div"); el.className="cell";
+  el.innerHTML=`<h2>${d.title} <small>· ${d.note}</small></h2>
+    <canvas width="${CW}" height="${CH}" data-k="${d.key}"></canvas>
+    <div class="rows">
+      <div class="r"><span class="tag" data-tg="${d.key}">🗡 무기</span>
+        <span style="color:var(--dim)">회전</span>
+        <input type="range" min="-3.15" max="3.15" step="0.01" data-k="${d.key}" data-p="rot">
+        <span class="v" data-v="${d.key}-rot"></span></div>
+      <div class="r"><span class="tag"></span>
+        <span style="color:var(--dim)">크기</span>
+        <input type="range" min="0.3" max="3" step="0.01" data-k="${d.key}" data-p="scale">
+        <span class="v" data-v="${d.key}-scale"></span></div>
+      <div class="r ord" data-ord="${d.key}"></div>
+      <div class="hint">아이콘을 끌어 위치 · 휠로 크기 · 방향키 미세조정 · 칩을 눌러 대원 앞뒤로</div>
+    </div>`;
+  grid.appendChild(el); cells[d.key]=el;
+}
+
+const wsel=document.getElementById("wsel"), ssel=document.getElementById("ssel");
+for(const [id,nm] of WEAPONS) wsel.add(new Option(`${nm} (${id})`,id));
+for(const [id,nm] of SHIELDS) ssel.add(new Option(`${nm} (${id})`,id));
+wsel.value=curW; ssel.value=curS;
+document.getElementById("sex").value=sex;
+document.getElementById("bg").checked=bgOn;
+for(const b of document.querySelectorAll('#target button')) b.classList.toggle("on",b.dataset.t===target);
+
+/* ─── 겹침 순서 칩 ─── */
+function renderOrder(key){
+  const box=cells[key].querySelector(".ord");
+  const wb=RIG[curW][key].behind, sb=RIG[curS][key].behind;
+  const list=[
+    {t:`🛡 ${NAME_OF(curS)}`, cls:"chip btn", act:"lh", z:sb?0:2},
+    {t:"🧍 대원", cls:"chip body", z:1},
+    {t:`🗡 ${NAME_OF(curW)}`, cls:"chip btn", act:"rh", z:wb?0:2},
+  ].sort((a,b)=>a.z-b.z);
+  box.innerHTML='<span class="oe">뒤</span>'+list.map(c=>
+    `<span class="${c.cls}"${c.act?` data-k="${key}" data-act="${c.act}"`:""}>${c.t}</span>`
+  ).join("")+'<span class="oe">앞</span>';
+}
+
+/* ─── 그리기 ─── */
+function cover(c,i){ const cr=CW/CH, ir=i.width/i.height; let w,h;
+  if(ir>cr){h=CH;w=CH*ir}else{w=CW;h=CW/ir}
+  c.drawImage(i,(CW-w)/2,(CH-h)/2,w,h); }
+
+function handlePos(id,key){ const e=RIG[id][key]; return {x:AX+e.x*R, y:AY+e.y*R}; }
+
+function drawPanel(key){
+  const d=DIRS.find(x=>x.key===key);
+  const c=cells[key].querySelector("canvas").getContext("2d");
+  c.clearRect(0,0,CW,CH);
+  if(bgOn){ const b=bgImg(); if(b.complete&&b.naturalWidth){ cover(c,b);
+    c.fillStyle="rgba(12,10,18,.34)"; c.fillRect(0,0,CW,CH); } }
+  else { c.fillStyle="#111019"; c.fillRect(0,0,CW,CH); }
+
+  const drawBody=()=>{ const s=spriteImg(d.spr);
+    if(!s.complete||!s.naturalWidth) return;
+    const h=R*4.2, w=h*(s.width/s.height);
+    c.save(); c.translate(AX,AY); if(d.flip)c.scale(-1,1);
+    c.drawImage(s,-w/2,-h+R*0.55,w,h); c.restore(); };
+  const drawEquip=id=>{ const e=RIG[id][key], i=iconImg(id), p=handlePos(id,key);
+    c.save(); c.translate(p.x,p.y); c.rotate(e.rot);
+    if(i.complete&&i.naturalWidth){
+      const s=R*1.7*e.scale, w=s*(i.width/i.height);
+      c.drawImage(i,-w/2,-s/2,w,s);
+    }else{
+      c.fillStyle="#9a92ad";
+      if(IS_RH(id)) c.fillRect(0,-R*0.12,R*1.6,R*0.24);
+      else { c.beginPath(); c.arc(0,0,R*0.6,0,7); c.fill(); }
+    }
+    c.restore(); };
+
+  const layers=[{z:0,f:drawBody}];
+  layers.push({z:RIG[curS][key].behind?-1:1, f:()=>drawEquip(curS)});
+  layers.push({z:RIG[curW][key].behind?-1:1, f:()=>drawEquip(curW)});
+  layers.sort((a,b)=>a.z-b.z);
+  for(const l of layers) l.f();
+
+  /* 앵커 + 손잡이 표식 */
+  c.strokeStyle="rgba(127,215,196,.55)"; c.lineWidth=1;
+  c.beginPath(); c.moveTo(AX-7,AY); c.lineTo(AX+7,AY); c.moveTo(AX,AY-7); c.lineTo(AX,AY+7); c.stroke();
+  for(const id of [curS,curW]){
+    const p=handlePos(id,key), on=curId()===id;
+    c.beginPath(); c.arc(p.x,p.y,on?11:8,0,7);
+    c.strokeStyle=IS_RH(id)?"#f2d74e":"#8fd0ff"; c.lineWidth=on?2.5:1.5; c.stroke();
+    if(on){ c.fillStyle=c.strokeStyle; c.font="700 10px system-ui"; c.textAlign="center";
+      c.fillText(IS_RH(id)?"무기":"방패", p.x, p.y-14); }
+  }
+}
+function drawAll(){ for(const d of DIRS){ renderOrder(d.key); drawPanel(d.key); } syncUI(); }
+
+/* ─── 결과 텍스트 ─── */
+const n2=v=>(Math.round(v*100)/100).toFixed(2);
+function line(id){
+  const p=d=>{ const e=RIG[id][d]; return `{ x:${n2(e.x)}, y:${n2(e.y)}, rot:${n2(e.rot)}, scale:${n2(e.scale)}, behind:${!!e.behind} }`; };
+  return `  ${(id+":").padEnd(11)}{ front:${p("front")}, back:${p("back")}, left:${p("left")}, right:${p("right")} }`;
+}
+function syncUI(){
+  for(const d of DIRS){
+    const id=curId(), e=RIG[id][d.key];
+    cells[d.key].querySelector(`[data-tg="${d.key}"]`).textContent=(target==="rh"?"🗡 ":"🛡 ")+NAME_OF(id);
+    for(const p of ["rot","scale"]){
+      const inp=cells[d.key].querySelector(`input[data-k="${d.key}"][data-p="${p}"]`);
+      if(inp && document.activeElement!==inp) inp.value=e[p];
+      cells[d.key].querySelector(`[data-v="${d.key}-${p}"]`).textContent=n2(e[p]);
+    }
+  }
+  const out=document.getElementById("out");
+  if(document.activeElement!==out)
+    out.value=
+      "/* 전투 손장비 배치 — '전투장비배치.html' 산출물. index.html 의 BATTLE_RIG 를 이 블록으로 교체한다.\n"+
+      "   x·y = 전투 반지름 r 의 배수, rot 라디안, scale = r*1.7 배수, behind = 대원 스프라이트 뒤 */\n"+
+      "const BATTLE_RIG = {\n"+
+      "  /* ── 오른손(무기) ── */\n"+
+      WEAPONS.map(w=>line(w[0])+",").join("\n")+"\n"+
+      "  /* ── 왼손(방패) ── */\n"+
+      SHIELDS.map(s=>line(s[0])+",").join("\n")+"\n};";
+  save();
+}
+
+/* ─── 헤더 입력 ─── */
+function setTarget(t){ target=t;
+  for(const x of document.querySelectorAll('#target button')) x.classList.toggle("on",x.dataset.t===t); }
+document.getElementById("sex").onchange=e=>{ sex=e.target.value; drawAll(); };
+wsel.onchange=e=>{ curW=e.target.value; setTarget("rh"); drawAll(); };
+ssel.onchange=e=>{ curS=e.target.value; setTarget("lh"); drawAll(); };
+document.getElementById("bg").onchange=e=>{ bgOn=e.target.checked; drawAll(); };
+document.getElementById("target").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-t]"); if(!b) return;
+  target=b.dataset.t;
+  for(const x of document.querySelectorAll('#target button')) x.classList.toggle("on",x===b);
+  drawAll();
+});
+document.getElementById("reset").onclick=()=>{ RIG=freshRIG(); drawAll(); };
+
+document.getElementById("copy").onclick=()=>{
+  navigator.clipboard.writeText(document.getElementById("out").value)
+    .then(()=>flash("copy","복사됨"));
+};
+function flash(id,txt){ const b=document.getElementById(id); if(!b)return;
+  const o=b.textContent; b.textContent=txt; setTimeout(()=>b.textContent=o,1200); }
+
+function loadObj(obj){
+  let hit=0;
+  for(const id of ALL_IDS) for(const d of DIRS){
+    const e=obj && obj[id] && obj[id][d.key];
+    if(e){ hit++; RIG[id][d.key]={ x:+e.x||0, y:+e.y||0, rot:+e.rot||0,
+      scale:e.scale?+e.scale:1, behind:!!e.behind }; }
+    else RIG[id][d.key]=defFor(id,d.key);
+  }
+  drawAll();
+  return hit;
+}
+document.getElementById("load").onclick=()=>{
+  const t=document.getElementById("out").value;
+  try{
+    const src=t.includes("BATTLE_RIG") ? t.replace(/[\s\S]*?BATTLE_RIG\s*=/,"return ") : "return ("+t+")";
+    const obj=(new Function(src.replace(/;\s*$/,"")+";"))();
+    flash("load", "적용 "+loadObj(obj)+"칸");
+  }catch(err){ alert("불러오기 실패: "+err.message); }
+};
+document.getElementById("pick").onchange=e=>{
+  const f=e.target.files&&e.target.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    try{
+      const m=rd.result.match(/const\s+BATTLE_RIG\s*=\s*(\{[\s\S]*?\n\});/);
+      if(!m) throw new Error("파일에서 BATTLE_RIG 블록을 못 찾음");
+      const obj=(new Function("return "+m[1]))();
+      const n=loadObj(obj);
+      alert("index.html 에서 "+n+"칸 불러옴");
+    }catch(err){ alert("불러오기 실패: "+err.message); }
+    e.target.value="";
+  };
+  rd.readAsText(f);
+};
+
+/* ─── 겹침 칩 클릭 ─── */
+grid.addEventListener("click",e=>{
+  const t=e.target.closest("[data-act]"); if(!t) return;
+  const id=t.dataset.act==="rh"?curW:curS;
+  RIG[id][t.dataset.k].behind=!RIG[id][t.dataset.k].behind;
+  renderOrder(t.dataset.k); drawPanel(t.dataset.k); syncUI();
+});
+/* ─── 슬라이더 ─── */
+grid.addEventListener("input",e=>{
+  const t=e.target; if(!t.dataset.p) return;
+  RIG[curId()][t.dataset.k][t.dataset.p]=+t.value;
+  drawPanel(t.dataset.k); syncUI();
+});
+
+/* ─── 캔버스 드래그 / 휠 / 방향키 ─── */
+function canvasPos(cv,ev){ const b=cv.getBoundingClientRect();
+  return { x:(ev.clientX-b.left)*CW/b.width, y:(ev.clientY-b.top)*CH/b.height }; }
+function nearestId(key,pos){
+  const dd=id=>{ const p=handlePos(id,key); return Math.hypot(pos.x-p.x,pos.y-p.y); };
+  return dd(curW)<=dd(curS)?curW:curS;
+}
+let drag=null;
+for(const d of DIRS){
+  const cv=cells[d.key].querySelector("canvas");
+  cv.tabIndex=0;
+  cv.addEventListener("pointerdown",ev=>{
+    const pos=canvasPos(cv,ev), id=nearestId(d.key,pos);
+    target=IS_RH(id)?"rh":"lh";
+    for(const x of document.querySelectorAll('#target button')) x.classList.toggle("on",x.dataset.t===target);
+    drag={key:d.key,id}; cv.setPointerCapture(ev.pointerId); drawAll();
+  });
+  cv.addEventListener("pointermove",ev=>{
+    if(!drag||drag.key!==d.key) return;
+    const pos=canvasPos(cv,ev), e=RIG[drag.id][d.key];
+    e.x=(pos.x-AX)/R; e.y=(pos.y-AY)/R; drawPanel(d.key); syncUI();
+  });
+  cv.addEventListener("pointerup",()=>{ drag=null; });
+  cv.addEventListener("wheel",ev=>{
+    ev.preventDefault();
+    const id=nearestId(d.key,canvasPos(cv,ev)), e=RIG[id][d.key];
+    e.scale=Math.min(3,Math.max(0.3, e.scale*(ev.deltaY<0?1.06:1/1.06)));
+    drawPanel(d.key); syncUI();
+  },{passive:false});
+  cv.addEventListener("keydown",ev=>{
+    const e=RIG[curId()][d.key], step=ev.shiftKey?0.005:0.03;
+    if(ev.key==="ArrowLeft") e.x-=step;
+    else if(ev.key==="ArrowRight") e.x+=step;
+    else if(ev.key==="ArrowUp") e.y-=step;
+    else if(ev.key==="ArrowDown") e.y+=step;
+    else if(ev.key==="["||ev.key===",") e.rot=Math.max(-3.15,e.rot-0.03);
+    else if(ev.key==="]"||ev.key===".") e.rot=Math.min(3.15,e.rot+0.03);
+    else return;
+    ev.preventDefault(); drawPanel(d.key); syncUI();
+  });
+}
+
+/* 미리 로드 후 첫 렌더 */
+bgImg(); DIRS.forEach(d=>spriteImg(d.spr)); ALL_IDS.forEach(iconImg);
+drawAll();
+</script>
+</html>
