@@ -167,6 +167,7 @@
   .kd{font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:99px;vertical-align:1px}
   .kd.perm{background:#28402F;color:var(--ok)} .kd.inst{background:#4A2438;color:#F08AB0}
   .kd.junk{background:#3A3450;color:var(--dim)}
+  .kd.inst.dk{background:#2C1345;color:#C79BF2}   /* 어둠 강화판 */
   .inv{margin-top:9px} .invh{font-size:11px;color:var(--dim);font-weight:700;margin:8px 0 4px}
   .slot{display:flex;align-items:center;gap:7px;background:var(--panel2);border:1px solid var(--line);
     border-radius:3px;padding:7px 9px;margin-bottom:4px;flex-wrap:wrap}
@@ -187,6 +188,8 @@
   .mini{font-size:11px;font-weight:600;padding:5px 9px;border-radius:3px;
     border:1px solid var(--line);background:transparent;color:var(--dim);cursor:pointer;font-family:inherit;flex:0 0 auto}
   .mini:disabled{opacity:.3} .mini.bad{color:#C87878;border-color:#5A3F4A}
+  .mini.dk{color:#C79BF2;border-color:#4B2A70;background:#241338}
+  .mini.dk small{font-weight:400;font-size:9.5px;opacity:.6;margin-left:3px}
   button.ghost.bad{color:#C87878;border-color:#5A3F4A}
   /* 제목 그림 — 지금은 캔버스로 그립니다. TITLE_ART에 경로를 넣으면 그 그림이 깔립니다 */
   /* 제목 화면 — 세로 그림을 화면 높이에 맞추고 버튼을 그 위에 얹습니다 */
@@ -219,6 +222,22 @@
   .ico{width:19px;height:19px;object-fit:contain;vertical-align:-4px;margin-right:5px;
     filter:drop-shadow(0 1px 2px rgba(0,0,0,.55))}
   .ico.none{display:inline-block;border:1px dashed var(--line);border-radius:3px;filter:none}
+  /* 어둠 강화판 — 원본 그림을 그대로 쓰고 검은 아우라만 덧입힙니다 */
+  .ico.dk,.bigart.dk{filter:brightness(.88) contrast(1.12) saturate(.8)
+    drop-shadow(0 0 2px #000) drop-shadow(0 0 5px rgba(122,44,200,.9));
+    animation:darkpulse 2.4s ease-in-out infinite}
+  @keyframes darkpulse{0%,100%{filter:brightness(.88) contrast(1.12) saturate(.8)
+      drop-shadow(0 0 2px #000) drop-shadow(0 0 4px rgba(122,44,200,.55))}
+    50%{filter:brightness(.84) contrast(1.16) saturate(.75)
+      drop-shadow(0 0 3px #000) drop-shadow(0 0 8px rgba(150,60,230,.95))}}
+  /* 어둠 에너지 결정 — 아직 그림이 없어 마름모로 대신 그립니다.
+     clip-path 는 box-shadow 까지 잘라내므로 번짐은 darkpulse 의 drop-shadow 로 냅니다.
+     .slot .si .ico 가 배경을 덮어쓰므로 같은 무게로 한 번 더 적습니다. */
+  .ico.crys{display:inline-block}
+  .ico.crys,.bigart.crys,.slot .si .ico.crys{
+    background:radial-gradient(circle at 38% 32%,#C89BFA 0%,#6B2CAE 44%,#170B29 100%);
+    clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);padding:0;
+    animation:darkpulse 2.4s ease-in-out infinite}
   /* 목록 안에서는 그림이 왼쪽을 크게 차지하고 글이 그 오른쪽으로 흐릅니다 */
   .slot .si .ico,.buyrow .ico{float:left;width:44px;height:44px;vertical-align:top;
     margin:1px 10px 3px 0;background:#241E36;border-radius:4px;padding:2px}
@@ -396,6 +415,9 @@ const ITEMS={
   boots:{n:"안전화",slot:"shoes",kind:"perm",guard:1,dodge:4,d:"피해 −1, 회피 4%"},
   sneakers:{n:"운동화",slot:"shoes",kind:"perm",dodge:8,d:"회피 8%"},
   slippers:{n:"삼선 슬리퍼",slot:"shoes",kind:"inst",dodge:5,crit:3,d:"회피 5%, 치명 +3%"},
+  /* ── 어둠 에너지 결정 · 게이트 안에서 현장 장비를 그 자리에서 강화합니다 ── */
+  crystal:{n:"어둠 에너지 결정",kind:"inst",crystal:true,
+          d:"현장 장비 하나를 그 자리에서 강화한다 · 게이트를 나가면 사라진다"},
   /* ── 총기 · 군인/경찰대학생 전용 ── */
   pistol:{n:"권총",slot:"rh",kind:"perm",atk:8,aspdM:1.25,rng:9,dmg:DMG.PIERCE,style:"gun",
           req:GUN_MAJORS,ammo:"pistol",d:"공격력 +8, 공속 +25%, 사거리 +9 · 관통"},
@@ -438,6 +460,50 @@ const ITEMS={
   brief1:{n:"서류가 든 가방",kind:"junk",price:70,d:"게이트 관측 기록으로 보인다 · 팔면 70 골드"},
   brief2:{n:"현금이 든 가방",kind:"junk",price:180,d:"누군가 급히 챙겨 나오다 놓쳤다 · 팔면 180 골드"},
 };
+
+/* ═══════════ 어둠 강화판 ═══════════
+   '어둠 에너지 결정'을 쓰면 현장(inst) 장비가 그 자리에서 강화판으로 바뀝니다.
+   반출품은 대상이 아닙니다 — 게이트 안에서만 쓰고 버리는 물건이니 세게 줘도 됩니다.
+   아래 표에 **바뀌는 수치만** 적으면 <원본>+ 이름으로 ITEMS 에 자동으로 실립니다.
+   설명문(d)도 원본과 같은 어순으로 자동 생성되고, 그림은 원본 것을 그대로 씁니다
+   (목록은 .dk 클래스, 전투는 캔버스 그림자로 검은 아우라만 덧그립니다). */
+const DARK_UP={
+  bottle:   {atk:12},                        /* 깨진 소주병 — 그냥 아프다 */
+  cutter:   {atk:7,aspdM:1.55},              /* 커터칼 */
+  tongs:    {atk:10,aspdM:1.20,rng:3},       /* 연탄집게 */
+  mic:      {atk:7,aspdM:1.30},              /* 마이크 */
+  tray:     {guard:4,aspdM:1.12},            /* 쟁반 */
+  signboard:{guard:9,dodge:-3},              /* 입간판 — 무게가 덜 걸린다 */
+  doorpanel:{guard:13,hp:16,dodge:-7},       /* 자동차 문짝 */
+  helmet:   {guard:4},                       /* 공사장 헬멧 */
+  apron:    {guard:3,hp:8},                  /* 앞치마 */
+  workpants:{guard:4},                       /* 작업복 바지 */
+  slippers: {dodge:9,crit:6},                /* 삼선 슬리퍼 */
+};
+/* 이름도 id 도 원본 뒤에 + 를 붙입니다 — 커터칼 → 커터칼+.
+   나중에 2단 강화를 넣으면 lv 2 로 불러 커터칼++ 를 그대로 만들 수 있습니다. */
+const darkId=(id,lv=1)=>id+"+".repeat(lv);
+/* 원본 설명문과 같은 어순으로 적습니다 — 무기는 공격력·공속·사거리, 방어구는 피해·체력·회피·치명 */
+function darkDesc(it){
+  const p=[],pc=v=>`${v<0?"−":"+"}${Math.round(Math.abs(v)*100)}%`;
+  if(it.atk){
+    p.push(`공격력 +${it.atk}`);
+    if(it.aspdM&&it.aspdM!==1)p.push(`공속 ${pc(it.aspdM-1)}`);
+    if(it.rng)p.push(`사거리 +${it.rng}`);
+  }else{
+    if(it.guard)p.push(`피해 −${it.guard}`);
+    if(it.hp)p.push(`체력 +${it.hp}`);
+    if(it.dodge)p.push(`회피 ${it.dodge<0?"−"+(-it.dodge):it.dodge}%`);
+    if(it.crit)p.push(`치명 +${it.crit}%`);
+    if(it.aspdM&&it.aspdM!==1)p.push(`공속 ${pc(it.aspdM-1)}`);
+  }
+  return p.join(", ")+(it.dmg?` · ${it.dmg}`:"");
+}
+for(const [base,up] of Object.entries(DARK_UP)){
+  const b=ITEMS[base], it={...b,...up,n:b.n+"+",dark:base};
+  it.d=darkDesc(it);
+  ITEMS[darkId(base)]=it;
+}
 Object.keys(ITEMS).forEach(k=>ITEMS[k].id=k);
 const SHOP=["jacket","pen","book","spray"];
 const SHOP_AMMO=["ammoP","ammoS","ammoR"];
@@ -451,7 +517,8 @@ function seenGun(type){
   }
   return false;
 }
-const kindTag=it=>it.kind==="inst"?'<span class="kd inst">현장</span>'
+/* 강화판은 이름 끝의 + 로 이미 드러나므로 꼬리표를 더 달지 않고 현장 딱지 색만 바꿉니다 */
+const kindTag=it=>it.kind==="inst"?`<span class="kd inst${it.dark?" dk":""}">현장</span>`
   :it.kind==="junk"?'<span class="kd junk">잡화</span>':'<span class="kd perm">반출</span>';
 /* 어느 칸에 차는 물건인지 — 바닥에 떨어진 것을 고를 때 보여줍니다 */
 const slotName=id=>{
@@ -491,7 +558,11 @@ const itemKnown=id=>DEV_SHOW_UNLOCK||!!(G.itemSeen&&G.itemSeen[id]);
 const itemLabel=id=>itemKnown(id)?ITEMS[id].n:"??";
 /* 그 장소에서 나올 수 있는 것 전부(잡화·장비·특수·탄약) */
 const placeItems=pl=>[...new Set([...pl.junk,...pl.gear,
-  ...(pl.special?pl.special.ids:[]),...(pl.ammo?(pl.ammo.ids||pl.ammo):[])])];
+  ...(pl.special?pl.special.ids:[]),...(pl.ammo?(pl.ammo.ids||pl.ammo):[]),"crystal"])];
+
+/* 어둠 에너지 결정은 어디서든 나옵니다. 위험한 곳일수록 자주 나옵니다.
+   게이트 하나가 10~15일이므로 정문(위험도 0~2 섞임)에서 평균 두 개쯤 나옵니다. */
+const CRYSTAL_RATE=0.10, CRYSTAL_RISK=0.05;
 
 function rollLoot(place,day){
   const out=[];
@@ -500,6 +571,7 @@ function rollLoot(place,day){
   let gn=(Math.random()<0.55?1:0)+(Math.random()<0.25+place.risk*0.1?1:0)+(day>=3&&Math.random()<0.3?1:0);
   for(let i=0;i<gn;i++) out.push(pick(place.gear));
   if(place.special&&Math.random()<place.special.chance) out.push(pick(place.special.ids));
+  if(Math.random()<CRYSTAL_RATE+place.risk*CRYSTAL_RISK) out.push("crystal");
   if(place.ammo){
     const a=place.ammo, ids=a.ids||a;
     let n=(a.base!==undefined)?a.base:1;
@@ -1220,18 +1292,23 @@ const ITEM_ART={        /* 아이템 아이콘 — 만든 것부터 한 줄씩 �
 const artUrl=v=>v?ART+v:"";
 /* 그림이 아직 없는 아이템도 같은 크기의 빈 자리를 남깁니다.
    나중에 ITEM_ART에 줄을 추가하면 그 자리에 그대로 들어갑니다. */
-const itemIcon=id=>ITEM_ART[id]
-  ?`<img class="ico" src="${artUrl(ITEM_ART[id])}" alt="">`
-  :`<span class="ico none"></span>`;
-const itemArt=id=>ITEM_ART[id]
-  ?`<img class="bigart" src="${artUrl(ITEM_ART[id])}" alt="">`
-  :`<span class="bigart none"></span>`;
+/* 어둠 강화판은 그림을 따로 만들지 않고 원본 것을 가져다 검은 아우라(.dk)만 덧입힙니다.
+   어둠 에너지 결정은 아직 그림이 없어 마름모(.crys)로 대신 그립니다. */
+const artOf=id=>ITEM_ART[(ITEMS[id]&&ITEMS[id].dark)||id];
+const darkCls=id=>ITEMS[id]&&ITEMS[id].dark?" dk":"";
+const noArtCls=id=>ITEMS[id]&&ITEMS[id].crystal?"crys":"none";
+const itemIcon=id=>artOf(id)
+  ?`<img class="ico${darkCls(id)}" src="${artUrl(artOf(id))}" alt="">`
+  :`<span class="ico ${noArtCls(id)}"></span>`;
+const itemArt=id=>artOf(id)
+  ?`<img class="bigart${darkCls(id)}" src="${artUrl(artOf(id))}" alt="">`
+  :`<span class="bigart ${noArtCls(id)}"></span>`;
 const facIcon=(id,fb)=>FAC_ART[id]?`<img class="bigico" src="${artUrl(FAC_ART[id])}" alt="">`:fb;
 
 /* 전투용 아이템 이미지 — 손장비를 대원 손에 그릴 때 쓴다. 다 읽히기 전엔 null. */
 const ISPR={};
 function itemSprite(id){
-  const rel=ITEM_ART[id];
+  const rel=artOf(id);        /* 강화판은 원본 그림을 그대로 씁니다 */
   if(!rel)return null;
   let s=ISPR[id];
   if(s===undefined){
@@ -1513,7 +1590,8 @@ const RIG_FB={
        se:{x:1.05,y:-1.40,rot:-.4,scale:1,behind:false}, sw:{x:-1.05,y:-1.40,rot:-.4,scale:1,behind:false} },
 };
 function rigFor(id,slot,dir){
-  const e=BATTLE_RIG[id]&&BATTLE_RIG[id][dir];
+  const b=(ITEMS[id]&&ITEMS[id].dark)||id;      /* 강화판은 원본 배치를 그대로 씁니다 */
+  const e=BATTLE_RIG[b]&&BATTLE_RIG[b][dir];
   return e||RIG_FB[slot][dir]||RIG_FB[slot].se;
 }
 const HOP_AIR=0.26;
@@ -2103,6 +2181,15 @@ function drawAlly(u){
     if(u.flash>0)ctx.filter="brightness(0) invert(1)";
     if(im){
       const s=r*1.7*rg.scale, w=s*(im.width/im.height);
+      /* 어둠 강화판 — 같은 그림을 그림자만 켠 채 두 번 덧그려 검은 아우라를 만든다.
+         맞아서 하얗게 번쩍이는 동안에는 끈다(필터와 겹치면 지저분해진다). */
+      if(ITEMS[id]&&ITEMS[id].dark&&!(u.flash>0)){
+        ctx.shadowColor="#12042A";ctx.shadowBlur=r*1.4;
+        ctx.drawImage(im,-w/2,-s/2,w,s);
+        ctx.shadowColor="rgba(140,54,224,.95)";ctx.shadowBlur=r*0.8;
+        ctx.drawImage(im,-w/2,-s/2,w,s);
+        ctx.shadowBlur=0;ctx.shadowColor="transparent";
+      }
       ctx.drawImage(im,-w/2,-s/2,w,s);
     }else{                                   // 아이콘이 아직 안 읽혔을 때 임시 도형
       ctx.fillStyle=u.flash>0?"#fff":"#9a92ad";
@@ -2568,6 +2655,30 @@ function equipFromBag(p,bagIdx){
     p.gear[it.slot]=id;
     if(old)p.bag.push(old);
   })?null:GEAR_LOW;
+}
+/* ─── 어둠 에너지 결정 ───
+   그 사람이 지금 지닌 현장 장비(찬 것 + 배낭에 든 것)만 강화 대상입니다.
+   이미 강화된 것은 DARK_UP 에 없으므로 두 번 강화되지 않습니다. */
+function darkTargets(p){
+  const out=[];
+  for(const s of SLOTS){const id=p.gear[s.k];if(id&&DARK_UP[id])out.push({w:"slot",k:s.k,id,sn:s.n})}
+  p.bag.forEach((id,i)=>{if(DARK_UP[id])out.push({w:"bag",k:i,id,sn:"배낭"})});
+  return out;
+}
+/* 결정 하나로 장비 하나. 같은 칸에 그대로 갈아 끼우므로 벗었다 낄 필요가 없습니다.
+   체력 보정이 걸린 장비도 있어 tryGear 로 감쌉니다(문짝 체력 +10 → +16). */
+function darkUse(p,bi,gi){
+  const c=ITEMS[p.bag[bi]], g=darkTargets(p)[gi];
+  if(!c||!c.crystal||!g)return false;
+  const nid=darkId(g.id);
+  const ok=tryGear(p,()=>{
+    if(g.w==="slot")p.gear[g.k]=nid;else p.bag[g.k]=nid;
+    p.bag.splice(bi,1);                       /* 자리를 바꾼 뒤에 결정을 뺍니다 */
+  });
+  if(!ok){toast(GEAR_LOW);return false}
+  markSeen(nid);
+  toast(`${ITEMS[g.id].n} → ${ITEMS[nid].n}`);
+  return true;
 }
 function useItem(p,bi){
   const it=ITEMS[p.bag[bi]];
@@ -3149,6 +3260,7 @@ function invPanel(p,pi,mode,group){
         <button class="mini" data-un="${pi}|${s.k}" ${bagRoom(p)<=0?"disabled":""}>내림</button>
         <button class="mini bad" data-dr="${pi}|slot|${s.k}">버림</button></div>`:""}
     </div>`}).join("");
+  const dkt=darkTargets(p);            /* 어둠 에너지 결정으로 강화할 수 있는 것 */
   const bag=p.bag.map((id,bi)=>{
     const it=ITEMS[id];
     const canWear=!!it.slot, k=`${pi}|bag|${bi}`, act=mode==="manage";
@@ -3160,6 +3272,10 @@ function invPanel(p,pi,mode,group){
       ${act&&on(k)?`<div class="acts">
         ${canWear?`<button class="mini" data-eq="${pi}|${bi}">착용</button>`:""}
         ${it.use?`<button class="mini" data-use="${pi}|${bi}" ${full?"disabled":""}>먹는다</button>`:""}
+        ${it.crystal?(dkt.length
+          ?`<span class="tag">강화할 것</span>${dkt.map((g,gi)=>
+              `<button class="mini dk" data-dk="${pi}|${bi}|${gi}">${ITEMS[g.id].n}<small> ${g.sn}</small></button>`).join("")}`
+          :`<span class="tag">강화할 현장 장비가 없습니다</span>`):""}
         ${atBase?`<button class="mini" data-st="${pi}|${bi}">창고</button>`:""}
         <button class="mini bad" data-dr="${pi}|bag|${bi}">버림</button>
         ${mates.map(o=>`<button class="mini" data-mv="${pi}|${bi}|${G.roster.indexOf(o)}" ${bagRoom(o)<=0?"disabled":""}>${o.name} ▸</button>`).join("")}
@@ -3203,6 +3319,9 @@ function bindInv(){
     G.store[id]=(G.store[id]||0)+1;G.gearMsg=null;render()});
   el.querySelectorAll("[data-use]").forEach(b=>b.onclick=()=>{G.invSel=null;
     const [pi,bi]=b.dataset.use.split("|");useItem(G.roster[+pi],+bi);render()});
+  el.querySelectorAll("[data-dk]").forEach(b=>b.onclick=()=>{G.invSel=null;
+    const [pi,bi,gi]=b.dataset.dk.split("|");
+    darkUse(G.roster[+pi],+bi,+gi);G.gearMsg=null;render()});
   el.querySelectorAll("[data-dr]").forEach(b=>b.onclick=()=>{G.invSel=null;
     const [pi,where,key]=b.dataset.dr.split("|");const p=G.roster[+pi];
     if(where!=="slot"){p.bag.splice(+key,1);G.gearMsg=null;render();return}
