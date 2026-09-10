@@ -40,10 +40,11 @@
     <option value="1">기는 것 (L1)</option>
     <option value="4">나는 것 (L3)</option></select></label>
   <label class="f">덮개 투명도 <input type="range" id="alpha" min="0.12" max="0.92" step="0.02" value="0.5"></label>
-  <label class="f"><input type="checkbox" id="spawn"> 스폰 표시</label>
+  <label class="f"><input type="checkbox" id="spawn" checked> 스폰 표시</label>
   <label class="f"><input type="checkbox" id="snap" checked> 0.5% 스냅</label>
   <button id="add">+ 벽</button>
   <button id="addslow">+ 감속</button>
+  <button id="addspawn">+ 적 스폰</button>
   <button class="go" id="reload">index.html 불러오기</button>
   <button class="go" id="write" hidden>▶ index.html 에 바로 쓰기</button>
   <label class="f">직접 선택 <input type="file" id="pick" accept=".html,text/html"></label>
@@ -79,6 +80,8 @@
 
   <div class="hint" id="legend"></div>
   <div class="hint">사각형 클릭→선택 · 안쪽 끌기→이동 · 모서리/변 끌기→크기 · 방향키 이동(Shift 미세) · Del 삭제 · Ctrl+D 복제<br>
+    <b>스폰</b>: 십자 표시를 끌어서 옮긴다. <b>대</b>1–4 는 대원 자리로 4칸 고정이고, 인원이 적으면 가운데부터 채운다.
+    <b>적</b>1–n 은 적 자리이며 적이 더 많으면 앞에서부터 다시 쓴다 — '+ 적 스폰' 으로 늘리고 Del 로 지운다.<br>
     좌표는 전투 필드 기준 % (가로 0–100, 세로 0–100, 화면 비율 100:92). blocked() 는 사각형 <b>모서리까지의 거리 &lt; 유닛 반지름</b> 이면 막으므로, 실제 막히는 폭은 그림보다 유닛 반지름(약 3%)만큼 넓다.</div>
 
   <div class="fbar">
@@ -107,6 +110,7 @@ const ROOM_NAME={diner:"음식점",pub:"주점",karaoke:"지하 노래방",tent:
 const HAS_BG={diner:"art/battle/restaurant.jpg"};
 for(const k of ROOM_KEYS) if(!HAS_BG[k]) HAS_BG[k]=`art/battle/${k}.webp`;   // 없으면 격자로 표시
 const ENEMY_SPOTS=[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]];
+const ALLY_SPOTS=[[36.5,90],[45.5,90],[54.5,90],[63.5,90]];
 
 /* 기본값 = 현재 index.html 값 (파일/저장본 없을 때). 실내/거리/지하 3종을 장소에 복사해 둔 것. */
 const RT_IN=[
@@ -134,18 +138,23 @@ const SEED_SRC={diner:RT_IN,pub:RT_IN,karaoke:RT_UN,tent:RT_ST,bookstore:RT_IN,s
 const DEFAULT={}; for(const k of ROOM_KEYS) DEFAULT[k]=SEED_SRC[k].map(o=>({...o}));
 const DEFAULT_DOOR={x:43,y:95,w:14,h:4};
 const clone=o=>JSON.parse(JSON.stringify(o));
+/* 스폰 자리 — 장소마다 한 벌. a 는 대원 4자리(인원이 적으면 가운데부터 채운다), e 는 적 자리. */
+const DEFAULT_SPAWN={}; for(const k of ROOM_KEYS)
+  DEFAULT_SPAWN[k]={a:clone(ALLY_SPOTS),e:clone(ENEMY_SPOTS)};
 
-let rooms=clone(DEFAULT), DOOR=clone(DEFAULT_DOOR);
-let curRoom="diner", sel=-1, showSpawn=false, showLayer=0, overlayA=0.5, snap=true;
+let rooms=clone(DEFAULT), spawns=clone(DEFAULT_SPAWN), DOOR=clone(DEFAULT_DOOR);
+let curRoom="diner", sel=-1, selSp=null, showSpawn=true, showLayer=0, overlayA=0.5, snap=true;
 
 /* ─── 자동 저장/복원 ─── */
 const LS="uch-terrain-v2";
 let saveT, hadSaved=false;
 function save(){ clearTimeout(saveT); saveT=setTimeout(()=>{
-  try{ localStorage.setItem(LS,JSON.stringify({rooms,DOOR,curRoom})); }catch(e){} },200); }
+  try{ localStorage.setItem(LS,JSON.stringify({rooms,spawns,DOOR,curRoom})); }catch(e){} },200); }
 (function restore(){ try{
   const d=JSON.parse(localStorage.getItem(LS)||"null"); if(!d) return;
   if(d.rooms&&ROOM_KEYS.every(k=>Array.isArray(d.rooms[k]))){ rooms=d.rooms; hadSaved=true; }
+  if(d.spawns&&ROOM_KEYS.every(k=>d.spawns[k]&&Array.isArray(d.spawns[k].a)&&Array.isArray(d.spawns[k].e)))
+    spawns=d.spawns;                       /* spawns 가 없는 옛 저장본은 기본값 그대로 둔다 */
   if(d.DOOR&&"x"in d.DOOR) DOOR=d.DOOR;
   if(ROOM_KEYS.includes(d.curRoom)) curRoom=d.curRoom;
 }catch(e){} })();
@@ -169,6 +178,7 @@ const cv=document.getElementById("cv"), c=cv.getContext("2d");
 const CW=cv.width, CH=cv.height;
 const toX=v=>v/100*CW, toY=v=>v/100*CH, unX=p=>p/CW*100, unY=p=>p/CH*100;
 const cur=()=>rooms[curRoom];
+const curSp=()=>spawns[curRoom];
 const snapv=v=>snap?Math.round(v*2)/2:Math.round(v*100)/100;
 
 function draw(){
@@ -212,13 +222,21 @@ function draw(){
   c.fillText("입구 DOOR",toX(DOOR.x+DOOR.w/2),toY(DOOR.y)-4);
   if(sel===-2) for(const h of handles(DOOR)){ c.fillStyle="#fff"; c.fillRect(h.x-4,h.y-4,8,8); }
 
-  // 스폰 위치
+  // 스폰 위치 — 끌어서 옮긴다
   if(showSpawn){
-    const mark=(xp,yp,col)=>{ c.strokeStyle=col; c.lineWidth=1.5;
-      c.beginPath();c.moveTo(toX(xp)-5,toY(yp));c.lineTo(toX(xp)+5,toY(yp));
-      c.moveTo(toX(xp),toY(yp)-5);c.lineTo(toX(xp),toY(yp)+5);c.stroke(); };
-    for(let i=0;i<4;i++) mark(50+(i-1.5)*9,90,"#7fd7c4");   // 아군
-    for(const s of ENEMY_SPOTS) mark(s[0],s[1],"#F25C5C");  // 적
+    const mark=(p,col,txt,on)=>{
+      const X=toX(p[0]), Y=toY(p[1]);
+      c.strokeStyle=col; c.lineWidth=on?2.5:1.5;
+      c.beginPath();c.moveTo(X-6,Y);c.lineTo(X+6,Y);c.moveTo(X,Y-6);c.lineTo(X,Y+6);c.stroke();
+      c.beginPath();c.arc(X,Y,on?10:6.5,0,6.284);
+      c.strokeStyle=on?"#fff":col; c.lineWidth=on?2:1; c.stroke();
+      c.fillStyle=col; c.font="700 10px system-ui"; c.textAlign="center";
+      c.fillText(txt,X,Y-(on?13:10));
+    };
+    const on=(t,i)=>!!(selSp&&selSp.t===t&&selSp.i===i);
+    /* 적을 먼저 그려서 대원 자리가 위에 오게 한다 */
+    curSp().e.forEach((p,i)=>mark(p,"#F25C5C","적"+(i+1),on("e",i)));
+    curSp().a.forEach((p,i)=>mark(p,"#7fd7c4","대"+(i+1),on("a",i)));
   }
   syncUI();
 }
@@ -232,6 +250,15 @@ function handles(o){
     {x:x0,y:y1,k:"sw"},{x:mx,y:y1,k:"s"},{x:x1,y:y1,k:"se"},
   ];
 }
+/* 스폰 마커 집기. 대원 자리가 적 자리보다 먼저 잡힌다. */
+function hitSpawn(px,py){
+  if(!showSpawn) return null;
+  for(const t of ["a","e"]) for(let i=curSp()[t].length-1;i>=0;i--){
+    const p=curSp()[t][i];
+    if(Math.abs(px-toX(p[0]))<10&&Math.abs(py-toY(p[1]))<10) return {t,i};
+  }
+  return null;
+}
 function hitHandle(o,px,py){ for(const h of handles(o)) if(Math.abs(px-h.x)<7&&Math.abs(py-h.y)<7) return h.k; return null; }
 function inRect(o,xp,yp){ return xp>=o.x&&xp<=o.x+o.w&&yp>=o.y&&yp<=o.y+o.h; }
 
@@ -242,18 +269,26 @@ function pos(ev){ const b=cv.getBoundingClientRect();
 cv.addEventListener("pointerdown",ev=>{
   const {px,py}=pos(ev), xp=unX(px), yp=unY(py);
   cv.setPointerCapture(ev.pointerId);
+  // 작고 위에 있는 스폰 마커부터
+  const hs=hitSpawn(px,py);
+  if(hs){ selSp=hs; sel=-1; const p=curSp()[hs.t][hs.i];
+    drag={mode:"spawn",p,ox:xp-p[0],oy:yp-p[1]}; draw(); return; }
   // 이미 선택된 것의 핸들 먼저
   if(sel>=0){ const k=hitHandle(cur()[sel],px,py); if(k){ drag={mode:"resize",k,o:cur()[sel]}; return; } }
   if(sel===-2){ const k=hitHandle(DOOR,px,py); if(k){ drag={mode:"resize",k,o:DOOR}; return; } }
   // 사각형 히트(위에서부터)
   for(let i=cur().length-1;i>=0;i--){ if(inRect(cur()[i],xp,yp)){
-    sel=i; drag={mode:"move",o:cur()[i],ox:xp-cur()[i].x,oy:yp-cur()[i].y}; draw(); return; } }
-  if(inRect(DOOR,xp,yp)){ sel=-2; drag={mode:"move",o:DOOR,ox:xp-DOOR.x,oy:yp-DOOR.y}; draw(); return; }
-  sel=-1; drag=null; draw();
+    sel=i; selSp=null; drag={mode:"move",o:cur()[i],ox:xp-cur()[i].x,oy:yp-cur()[i].y}; draw(); return; } }
+  if(inRect(DOOR,xp,yp)){ sel=-2; selSp=null; drag={mode:"move",o:DOOR,ox:xp-DOOR.x,oy:yp-DOOR.y}; draw(); return; }
+  sel=-1; selSp=null; drag=null; draw();
 });
 cv.addEventListener("pointermove",ev=>{
   if(!drag) return;
   const {px,py}=pos(ev), xp=unX(px), yp=unY(py), o=drag.o;
+  if(drag.mode==="spawn"){ const p=drag.p;
+    p[0]=snapv(Math.max(0,Math.min(100,xp-drag.ox)));
+    p[1]=snapv(Math.max(0,Math.min(100,yp-drag.oy)));
+    draw(); return; }
   if(drag.mode==="move"){ o.x=snapv(Math.max(0,Math.min(100-o.w,xp-drag.ox)));
     o.y=snapv(Math.max(0,Math.min(100-o.h,yp-drag.oy))); }
   else{
@@ -268,6 +303,20 @@ cv.addEventListener("pointermove",ev=>{
 cv.addEventListener("pointerup",()=>{ drag=null; });
 cv.tabIndex=0;
 cv.addEventListener("keydown",ev=>{
+  if(selSp){
+    const p=curSp()[selSp.t][selSp.i], d=ev.shiftKey?0.1:0.5, E=curSp().e;
+    if(ev.key==="ArrowLeft")       p[0]=Math.max(0,+(p[0]-d).toFixed(2));
+    else if(ev.key==="ArrowRight") p[0]=Math.min(100,+(p[0]+d).toFixed(2));
+    else if(ev.key==="ArrowUp")    p[1]=Math.max(0,+(p[1]-d).toFixed(2));
+    else if(ev.key==="ArrowDown")  p[1]=Math.min(100,+(p[1]+d).toFixed(2));
+    /* 대원 자리는 4칸 고정이라 지우거나 늘리지 않는다 */
+    else if((ev.key==="Delete"||ev.key==="Backspace")&&selSp.t==="e"&&E.length>1){
+      E.splice(selSp.i,1); selSp=null; }
+    else if(ev.key.toLowerCase()==="d"&&(ev.ctrlKey||ev.metaKey)&&selSp.t==="e"){
+      E.push([Math.min(100,p[0]+2),Math.min(100,p[1]+2)]); selSp={t:"e",i:E.length-1}; }
+    else return;
+    ev.preventDefault(); draw(); return;
+  }
   const o = sel>=0?cur()[sel] : sel===-2?DOOR : null; if(!o) return;
   const s=ev.shiftKey?0.1:0.5;
   if(ev.key==="ArrowLeft") o.x=Math.max(0,+(o.x-s).toFixed(2));
@@ -285,25 +334,38 @@ cv.addEventListener("keydown",ev=>{
 /* ─── 속성 패널 ─── */
 const P=id=>document.getElementById(id);
 function syncUI(){
-  const box=P("props"), o = sel>=0?cur()[sel] : sel===-2?DOOR : null;
-  box.classList.toggle("off",!o);
-  P("ptitle").textContent = sel===-2 ? "입구 DOOR" : sel>=0 ? `사각형 #${sel+1}` : "— 선택된 사각형 없음";
-  const isRect = sel>=0;
+  const box=P("props");
+  const sp = selSp ? curSp()[selSp.t][selSp.i] : null;
+  const o = selSp ? null : sel>=0?cur()[sel] : sel===-2?DOOR : null;
+  box.classList.toggle("off",!o&&!sp);
+  P("ptitle").textContent = sp ? (selSp.t==="a"?`대원 ${selSp.i+1} 자리`:`적 ${selSp.i+1} 자리`)
+    : sel===-2 ? "입구 DOOR" : sel>=0 ? `사각형 #${sel+1}` : "— 선택된 사각형 없음";
+  const isRect = !selSp && sel>=0;
+  const spE = !!sp && selSp.t==="e";        /* 적 자리만 늘리고 지울 수 있다 */
   const slow = isRect && o.mul!==undefined;
   for(const id of ["plv","pl","pkind"]) P(id).parentElement.style.display = isRect ? "" : "none";
   P("pmulwrap").style.display = slow ? "" : "none";
-  P("dup").style.display = P("del").style.display = isRect ? "" : "none";
-  if(o){ P("px").value=+o.x.toFixed(2); P("py").value=+o.y.toFixed(2);
+  for(const id of ["pw","ph"]) P(id).parentElement.style.display = sp ? "none" : "";
+  P("dup").style.display = P("del").style.display = (isRect||spE) ? "" : "none";
+  if(sp){ P("px").value=+sp[0].toFixed(2); P("py").value=+sp[1].toFixed(2); }
+  else if(o){ P("px").value=+o.x.toFixed(2); P("py").value=+o.y.toFixed(2);
     P("pw").value=+o.w.toFixed(2); P("ph").value=+o.h.toFixed(2);
     if(isRect){ P("pl").value=o.l||""; P("plv").value=String(o.lv);
       P("pkind").value=slow?"slow":"wall"; if(slow) P("pmul").value=o.mul; } }
   P("legend").innerHTML="색: "+[7,3,1,2,4].map(m=>{const k=CAT(m);
     return `<span class="sw" style="background:rgba(${k.c},.8)"></span>${k.n}`;}).join(" &nbsp; ")
-    +` &nbsp; <span class="sw" style="background:rgba(90,190,215,.8)"></span>감속(점선·통과 가능)`;
+    +` &nbsp; <span class="sw" style="background:rgba(90,190,215,.8)"></span>감속(점선·통과 가능)`
+    +` &nbsp; <span class="sw" style="background:#7fd7c4"></span>대원 자리`
+    +` &nbsp; <span class="sw" style="background:#F25C5C"></span>적 자리`
+    /* 한 전투에 나오는 적은 최대 6체. 자리가 그보다 적으면 같은 자리에 겹쳐 선다. */
+    +(curSp().e.length<6?` &nbsp; <b style="color:var(--mark)">적 자리가 ${curSp().e.length}칸뿐 — 6칸 미만이면 겹쳐 선다</b>`:"");
   buildOut();
 }
 for(const [id,key] of [["px","x"],["py","y"],["pw","w"],["ph","h"]])
-  P(id).addEventListener("input",()=>{ const o=sel>=0?cur()[sel]:sel===-2?DOOR:null; if(!o)return;
+  P(id).addEventListener("input",()=>{
+    if(selSp&&(key==="x"||key==="y")){ const p=curSp()[selSp.t][selSp.i];
+      p[key==="x"?0:1]=Math.max(0,Math.min(100,+P(id).value||0)); draw(); return; }
+    const o=sel>=0?cur()[sel]:sel===-2?DOOR:null; if(!o)return;
     o[key]=Math.max(0,+P(id).value||0); draw(); });
 P("pl").addEventListener("input",()=>{ if(sel>=0){ cur()[sel].l=P("pl").value; draw(); } });
 P("plv").addEventListener("change",()=>{ if(sel>=0){ cur()[sel].lv=+P("plv").value; draw(); } });
@@ -313,20 +375,29 @@ P("pkind").addEventListener("change",()=>{ if(sel<0)return; const o=cur()[sel];
   draw(); });
 P("pmul").addEventListener("input",()=>{ if(sel>=0&&cur()[sel].mul!==undefined){
   cur()[sel].mul=Math.max(0.05,Math.min(3,+P("pmul").value||0.5)); draw(); } });
-P("dup").onclick=()=>{ if(sel<0)return; const n=clone(cur()[sel]);
+P("dup").onclick=()=>{
+  if(selSp){ if(selSp.t!=="e")return; const p=curSp().e[selSp.i];
+    curSp().e.push([Math.min(100,p[0]+2),Math.min(100,p[1]+2)]);
+    selSp={t:"e",i:curSp().e.length-1}; draw(); return; }
+  if(sel<0)return; const n=clone(cur()[sel]);
   n.x=Math.min(100-n.w,n.x+2); n.y=Math.min(100-n.h,n.y+2); cur().push(n); sel=cur().length-1; draw(); };
-P("del").onclick=()=>{ if(sel<0)return; cur().splice(sel,1); sel=-1; draw(); };
+P("del").onclick=()=>{
+  if(selSp){ if(selSp.t==="e"&&curSp().e.length>1){ curSp().e.splice(selSp.i,1); selSp=null; draw(); } return; }
+  if(sel<0)return; cur().splice(sel,1); sel=-1; draw(); };
 
 /* ─── 헤더 ─── */
 for(const k of ROOM_KEYS) P("room").add(new Option(`${ROOM_NAME[k]} (${k})`,k));
 P("room").value=curRoom;
-P("room").onchange=e=>{ curRoom=e.target.value; sel=-1; draw(); };
+P("room").onchange=e=>{ curRoom=e.target.value; sel=-1; selSp=null; draw(); };
 P("layer").onchange=e=>{ showLayer=+e.target.value; draw(); };
 P("alpha").oninput=e=>{ overlayA=+e.target.value; draw(); };
-P("spawn").onchange=e=>{ showSpawn=e.target.checked; draw(); };
+P("spawn").onchange=e=>{ showSpawn=e.target.checked; if(!showSpawn) selSp=null; draw(); };
 P("snap").onchange=e=>{ snap=e.target.checked; };
-P("add").onclick=()=>{ cur().push({x:45,y:45,w:12,h:12,l:"",lv:7}); sel=cur().length-1; draw(); };
-P("addslow").onclick=()=>{ cur().push({x:42,y:42,w:16,h:16,l:"",lv:3,mul:0.5}); sel=cur().length-1; draw(); };
+P("add").onclick=()=>{ cur().push({x:45,y:45,w:12,h:12,l:"",lv:7}); sel=cur().length-1; selSp=null; draw(); };
+P("addslow").onclick=()=>{ cur().push({x:42,y:42,w:16,h:16,l:"",lv:3,mul:0.5}); sel=cur().length-1; selSp=null; draw(); };
+P("addspawn").onclick=()=>{
+  if(!showSpawn){ showSpawn=true; P("spawn").checked=true; }
+  curSp().e.push([50,30]); selSp={t:"e",i:curSp().e.length-1}; sel=-1; draw(); };
 
 /* ─── 출력 ─── */
 const n1=v=>{ const r=Math.round(v*10)/10; return Number.isInteger(r)?String(r):r.toFixed(1); };
@@ -337,7 +408,8 @@ function roomBlock(k){
     const mul=o.mul!==undefined?`,mul:${o.mul}`:"";
     return `      {x:${n1(o.x)},y:${n1(o.y)},w:${n1(o.w)},h:${n1(o.h)}${lab},lv:${SYM(o.lv)}${mul}}`;
   }).join(",\n");
-  return `  ${k}:{id:"${k}",obs:[\n${rows}]},`;
+  const sp=spawns[k], pts=a=>"["+a.map(p=>`[${n1(p[0])},${n1(p[1])}]`).join(",")+"]";
+  return `  ${k}:{id:"${k}",\n      spawn:{a:${pts(sp.a)},\n             e:${pts(sp.e)}},\n      obs:[\n${rows}]},`;
 }
 function buildOut(){
   const out=P("out");
@@ -360,13 +432,17 @@ function ingest(text){
   const D=dm?(new Function("return ("+dm[1]+")"))():null;
   let n=0;
   for(const k of ROOM_KEYS){
+    const sp=R[k]&&R[k].spawn;
+    spawns[k] = sp&&Array.isArray(sp.a)&&Array.isArray(sp.e)
+      ? {a:sp.a.map(p=>[+p[0],+p[1]]), e:sp.e.map(p=>[+p[0],+p[1]])}
+      : clone(DEFAULT_SPAWN[k]);           /* spawn 이 없는 옛 index.html 은 기본값 */
     const obs=(R[k]&&R[k].obs)||[];
     rooms[k]=obs.map(o=>{ const r={x:+o.x,y:+o.y,w:+o.w,h:+o.h,l:o.l||"",lv:+o.lv||7};
       if(o.mul!==undefined) r.mul=+o.mul; return r; });
     n+=rooms[k].length;
   }
   if(D&&"x"in D) DOOR={x:+D.x,y:+D.y,w:+D.w,h:+D.h};
-  sel=-1; draw();
+  sel=-1; selSp=null; draw();
   return n;
 }
 P("copy").onclick=()=>navigator.clipboard.writeText(P("out").value).then(()=>flash("copy","복사됨"));

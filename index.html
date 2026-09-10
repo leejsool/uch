@@ -514,7 +514,10 @@ function rollLoot(place,day){
    음식점은 restaurant.jpg 에 맞춰 다듬었고, 나머지는 실내/거리/지하 기본형을 복사해 둔 것.
    blocked() 는 사각형 모서리까지 거리 < 유닛 반지름이면 막으므로 실제 폭은 그림보다 조금 넓다. */
 const ROOMS={
-  diner:{id:"diner",obs:[
+  diner:{id:"diner",
+      spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
+             e:[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]]},
+      obs:[
       {x:3,y:3,w:56,h:23,l:"주방",lv:TALL},
       {x:72.5,y:3,w:23.5,h:21.5,l:"냉장고",lv:TALL},
       {x:21,y:30,w:13.5,h:33,l:"식탁",lv:L1},
@@ -524,7 +527,10 @@ const ROOMS={
       {x:52.5,y:44,w:7.5,h:8,lv:L2},{x:73,y:44,w:7,h:7.5,lv:L2},
       {x:52.5,y:60,w:7.5,h:7,lv:L2},{x:73,y:59.5,w:6.5,h:6.5,lv:L2},
       {x:2,y:88,w:12,h:9,lv:L1|L2},{x:85,y:88,w:12,h:9,lv:L1|L2}]},
-  pub:{id:"pub",obs:[
+  pub:{id:"pub",
+      spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
+             e:[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]]},
+      obs:[
       {x:3,y:3,w:56,h:23,l:"주방",lv:TALL},{x:72.5,y:3,w:23.5,h:21.5,l:"냉장고",lv:TALL},
       {x:21,y:30,w:13.5,h:33,l:"식탁",lv:L1},
       {x:15,y:36,w:7,h:7.5,lv:L2},{x:35,y:36,w:6.5,h:9,lv:L2},
@@ -533,18 +539,27 @@ const ROOMS={
       {x:52.5,y:44,w:7.5,h:8,lv:L2},{x:73,y:44,w:7,h:7.5,lv:L2},
       {x:52.5,y:60,w:7.5,h:7,lv:L2},{x:73,y:59.5,w:6.5,h:6.5,lv:L2},
       {x:2,y:88,w:12,h:9,lv:L1|L2},{x:85,y:88,w:12,h:9,lv:L1|L2}]},
-  karaoke:{id:"karaoke",obs:[
+  karaoke:{id:"karaoke",
+      spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
+             e:[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]]},
+      obs:[
       {x:4,y:4,w:15,h:14,l:"계단",lv:L1|L2},
       {x:22,y:22,w:8,h:8,lv:TALL},{x:70,y:22,w:8,h:8,lv:TALL},
       {x:22,y:62,w:8,h:8,lv:TALL},{x:70,y:62,w:8,h:8,lv:TALL},
       {x:37,y:30,w:26,h:12,l:"소파",lv:L1},{x:42,y:52,w:18,h:10,l:"테이블",lv:L1},
       {x:84,y:44,w:10,h:16,l:"칸막이",lv:L2}]},
-  tent:{id:"tent",obs:[
+  tent:{id:"tent",
+      spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
+             e:[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]]},
+      obs:[
       {x:4,y:8,w:17,h:42,l:"건물",lv:TALL},{x:79,y:12,w:17,h:40,l:"건물",lv:TALL},
       {x:34,y:16,w:18,h:10,l:"쓰레기",lv:L1|L2},{x:38,y:52,w:28,h:13,l:"차",lv:L1|L2},
       {x:28,y:76,w:15,h:7,l:"화단",lv:L1},{x:57,y:76,w:15,h:7,l:"화단",lv:L1},
       {x:66,y:30,w:5,h:5,lv:TALL}]},
-  bookstore:{id:"bookstore",obs:[
+  bookstore:{id:"bookstore",
+      spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
+             e:[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]]},
+      obs:[
       {x:3,y:3,w:56,h:23,l:"주방",lv:TALL},{x:72.5,y:3,w:23.5,h:21.5,l:"냉장고",lv:TALL},
       {x:21,y:30,w:13.5,h:33,l:"식탁",lv:L1},
       {x:15,y:36,w:7,h:7.5,lv:L2},{x:35,y:36,w:6.5,h:9,lv:L2},
@@ -553,7 +568,10 @@ const ROOMS={
       {x:52.5,y:44,w:7.5,h:8,lv:L2},{x:73,y:44,w:7,h:7.5,lv:L2},
       {x:52.5,y:60,w:7.5,h:7,lv:L2},{x:73,y:59.5,w:6.5,h:6.5,lv:L2},
       {x:2,y:88,w:12,h:9,lv:L1|L2},{x:85,y:88,w:12,h:9,lv:L1|L2}]},
-  stationery:{id:"stationery",obs:[
+  stationery:{id:"stationery",
+      spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
+             e:[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]]},
+      obs:[
       {x:3,y:3,w:56,h:23,l:"주방",lv:TALL},{x:72.5,y:3,w:23.5,h:21.5,l:"냉장고",lv:TALL},
       {x:21,y:30,w:13.5,h:33,l:"식탁",lv:L1},
       {x:15,y:36,w:7,h:7.5,lv:L2},{x:35,y:36,w:6.5,h:9,lv:L2},
@@ -562,34 +580,52 @@ const ROOMS={
       {x:52.5,y:44,w:7.5,h:8,lv:L2},{x:73,y:44,w:7,h:7.5,lv:L2},
       {x:52.5,y:60,w:7.5,h:7,lv:L2},{x:73,y:59.5,w:6.5,h:6.5,lv:L2},
       {x:2,y:88,w:12,h:9,lv:L1|L2},{x:85,y:88,w:12,h:9,lv:L1|L2}]},
-  alley:{id:"alley",obs:[
+  alley:{id:"alley",
+      spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
+             e:[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]]},
+      obs:[
       {x:4,y:8,w:17,h:42,l:"건물",lv:TALL},{x:79,y:12,w:17,h:40,l:"건물",lv:TALL},
       {x:34,y:16,w:18,h:10,l:"쓰레기",lv:L1|L2},{x:38,y:52,w:28,h:13,l:"차",lv:L1|L2},
       {x:28,y:76,w:15,h:7,l:"화단",lv:L1},{x:57,y:76,w:15,h:7,l:"화단",lv:L1},
       {x:66,y:30,w:5,h:5,lv:TALL}]},
-  avenue:{id:"avenue",obs:[
+  avenue:{id:"avenue",
+      spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
+             e:[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]]},
+      obs:[
       {x:4,y:8,w:17,h:42,l:"건물",lv:TALL},{x:79,y:12,w:17,h:40,l:"건물",lv:TALL},
       {x:34,y:16,w:18,h:10,l:"쓰레기",lv:L1|L2},{x:38,y:52,w:28,h:13,l:"차",lv:L1|L2},
       {x:28,y:76,w:15,h:7,l:"화단",lv:L1},{x:57,y:76,w:15,h:7,l:"화단",lv:L1},
       {x:66,y:30,w:5,h:5,lv:TALL}]},
-  subway:{id:"subway",obs:[
+  subway:{id:"subway",
+      spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
+             e:[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]]},
+      obs:[
       {x:4,y:4,w:15,h:14,l:"계단",lv:L1|L2},
       {x:22,y:22,w:8,h:8,lv:TALL},{x:70,y:22,w:8,h:8,lv:TALL},
       {x:22,y:62,w:8,h:8,lv:TALL},{x:70,y:62,w:8,h:8,lv:TALL},
       {x:37,y:30,w:26,h:12,l:"소파",lv:L1},{x:42,y:52,w:18,h:10,l:"테이블",lv:L1},
       {x:84,y:44,w:10,h:16,l:"칸막이",lv:L2}]},
-  busstop:{id:"busstop",obs:[
+  busstop:{id:"busstop",
+      spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
+             e:[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]]},
+      obs:[
       {x:4,y:8,w:17,h:42,l:"건물",lv:TALL},{x:79,y:12,w:17,h:40,l:"건물",lv:TALL},
       {x:34,y:16,w:18,h:10,l:"쓰레기",lv:L1|L2},{x:38,y:52,w:28,h:13,l:"차",lv:L1|L2},
       {x:28,y:76,w:15,h:7,l:"화단",lv:L1},{x:57,y:76,w:15,h:7,l:"화단",lv:L1},
       {x:66,y:30,w:5,h:5,lv:TALL}]},
-  study:{id:"study",obs:[
+  study:{id:"study",
+      spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
+             e:[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]]},
+      obs:[
       {x:4,y:4,w:15,h:14,l:"계단",lv:L1|L2},
       {x:22,y:22,w:8,h:8,lv:TALL},{x:70,y:22,w:8,h:8,lv:TALL},
       {x:22,y:62,w:8,h:8,lv:TALL},{x:70,y:62,w:8,h:8,lv:TALL},
       {x:37,y:30,w:26,h:12,l:"소파",lv:L1},{x:42,y:52,w:18,h:10,l:"테이블",lv:L1},
       {x:84,y:44,w:10,h:16,l:"칸막이",lv:L2}]},
-  villa:{id:"villa",obs:[
+  villa:{id:"villa",
+      spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
+             e:[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]]},
+      obs:[
       {x:3,y:3,w:56,h:23,l:"주방",lv:TALL},{x:72.5,y:3,w:23.5,h:21.5,l:"냉장고",lv:TALL},
       {x:21,y:30,w:13.5,h:33,l:"식탁",lv:L1},
       {x:15,y:36,w:7,h:7.5,lv:L2},{x:35,y:36,w:6.5,h:9,lv:L2},
@@ -598,7 +634,10 @@ const ROOMS={
       {x:52.5,y:44,w:7.5,h:8,lv:L2},{x:73,y:44,w:7,h:7.5,lv:L2},
       {x:52.5,y:60,w:7.5,h:7,lv:L2},{x:73,y:59.5,w:6.5,h:6.5,lv:L2},
       {x:2,y:88,w:12,h:9,lv:L1|L2},{x:85,y:88,w:12,h:9,lv:L1|L2}]},
-  cosmetics:{id:"cosmetics",obs:[
+  cosmetics:{id:"cosmetics",
+      spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
+             e:[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]]},
+      obs:[
       {x:3,y:3,w:56,h:23,l:"주방",lv:TALL},{x:72.5,y:3,w:23.5,h:21.5,l:"냉장고",lv:TALL},
       {x:21,y:30,w:13.5,h:33,l:"식탁",lv:L1},
       {x:15,y:36,w:7,h:7.5,lv:L2},{x:35,y:36,w:6.5,h:9,lv:L2},
@@ -607,7 +646,10 @@ const ROOMS={
       {x:52.5,y:44,w:7.5,h:8,lv:L2},{x:73,y:44,w:7,h:7.5,lv:L2},
       {x:52.5,y:60,w:7.5,h:7,lv:L2},{x:73,y:59.5,w:6.5,h:6.5,lv:L2},
       {x:2,y:88,w:12,h:9,lv:L1|L2},{x:85,y:88,w:12,h:9,lv:L1|L2}]},
-  police:{id:"police",obs:[
+  police:{id:"police",
+      spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
+             e:[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]]},
+      obs:[
       {x:4,y:4,w:15,h:14,l:"계단",lv:L1|L2},
       {x:22,y:22,w:8,h:8,lv:TALL},{x:70,y:22,w:8,h:8,lv:TALL},
       {x:22,y:62,w:8,h:8,lv:TALL},{x:70,y:62,w:8,h:8,lv:TALL},
@@ -616,30 +658,67 @@ const ROOMS={
 };
 let ROOM=ROOMS[PLACES[0].room];
 const DOOR={x:43,y:95,w:14,h:4};
+/* 방에 spawn 이 없거나(옛 저장본) 방 밖에서 싸울 때 쓰는 기본 자리. a 는 대원 4자리로,
+   인원이 적으면 가운데부터 채운다. e 는 적 자리이고 적이 더 많으면 앞에서부터 다시 쓴다. */
+const SPAWN_DEF={a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
+                 e:[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]]};
+const spawnAt=()=>(ROOM&&ROOM.spawn)||SPAWN_DEF;
 
 const ENEMIES={
   worm:{n:"애벌레",lvm:CRAWL,hp:44,atk:8,aspd:.6,speed:20,range:6,r:2.8,c:"#9BC24A",exp:14,dmg:DMG.BITE},
   hopper:{n:"메뚜기",lvm:HOP,hp:36,atk:12,aspd:.8,speed:42,range:6,r:2.9,c:"#D9B84A",exp:22,dmg:DMG.BITE},
   mantis:{n:"사마귀",lvm:TALL,hp:180,atk:16,aspd:.65,speed:13,range:9,r:5.2,c:"#5FC49A",exp:90,boss:true,dmg:DMG.SLASH},
   /* 거미는 다리가 길어 낮은 지형(식탁·화단)을 넘어 다닙니다. 대신 의자와 벽에는 막힙니다. */
-  spider:{n:"거미",lvm:L2|L3,hp:250,atk:26,aspd:.8,speed:24,range:16,r:5.8,c:"#8E6BD9",exp:150,boss:true,dmg:DMG.PIERCE},
-  /* 10일차 보스. 눈알 덩어리. 매우 빠르고 시선이 닿은 자리가 터진다 */
+  /* 1게이트 마지막 보스. 5일차에 섰을 때보다 크게 불렸습니다 */
+  spider:{n:"거미",lvm:L2|L3,hp:540,atk:44,aspd:.8,speed:28,range:16,r:5.8,c:"#8E6BD9",exp:380,boss:true,dmg:DMG.PIERCE},
+  /* 1게이트 5일차 보스. 날아다녀서 지형을 거의 다 넘고, 빠르고 자주 찌릅니다. 대신 무릅니다 */
+  hornet:{n:"장수말벌",lvm:FLY,hp:240,atk:24,aspd:1.1,speed:58,range:8,r:4,c:"#E0A32F",exp:150,boss:true,dmg:DMG.PIERCE},
+  /* 3게이트 보스. 눈알 덩어리. 매우 빠르고 시선이 닿은 자리가 터진다 */
   bloodeyes:{n:"Blood Eyes",lvm:TALL,hp:560,atk:50,aspd:2.857,speed:46,range:11,r:6.6,
              c:"#8E1F2E",exp:400,boss:true,dmg:DMG.BLAST},
+  /* 2게이트 5일차 보스. 네 발로 달린다 — 낮게 기어 L1 지형에만 걸리고, 대신 매우 빠르다.
+     flee: 체력이 at 밑으로 떨어지면 한 번만 구석으로 물러나 rate(초당 최대체력 비율)로
+     회복하고, to 까지 차면 다시 덤빈다. */
+  dogzomb:{n:"강아지 좀비",lvm:CRAWL,hp:300,atk:22,aspd:1.3,speed:66,range:6,r:3.6,
+           c:"#7A8C3E",exp:170,boss:true,dmg:DMG.BITE,
+           flee:{at:0.25,to:0.5,rate:0.05}},
+  /* 2게이트 10일차 보스. 다리가 부러져 거의 못 걷는 대신 팔이 길고 한 대가 무겁다 */
+  crawlzomb:{n:"다리가 부러진 좀비",lvm:HUMAN,hp:760,atk:66,aspd:.55,speed:8,range:14,r:5.6,
+             c:"#3E6B47",exp:330,boss:true,dmg:DMG.SLASH},
   /* 25일차 보스. 절뚝거리며 다가오고, 이것에게 죽은 사람은 일어나 적이 된다 */
   zombie:{n:"좀비",lvm:TALL,hp:900,atk:100,aspd:100,speed:15,range:8,r:6.2,
           c:"#4E9E43",exp:900,boss:true,dmg:DMG.BITE},
   zomb:{n:"좀비",lvm:HUMAN,hp:170,atk:45,aspd:.5,speed:17,range:6,r:3.4,
         c:"#5BB04A",exp:60,dmg:DMG.BITE,noScale:true},
 };
-/* 보스 일정 — 해당 일차에 100% 등장합니다. 여기에 줄을 더하면 보스가 늘어납니다. */
-const BOSS_DAY={3:"mantis",5:"spider",10:"bloodeyes",25:"zombie"};
+/* 게이트 — 저마다 며칠짜리이고 무엇이 나오는지를 따로 가집니다.
+   days  이 게이트의 마지막 날. 그날 보스를 잡으면 게이트가 닫히고 캠퍼스로 돌아옵니다.
+   need  앞 게이트의 id. 그것을 깨야(G.cleared) 열립니다 — 레벨은 보지 않습니다.
+   pool  잡몹. 첫 종류가 기본이고, 이틀째부터 두 번째 것이 45%로 섞입니다.
+   boss  일차 → 적 key. 그날 전투에는 100% 섞여 나옵니다.
+   wip   안쪽을 아직 안 만든 게이트. 열려도 들어가지는 못합니다. */
+const GATES=[
+  {id:"front",n:"정문 게이트",d:"대학가 골목. 게이트 에너지로 부푼 벌레들이 돌아다닌다",
+   days:10,need:null,pool:["worm","hopper"],boss:{3:"mantis",5:"hornet",10:"spider"}},
+  {id:"back",n:"후문 게이트",d:"상가 지하. 사람이었던 것들이 걸어다닌다",
+   days:15,need:"front",pool:["zomb"],boss:{5:"dogzomb",10:"crawlzomb",15:"zombie"}},
+  {id:"hall",n:"강의동 게이트",d:"본관 뒤편. 아직 아무도 못 봤다",
+   days:20,need:"back",pool:["zomb"],boss:{20:"bloodeyes"},wip:true},
+];
+const gateOf=()=>GATES.find(g=>g.id===G.gate)||GATES[0];
+const gateOpen=g=>!g.need||(G.cleared||[]).includes(g.need);
+/* 좀비 계열 갈래. 걸음(절뚝)과 그림을 같이 쓰는 것들 — 강아지 좀비는 네 발이라 뺍니다. */
+const ZOMB_WALK=new Set(["zombie","zomb","crawlzomb"]);
+/* 물어 죽이는 것들. 여기에 당한 대원은 그 자리에서 일어나 적이 됩니다.
+   다리가 부러진 좀비는 물지 않고 찢으므로(SLASH) 빠집니다. */
+const ZOMB_BITE=new Set(["zombie","zomb","dogzomb"]);
 /* 보스가 데리고 나오는 것들. 좀비는 무리로 몰려옵니다. */
 const BOSS_ADDS={zombie:{key:"zomb",count:5}};
 /* 무엇이 나오는지는 알려주지 않습니다. 공기만 바뀝니다. */
 const bossHint=day=>{
-  if(BOSS_DAY[day])return ` <b style="color:var(--gate)">오늘은 공기가 다릅니다.</b> 큰 것이 이미 움직이고 있습니다.`;
-  if(BOSS_DAY[day+1])return ` 회색이 한 겹 더 짙어졌습니다. <b style="color:var(--gate)">내일은 무언가 깨어날 것 같습니다.</b>`;
+  const bs=gateOf().boss;
+  if(bs[day])return ` <b style="color:var(--gate)">오늘은 공기가 다릅니다.</b> 큰 것이 이미 움직이고 있습니다.`;
+  if(bs[day+1])return ` 회색이 한 겹 더 짙어졌습니다. <b style="color:var(--gate)">내일은 무언가 깨어날 것 같습니다.</b>`;
   return "";
 };
 
@@ -975,8 +1054,15 @@ const bldLit=b=>b.facs===null||b.facs.some(id=>facOf(id).cond(G));
 /* 얼굴 — 성별 풀에서 무작위로 하나 받습니다. 스탯은 보지 않습니다.
    풀이 비거나 이미 다 나갔으면 얼굴 없는 anon 그림으로 나옵니다. */
 const FACE_ART={
-  m:["face/m-vit-1.webp","face/m-spd-1.webp"],
-  f:["face/f-spd-1.webp"],
+  m:["face/m-01.webp","face/m-02.webp","face/m-03.webp","face/m-04.webp","face/m-05.webp",
+     "face/m-06.webp","face/m-07.webp","face/m-08.webp","face/m-09.webp","face/m-10.webp",
+     "face/m-11.webp","face/m-12.webp","face/m-13.webp","face/m-14.webp","face/m-15.webp",
+     "face/m-16.webp","face/m-17.webp","face/m-18.webp",
+     "face/m-vit-1.webp","face/m-spd-1.webp"],
+  f:["face/f-01.webp","face/f-02.webp","face/f-03.webp","face/f-04.webp","face/f-05.webp",
+     "face/f-06.webp","face/f-07.webp","face/f-08.webp","face/f-09.webp","face/f-10.webp",
+     "face/f-11.webp","face/f-12.webp","face/f-13.webp","face/f-14.webp",
+     "face/f-spd-1.webp"],
   /* 줄 초상이 다 떨어졌을 때 쓰는 얼굴 없는 그림. 여럿이 같이 써도 됩니다 */
   anon:{m:"face/m-anon.webp", f:"face/f-anon.webp"},
 };
@@ -1311,6 +1397,8 @@ function unpackSave(sv){
   d.instants=(d.instants||[]).map(skillOf).filter(Boolean);
   d.skillOffer=d.skillOffer?d.skillOffer.map(skillOf).filter(Boolean):null;
   if(!d.itemSeen)d.itemSeen={};
+  if(!d.cleared)d.cleared=[];            /* 게이트 클리어 기록이 없던 저장본 */
+  if(!d.gate)d.gate="front";
   d.offer=d.offer?d.offer.map(i=>PLACES[i]).filter(Boolean):null;
   d.here=(d.here===null||d.here===undefined)?null:PLACES[d.here];
   d.lastGain=null;
@@ -1366,6 +1454,7 @@ function newGame(slot){
   G={slot:(slot===undefined?curSlot():slot),scene:"intro",introLine:0,gold:0,mode:"tutorial",
      explores:0,goldEarned:0,deaths:0,recruited:0,woundedReturn:false,gunHome:false,
      day:1,instants:[],offer:null,here:null,fought:false,announced:[],
+     gate:"front",cleared:[],gateClear:false,
      store:{},loot:{},ground:[],memorial:[],sel:null,invSel:null,rowSel:null,facesUsed:[],ammo:{pistol:0,shotgun:0,rifle:0},gunSeen:{pistol:false,shotgun:false,rifle:false},itemSeen:{},arcadeBest:0,starBest:0,huntBest:0,
      beds:1,hallId:null,mapMsg:null,shopWho:0,stripMsg:null,metNpc:{},npcSay:null,npcSayFor:null,talkFor:null,talkLine:0,talkNext:null,appraisal:null,
      player:p,roster:[],applicants:null,lastGain:null};
@@ -1618,7 +1707,8 @@ function makeFighter(p,i,n){
     u.atkFull=u.atk;
     u.meleeAtk=Math.max(1,+(u.atk-rh.atk).toFixed(1));
   }
-  const sp=freeSpot(50+(i-(n-1)/2)*9,90,u.r,u.lvm);
+  const AS=spawnAt().a, a=AS[Math.max(0,Math.floor((AS.length-n)/2))+i]||AS[i%AS.length];
+  const sp=freeSpot(a[0],a[1],u.r,u.lvm);
   u.x=sp.x;u.y=sp.y;u._px=u.x;u._py=u.y;
   return u;
 }
@@ -1626,8 +1716,7 @@ function makeEnemy(key,i,day){
   const E=ENEMIES[key];
   /* 보스는 등장 일차에 맞춰 이미 세게 잡혀 있으므로 날짜 배율을 태우지 않습니다 */
   const hs=(E.boss||E.noScale)?1:Math.pow(1.30,day-1), as=(E.boss||E.noScale)?1:Math.pow(1.20,day-1);
-  const spots=[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]];
-  const s=spots[i%spots.length];
+  const spots=spawnAt().e, s=spots[i%spots.length];
   /* 튜토리얼에서는 한 대가 1만큼 덜 아픕니다 */
   const soft=G.mode==="tutorial"?1:0;
   const u={key,name:E.n,side:"e",face:1.57,r:E.r,lvm:E.lvm,boss:!!E.boss,exp:E.exp,dmgType:E.dmg,
@@ -1636,6 +1725,22 @@ function makeEnemy(key,i,day){
   const sp=freeSpot(s[0],s[1],u.r,u.lvm);
   u.x=sp.x;u.y=sp.y;
   return u;
+}
+/* 도망칠 구석 — 살아 있는 대원들의 한가운데에서 가장 먼 모서리.
+   그 자리가 막혀 있으면 freeSpot 이 근처의 설 수 있는 곳으로 밀어 준다. */
+function fleeDen(f){
+  const av=B.allies.filter(a=>a.hp>0);
+  const cx=av.length?av.reduce((s,a)=>s+a.x,0)/av.length:50;
+  const cy=av.length?av.reduce((s,a)=>s+a.y,0)/av.length:50;
+  /* 모서리를 먼저 설 수 있는 자리로 옮긴 뒤에 고른다. 모서리가 벽 속이면
+     freeSpot 이 한참 떨어진 데로 밀어내므로, 밀린 결과를 기준으로 재야 한다. */
+  let best=null,bd=-1;
+  for(const c of [[10,10],[90,10],[10,90],[90,90]]){
+    const sp=freeSpot(c[0],c[1],f.r,f.lvm);
+    const d=Math.hypot(sp.x-cx,sp.y-cy);
+    if(d>bd){bd=d;best=sp}
+  }
+  return best;
 }
 /* 좀비에게 물려 죽은 대원이 그 자리에서 일어선다 */
 function makeZombieOf(a){
@@ -1646,19 +1751,29 @@ function makeZombieOf(a){
     atk:+(a.atk*0.8).toFixed(1),aspd:E.aspd,vspeed:E.speed,range:E.range,
     guard:0,cool:1.4,color:E.c,wig:0,cp:0,x:a.x,y:a.y};
 }
+/* 다음 날로 넘어갑니다. 마지막 날 보스를 잡았으면 게이트를 나가고,
+   아직 못 잡았으면 날짜가 더 가지 않고 그 날에 머뭅니다 — 더 갈 데가 없습니다. */
+function nextDay(){
+  if(G.gateClear){G.scene="retreat";render();return}
+  if(G.day<gateOf().days)G.day++;
+  G.offer=null;G.skillOffer=null;G.scene="instant";render();
+}
 function rollEncounter(day,risk,party){
   /* 적 수는 데려간 인원에 맞춰 조정합니다.
      혼자 들어갔는데 넷이 갈 물량이 나오면 손쓸 방법이 없기 때문입니다. */
   const size=Math.max(1,Math.min(4,party||4));
   const base=2+Math.floor(day/2)+risk;
   const n=Math.max(1,Math.min(6,Math.round(base*(0.42+0.58*size/4)))),out=[];
-  const boss=BOSS_DAY[day];
+  /* 잡몹은 게이트마다 다릅니다 */
+  const gt=gateOf();
+  const mob=()=>gt.pool[(gt.pool.length>1&&day>=2&&Math.random()<.45)?1:0];
+  const boss=gt.boss[day];
   if(boss){
     out.push(boss);
     const esc=BOSS_ADDS[boss];
     if(esc){for(let i=0;i<esc.count;i++)out.push(esc.key)}
-    else for(let i=1;i<Math.max(2,n-1);i++)out.push(Math.random()<.5?"worm":"hopper");
-  }else for(let i=0;i<n;i++)out.push(day>=2&&Math.random()<.45?"hopper":"worm");
+    else for(let i=1;i<Math.max(2,n-1);i++)out.push(mob());
+  }else for(let i=0;i<n;i++)out.push(mob());
   return out;
 }
 function startBattle(list,keys){
@@ -1777,6 +1892,25 @@ function tick(dt){
   for(const f of live){
     f.wig+=dt*3;
     if(!lifeA.length)continue;
+    /* 물러났다 돌아오는 패턴. 한 판에 한 번만(f.fled) 쓴다. */
+    const FL=(ENEMIES[f.key]||{}).flee;
+    if(FL&&!f.fled&&f.hp>0&&f.hp<=f.maxHp*FL.at){
+      f.fled=true;f.flee="run";f.den=fleeDen(f);f.anim=null;
+      say(`${f.name}이(가) 등을 보이며 물러난다.`);
+    }
+    if(f.flee==="run"){
+      f.face=Math.atan2(f.den.y-f.y,f.den.x-f.x);
+      moveTo(f,f.den.x,f.den.y,dt);
+      if(D(f,f.den)<f.r+1.5){f.flee="heal";say(`${f.name}이(가) 웅크린 채 상처를 핥는다.`)}
+      continue;
+    }
+    if(f.flee==="heal"){
+      f.hp=Math.min(f.maxHp,f.hp+f.maxHp*FL.rate*dt);
+      const n=lifeA.reduce((b,o)=>D(f,o)<D(f,b)?o:b);
+      f.face=Math.atan2(n.y-f.y,n.x-f.x);          // 노려보기만 한다
+      if(f.hp>=f.maxHp*FL.to){f.flee=null;say(`${f.name}이(가) 다시 달려든다.`)}
+      continue;
+    }
     const t=lifeA.reduce((b,o)=>D(f,o)<D(f,b)?o:b);
     // 서로 밀어내는 거리(반지름 합)보다 사거리가 짧으면 영영 못 때린다. 상대 덩치를 더해준다.
     const reach=f.range+t.r;
@@ -1786,7 +1920,7 @@ function tick(dt){
         if(f.air>0){f.air-=dt;moveTo(f,t.x,t.y,dt)}
         else{f.hopCd=(f.hopCd||0)-dt;
           if(f.hopCd<=0){f.air=HOP_AIR;f.hopCd=HOP_AIR+.5+Math.random()*.35}}
-      }else if(f.key==="zombie"||f.key==="zomb"){
+      }else if(ZOMB_WALK.has(f.key)){
         // 성한 다리로 밀 때만 앞으로 나가고, 절뚝이는 쪽에서는 거의 멈춘다
         f.cp=(f.cp||0)+dt*2.3;
         f.limp=Math.sin(f.cp);
@@ -1811,7 +1945,7 @@ function tick(dt){
   for(const a of B.allies)if(a.hp<=0&&!a.dead){
     a.dead=true;B.fallen.push(a);
     const by=a.lastHitBy;
-    if(by&&(by.key==="zombie"||by.key==="zomb")){
+    if(by&&ZOMB_BITE.has(by.key)){
       B.foes.push(makeZombieOf(a));
       say(`${a.name}이(가) 다시 일어선다. 더 이상 우리 편이 아니다.`);
     }else say(`${a.name}이(가) 쓰러졌다. 돌아오지 못한다.`);
@@ -2108,7 +2242,7 @@ function drawFoe(f){
     ctx.restore();
     ctx.fillStyle="rgba(242,215,78,.9)";ctx.font="800 9px system-ui";ctx.textAlign="center";
     ctx.fillText("BOSS",x,y-r-12);
-  }else if(f.key==="zombie"||f.key==="zomb"){
+  }else if(ZOMB_WALK.has(f.key)){
     const lp=f.limp||0, tilt=lp*0.20;
     ctx.save();ctx.translate(x,y);faceFoe(ctx,f.face,tilt);
     // 끌리는 다리
@@ -2362,6 +2496,8 @@ function finishBattle(){
     }
     G.roster=G.roster.filter(r=>!dead.includes(r));
   }
+  /* 마지막 날의 보스를 넘겼다 — 이 게이트는 여기서 끝난다 */
+  if(G.mode==="run"&&G.day>=gateOf().days&&B.foes.some(f=>f.boss))G.gateClear=true;
   if(B.ammo)G.ammo={...B.ammo};                    // 쓴 만큼 줄어든 채로 돌아온다
   const rawFound=G.mode==="tutorial"?[]:rollLoot(G.here,G.day);
   const ammoGot=[];
@@ -3360,7 +3496,7 @@ function render(){
     el.querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{
       const pl=G.offer[+b.dataset.p];G.here=pl;ROOM=ROOMS[pl.room];
       enterBattle(party(),rollEncounter(G.day,pl.risk,party().length))});
-    document.getElementById("pass").onclick=()=>{G.day++;G.offer=null;G.skillOffer=null;G.scene="instant";render()};
+    document.getElementById("pass").onclick=()=>nextDay();
     document.getElementById("out").onclick=()=>{G.scene="retreat";render()};
     return;
   }
@@ -3462,7 +3598,7 @@ function render(){
       ()=>{G.scene=list.some(x=>x.points>0)?"levelup":(G.mode==="tutorial"?"retreat":"nextday");render()});
     return;
   }
-  if(S==="nextday"){G.day++;G.offer=null;G.skillOffer=null;G.scene="instant";render();return}
+  if(S==="nextday"){nextDay();return}
 
   if(S==="retreat"){
     const tut=G.mode==="tutorial";
@@ -3475,8 +3611,13 @@ function render(){
     const junkVal=(tut?[p]:G.roster).reduce((s,r)=>s+r.bag.reduce((a,id)=>
       a+(ITEMS[id].kind==="junk"?ITEMS[id].price:0),0),0);
     const mystN=(tut?[p]:G.roster).reduce((s,r)=>s+r.bag.filter(id=>ITEMS[id].mystery).length,0);
-    el.innerHTML=logo+`<div class="card"><h2>${tut?"일단 물러난다":"게이트를 나선다"}</h2>
+    const cleared=!tut&&G.gateClear;
+    const nextG=cleared?GATES.find(g=>g.need===gateOf().id):null;
+    el.innerHTML=logo+`<div class="card"><h2>${tut?"일단 물러난다":cleared?"게이트가 닫힌다":"게이트를 나선다"}</h2>
       <p>${tut?"고작 벌레 두 마리였는데 손이 떨린다. 더 안쪽에는 무엇이 있을지 가늠이 되지 않는다.<br><br>두려움을 느낀 당신은 일단 귀환하기로 한다.":
+        cleared?`${gateOf().n}의 가장 안쪽에 있던 것이 쓰러졌습니다. 문이 스스로 오므라들고, 당신들은 밖으로 밀려납니다.`
+          +(nextG?`<br><br><b style="color:var(--gate)">${nextG.n}</b>가 열렸습니다.`:"")
+          +`<br><br>몸에 붙었던 요령과 현장에서 주운 것들은 문을 나서는 순간 사라집니다.`:
         `${G.day}일차까지 버텼습니다. 몸에 붙었던 요령과 현장에서 주운 것들은 문을 나서는 순간 사라집니다.`}</p></div>
       <div class="card"><h2>가지고 나갈 것</h2>
       <div class="derived">팔 수 있는 잡화 <b>${junkVal}</b> 골드어치${mystN?` · 감정할 물건 <b>${mystN}</b>개`:""}${keep.length?` · 반출품 <b>${keep.join(", ")}</b>`:""}</div>
@@ -3484,6 +3625,9 @@ function render(){
       <div class="bar"><span class="tag"></span><button id="o">귀환한다</button></div>`;
     document.getElementById("o").onclick=()=>{
       if(G.fought)G.explores++;
+      /* 깬 게이트를 적어 둔다 — 다음 게이트는 이걸 보고 열린다 */
+      if(cleared&&!G.cleared.includes(gateOf().id))G.cleared.push(gateOf().id);
+      G.gateClear=false;
       const went=tut?[p]:party();
       /* 총기를 손에 들었든 배낭에 넣었든, 살아서 캠퍼스까지 가져오면 ROTC가 열립니다 */
       const hasGun=r=>SLOTS.some(s=>{const it=ITEMS[r.gear[s.k]];return it&&it.ammo})
@@ -3954,25 +4098,26 @@ function render(){
     return;
   }
   if(S==="gates"){
-    const top=Math.max(1,...G.roster.map(r=>r.lvl));
-    const GATES=[
-      {n:"정문 게이트",d:"대학가 골목. 게이트 에너지로 변형된 기형 생물이 출몰한다",lv:1,open:true},
-      {n:"후문 게이트",d:"상가 지하. 더 큰 것이 있다",lv:5,open:top>=5},
-      {n:"강의동 게이트",d:"본관 뒤편. 아직 아무도 못 봤다",lv:10,open:top>=10},
-    ];
+    const done=G.cleared||[];
     el.innerHTML=logo+`
       <div class="bar"><span class="tag">게이트 선택</span><span class="tag">출동 <b>${party().length}</b>명</span></div>
       <div class="card"><h2>어디로 들어갈까</h2>
-      <p>돌아온 사람들 말로는, <b style="color:var(--gate)">사흘째부터 결이 다른 것이 돌아다닌다</b>고 합니다.
-      닷새를 넘겨 본 사람은 아직 없습니다.</p></div>
+      <p>게이트는 저마다 안이 다릅니다. <b style="color:var(--gate)">가장 안쪽에 있는 것을 넘겨야</b>
+      문이 닫히고, 그때 다음 문이 열립니다.</p></div>
       <div class="bldbg" ${BLD_ART.gate?`style="background-image:url('${artUrl(BLD_ART.gate)}')"`:""}>
-      ${GATES.map((g,i)=>`<button class="fac ${g.open?"":"lock"}" ${g.open?`data-g="${i}"`:"disabled"}>
-        <span class="ic">${g.open?"🚪":"🔒"}</span>
-        <span class="tx"><b>${g.n}</b><span>${g.d} · 권장 Lv ${g.lv}</span></span></button>`).join("")}
+      ${GATES.map((g,i)=>{
+        const op=gateOpen(g), can=op&&!g.wip;
+        const why = !op ? `${GATES.find(x=>x.id===g.need).n}의 마지막 보스를 잡으면 열림`
+                  : g.wip ? "열렸지만 안쪽을 아직 아무도 못 그렸다"
+                  : `${g.days}일 · ${done.includes(g.id)?"넘어섰다":"미답"}`;
+        return `<button class="fac ${can?"":"lock"}" ${can?`data-g="${i}"`:"disabled"}>
+        <span class="ic">${can?"🚪":op?"🚧":"🔒"}</span>
+        <span class="tx"><b>${g.n}</b><span>${g.d} · ${why}</span></span></button>`;}).join("")}
       </div>
       <div class="bar"><span class="tag"></span><button class="ghost" id="bk">캠퍼스로</button></div>`;
     el.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{
-      G.pickedGate=GATES[+b.dataset.g].n;G.scene="confirm";render()});
+      G.picked=GATES[+b.dataset.g].id;G.pickedGate=GATES[+b.dataset.g].n;
+      G.scene="confirm";render()});
     document.getElementById("bk").onclick=()=>{G.scene="campus";render()};
     return;
   }
@@ -4010,6 +4155,7 @@ function render(){
     document.getElementById("no").onclick=()=>{G.scene="gates";render()};
     document.getElementById("yes").onclick=()=>{
       G.mode="run";G.day=1;G.instants=[];G.offer=null;G.ground=[];G.sel=null;
+      G.gate=G.picked||"front";G.gateClear=false;
       G.gateName=G.pickedGate;G.scene="gateforce";render()};
     return;
   }
