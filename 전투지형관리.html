@@ -103,10 +103,10 @@ const L1=1,L2=2,L3=4,HUMAN=3,CRAWL=1,HOP=3,TALL=7,FLY=4;
 
 /* 탐색 중 들어가는 14개 장소 — 저마다 지형 한 벌. index.html PLACES 의 room slug 와 일치. */
 const ROOM_KEYS=["diner","pub","karaoke","tent","bookstore","stationery","alley",
-  "avenue","subway","busstop","study","villa","cosmetics","police"];
+  "avenue","subway","busstop","study","villa","cosmetics","police","nightstreet"];
 const ROOM_NAME={diner:"음식점",pub:"주점",karaoke:"지하 노래방",tent:"포장마차",bookstore:"서점",
   stationery:"문구점",alley:"골목길",avenue:"대로",subway:"지하철역",busstop:"버스 정류장",
-  study:"독서실",villa:"원룸빌라",cosmetics:"화장품가게",police:"경찰 본부"};
+  study:"독서실",villa:"원룸빌라",cosmetics:"화장품가게",police:"경찰 본부",nightstreet:"밤 거리"};
 const HAS_BG={diner:"art/battle/restaurant.jpg"};
 for(const k of ROOM_KEYS) if(!HAS_BG[k]) HAS_BG[k]=`art/battle/${k}.webp`;   // 없으면 격자로 표시
 const ENEMY_SPOTS=[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]];
@@ -133,9 +133,19 @@ const RT_UN=[
   {x:22,y:62,w:8,h:8,lv:7},{x:70,y:62,w:8,h:8,lv:7},
   {x:37,y:30,w:26,h:12,l:"소파",lv:1},{x:42,y:52,w:18,h:10,l:"테이블",lv:1},
   {x:84,y:44,w:10,h:16,l:"칸막이",lv:2}];
+/* 밤 거리만 제 지형을 따로 가집니다 — 가운데 구덩이 둘, 아래 찌그러진 차 */
+const RT_NIGHT=[
+  {x:0,y:0,w:10,h:100,l:"건물",lv:7},{x:90,y:0,w:10,h:100,l:"건물",lv:7},
+  {x:10,y:2,w:8,h:28,l:"차양",lv:4},{x:82,y:10,w:8,h:26,l:"차양",lv:4},
+  {x:38,y:5,w:22,h:23,l:"구덩이",lv:3},{x:39,y:42,w:21,h:23,l:"구덩이",lv:3},
+  {x:21,y:0,w:15,h:6,l:"차",lv:3},{x:42,y:75,w:28,h:21,l:"차",lv:3},
+  {x:13,y:14,w:9,h:12,l:"잔해",lv:1},{x:15,y:36,w:9,h:12,l:"잔해",lv:1},
+  {x:12,y:58,w:8,h:10,l:"잔해",lv:1},{x:79,y:44,w:7,h:9,l:"잔해",lv:1}];
 const SEED_SRC={diner:RT_IN,pub:RT_IN,karaoke:RT_UN,tent:RT_ST,bookstore:RT_IN,stationery:RT_IN,
-  alley:RT_ST,avenue:RT_ST,subway:RT_UN,busstop:RT_ST,study:RT_UN,villa:RT_IN,cosmetics:RT_IN,police:RT_UN};
-const DEFAULT={}; for(const k of ROOM_KEYS) DEFAULT[k]=SEED_SRC[k].map(o=>({...o}));
+  alley:RT_ST,avenue:RT_ST,subway:RT_UN,busstop:RT_ST,study:RT_UN,villa:RT_IN,cosmetics:RT_IN,police:RT_UN,
+  nightstreet:RT_NIGHT};
+/* 표에 빠진 장소가 있어도 도구 전체가 죽지 않도록 빈 지형으로 받아 둡니다 */
+const DEFAULT={}; for(const k of ROOM_KEYS) DEFAULT[k]=(SEED_SRC[k]||[]).map(o=>({...o}));
 const DEFAULT_DOOR={x:43,y:95,w:14,h:4};
 const clone=o=>JSON.parse(JSON.stringify(o));
 /* 스폰 자리 — 장소마다 한 벌. a 는 대원 4자리(인원이 적으면 가운데부터 채운다), e 는 적 자리. */
@@ -435,7 +445,7 @@ function ingest(text){
     const sp=R[k]&&R[k].spawn;
     spawns[k] = sp&&Array.isArray(sp.a)&&Array.isArray(sp.e)
       ? {a:sp.a.map(p=>[+p[0],+p[1]]), e:sp.e.map(p=>[+p[0],+p[1]])}
-      : clone(DEFAULT_SPAWN[k]);           /* spawn 이 없는 옛 index.html 은 기본값 */
+      : clone(DEFAULT_SPAWN[k]||{a:ALLY_SPOTS,e:ENEMY_SPOTS});   /* spawn 이 없는 옛 index.html 은 기본값 */
     const obs=(R[k]&&R[k].obs)||[];
     rooms[k]=obs.map(o=>{ const r={x:+o.x,y:+o.y,w:+o.w,h:+o.h,l:o.l||"",lv:+o.lv||7};
       if(o.mul!==undefined) r.mul=+o.mul; return r; });
@@ -478,10 +488,17 @@ async function hget(){ try{ const d=await hdb(); return await new Promise((res,r
 async function hset(v){ try{ const d=await hdb(); await new Promise((res,rej)=>{
   const t=d.transaction("h","readwrite"); t.objectStore("h").put(v,"index");
   t.oncomplete=()=>res(); t.onerror=()=>rej(t.error); }); }catch(e){} }
-async function perm(h,mode){
+/* ask=false 면 이미 받아 둔 권한만 확인하고 묻지는 않습니다.
+   페이지가 열리자마자(사용자 클릭 없이) requestPermission 을 부르면
+   브라우저가 "User activation is required" 로 막아 버려서, 그대로 두면
+   fetch 로 넘어가지도 못하고 '불러오기 실패' 가 떴습니다. */
+async function perm(h,mode,ask){
   if(!h.queryPermission) return true;
-  if(await h.queryPermission({mode})==="granted") return true;
-  return (await h.requestPermission({mode}))==="granted";
+  try{
+    if(await h.queryPermission({mode})==="granted") return true;
+    if(!ask) return false;
+    return (await h.requestPermission({mode}))==="granted";
+  }catch(e){ return false; }
 }
 async function pickIndex(){
   const [h]=await window.showOpenFilePicker({types:[{description:"HTML",accept:{"text/html":[".html",".htm"]}}]});
@@ -495,7 +512,7 @@ async function loadIndex(force){
   }
   try{
     let txt;
-    if(idxHandle && await perm(idxHandle,"read")) txt=await (await idxHandle.getFile()).text();
+    if(idxHandle && await perm(idxHandle,"read",!!force)) txt=await (await idxHandle.getFile()).text();
     else{
       const res=await fetch("index.html",{cache:"no-store"});
       if(!res.ok) throw new Error("HTTP "+res.status);
@@ -512,7 +529,7 @@ async function writeIndex(){
   try{
     if(!FS_OK) throw new Error("이 브라우저는 파일 쓰기를 지원하지 않음 (크롬/엣지 필요)");
     if(!idxHandle) await pickIndex();
-    if(!await perm(idxHandle,"readwrite")) throw new Error("쓰기 권한이 없음");
+    if(!await perm(idxHandle,"readwrite",true)) throw new Error("쓰기 권한이 없음");
     if(!loadedOnce && !confirm("index.html 을 아직 불러오지 않았습니다.\n지금 화면 값으로 ROOMS·DOOR 를 덮어씁니다. 계속할까요?")) return;
     const src=P("out").value;
     const rm=src.match(ROOMS_RE), dm=src.match(DOOR_RE);

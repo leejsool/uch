@@ -172,6 +172,8 @@ function appraisalMap(){
 }
 function sourcesOf(it,tut,appr){
   if(it.dark) return [`어둠 에너지 결정 강화 (원본 ${ITEMS[it.dark].n})`];
+  if(it.base) return [`실습동 ${(typeof WORK_UP!=="undefined"&&WORK_UP[it.base]?WORK_UP[it.base].g+" 골드":"")} (원본 ${ITEMS[it.base].n})`];
+  if(it.campfire) return ["보스 전리품 (게이트가 닫히는 날은 제외)"];
   if(it.crystal){
     const a=(typeof CRYSTAL_RATE!=="undefined")?CRYSTAL_RATE:0.10;
     const b=(typeof CRYSTAL_RISK!=="undefined")?CRYSTAL_RISK:0.05;
@@ -196,7 +198,7 @@ function memoOf(it){
   const m=[];
   if(it.req)m.push(it.req.map(x=>(majorOf(x)||{n:x}).n).join("·")+" 전용");
   if(it.ammo&&it.kind!=="ammo")m.push(`${AMMO_KIND[it.ammo]||it.ammo} 탄약을 씁니다`);
-  if(it.kind==="ammo"&&it.qty)m.push(`한 묶음 ${it.qty}발`);
+  if(it.kind==="ammo"&&it.qty)m.push(`한 묶음 ${it.qty}발 · 배낭 한 칸`);
   if(it.use&&it.use.hp)m.push(`먹으면 체력 +${it.use.hp}`);
   if(it.frail)for(const [t,c] of Object.entries(it.frail))m.push(`${t} ${Math.round(c*100)}% 파손`);
   if(it.mystery)m.push("감정해야 값이 정해집니다");
