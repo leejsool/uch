@@ -4107,8 +4107,9 @@ function playTap(){
 }
 function render(){
   stopLoop();
-  /* 명단이 처음 두 명이 된 순간 학생회 인증 바지가 풀립니다. 뒤에 줄어도 도로 잠기지 않습니다 */
-  if(G.roster.length>=2)G.unionOpen=true;
+  /* 명단이 처음 두 명이 된 순간 학생회 인증 바지가 풀립니다. 뒤에 줄어도 도로 잠기지 않습니다.
+     bootGame 은 G={scene:"title"} 로 시작하므로 roster 가 있는지 먼저 봅니다 — 안 보면 제목 화면이 깨집니다 */
+  if(G.roster&&G.roster.length>=2)G.unionOpen=true;
   let S=G.scene;
   if(S!=="spidergame"&&S!=="stargame"&&S!=="huntgame")arcadeStop();
   if(S!=="title")titleStop();
