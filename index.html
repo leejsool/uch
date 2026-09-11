@@ -26,6 +26,7 @@
   button.ghost:hover:not(:disabled),button.ghost:focus-visible{background:var(--line);color:var(--ink)}
   button:disabled{opacity:.3;cursor:not-allowed;background:transparent!important;color:var(--dim)!important;border-color:var(--line)!important}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:15px}
+  .card.lock{opacity:.45}   /* 아직 못 여는 창구 — 이름만 보인다 */
   .card h2{font-size:17px;font-weight:800;margin-bottom:7px}
   /* 제목 오른쪽에 버튼을 붙일 때 */
   .cardhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:7px}
@@ -499,7 +500,7 @@ const ITEMS={
   doorpanel:{n:"자동차 문짝",slot:"lh",kind:"inst",guard:8,hp:10,dodge:-9,d:"피해 −8, 체력 +10, 회피 −9%"},
   /* ── 머리 ── */
   helmet:{n:"공사장 헬멧",slot:"head",kind:"inst",guard:2,d:"피해 −2"},
-  cap:{n:"학과 야구모자",slot:"head",kind:"perm",guard:1,d:"피해 −1"},
+  cap:{n:"학과 야구모자",slot:"head",kind:"perm",guard:1,price:10,d:"피해 −1"},
   hairband:{n:"헤어밴드",slot:"head",kind:"perm",aspdM:1.06,d:"공속 +6%"},
   /* ── 상의 ── */
   apron:{n:"앞치마",slot:"top",kind:"inst",guard:2,hp:4,dodge:5,d:"피해 −2, 체력 +4, 회피 5%"},
@@ -509,6 +510,8 @@ const ITEMS={
   jeans:{n:"청바지",slot:"bottom",kind:"perm",guard:1,hp:4,d:"피해 −1, 체력 +4"},
   track:{n:"트레이닝 바지",slot:"bottom",kind:"perm",dodge:5,d:"회피 5%"},
   workpants:{n:"작업복 바지",slot:"bottom",kind:"inst",guard:2,d:"피해 −2"},
+  /* 매점에서만 나옵니다. 명단이 두 명이 된 뒤부터 판매대에 오를 수 있습니다 */
+  upants:{n:"학생회 인증 바지",slot:"bottom",kind:"perm",hp:3,dodge:2,price:12,d:"체력 +3, 회피 2%"},
   /* ── 신발 ── */
   boots:{n:"안전화",slot:"shoes",kind:"perm",guard:1,dodge:4,d:"피해 −1, 회피 4%"},
   sneakers:{n:"운동화",slot:"shoes",kind:"perm",dodge:8,d:"회피 8%"},
@@ -635,6 +638,7 @@ const WORK_UP={
   jacket:  {guard:2,hp:13,g:55},
   jeans:   {guard:2,hp:7,g:35},
   track:   {dodge:9,g:55},
+  upants:  {hp:6,dodge:4,guard:1,g:50},
   boots:   {guard:2,dodge:7,g:60},
   sneakers:{dodge:13,g:75},
   /* ── 총기 ── 값이 비싼 대신 한 단계가 큽니다 */
@@ -655,8 +659,29 @@ for(const [base,up] of Object.entries(WORK_UP)){
 /* 강화판은 그림·배치를 원본 것에서 가져옵니다 (어둠은 dark, 실습동은 base) */
 const baseOf=id=>(ITEMS[id]&&(ITEMS[id].dark||ITEMS[id].base))||id;
 Object.keys(ITEMS).forEach(k=>ITEMS[k].id=k);
-const SHOP=["jacket","pen","book","spray"];
+/* 매점 판매대에 오를 수 있는 물건 전부. 조건이 붙은 둘은 shopPool() 이 걸러냅니다.
+   한 번에 다 오르지는 않습니다 — 자리 수(shopSlots)만큼 무작위로 뽑습니다. */
+const SHOP=["jacket","pen","book","spray","cap","upants"];
 const SHOP_AMMO=["ammoP","ammoS","ammoR"];
+/* 판매대 자리 — 처음 3칸. '학생회에 투자' 로 한 칸씩, 6칸까지 늘립니다 */
+const SHOP_SLOT0=3, SHOP_SLOT_MAX=6, INVEST_COST=[40,120,250];
+const shopSlots=()=>Math.min(SHOP_SLOT_MAX,SHOP_SLOT0+(G.invest||0));
+const investCost=()=>{const c=INVEST_COST[G.invest||0];return c===undefined?null:c};
+/* 오늘 팔 수 있는 후보 */
+function shopPool(){
+  return SHOP.filter(id=>
+    id==="cap"    ? (G.capFrom!=null&&G.explores>=G.capFrom)   /* 한 번 사 본 뒤 다음 탐색부터 */
+  : id==="upants" ? !!G.unionOpen                              /* 명단이 두 명이 된 뒤부터 */
+  : true);
+}
+/* 판매대 채우기. 팔린 것도 G.shopStock 에 남겨 두어야 자리 수가 맞습니다. */
+function fillShop(){
+  if(!G.shopStock)G.shopStock=[];
+  const rest=shopPool().filter(id=>!G.shopStock.includes(id));
+  while(G.shopStock.length<shopSlots()&&rest.length)
+    G.shopStock.push(rest.splice(Math.floor(Math.random()*rest.length),1)[0]);
+}
+const rollShop=()=>{G.shopStock=[];fillShop()};
 const AMMO_KIND={pistol:"권총",shotgun:"산탄총",rifle:"소총"};
 /* 해당 총기를 한 번이라도 손에 넣어야 매점에서 그 탄약을 팝니다 */
 function seenGun(type){
@@ -745,57 +770,53 @@ function rollLoot(place,day){
 const ROOMS={
   diner:{id:"diner",
       spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
-             e:[[90.5,38],[51,34.5],[8.5,37],[66,30],[39,32],[66,20],[9,31],[87,31.5],[76,34],[46,34]]},
+             e:[[92,44.5],[52.5,36.5],[7,56],[66,30],[39,32],[66,20],[9,31],[87,31.5],[76,34],[46,34]]},
       obs:[
       {x:3,y:3,w:56,h:23,l:"주방",lv:TALL},
       {x:72.5,y:3,w:23.5,h:21.5,l:"냉장고",lv:TALL},
       {x:21,y:30,w:13.5,h:33,l:"식탁",lv:L1},
       {x:15,y:36,w:7,h:7.5,lv:L2},
-      {x:35,y:36,w:6.5,h:9,lv:L2},
+      {x:35,y:36,w:6.5,h:6,lv:L2},
       {x:15,y:52,w:6,h:7,lv:L2},
-      {x:35,y:52,w:6.5,h:7.5,lv:L2},
+      {x:35,y:52,w:6.5,h:5.5,lv:L2},
       {x:59,y:38,w:14,h:32.5,l:"식탁",lv:L1},
-      {x:52.5,y:44,w:7.5,h:8,lv:L2},
-      {x:73,y:44,w:7,h:7.5,lv:L2},
-      {x:52.5,y:60,w:7.5,h:7,lv:L2},
-      {x:73,y:59.5,w:6.5,h:6.5,lv:L2},
+      {x:52.5,y:44,w:5.5,h:6,lv:L2},
+      {x:73.5,y:44,w:6.5,h:5.5,lv:L2},
+      {x:52.5,y:60,w:5.5,h:5,lv:L2},
+      {x:74,y:59.5,w:5.5,h:4.5,lv:L2},
       {x:2,y:88,w:12,h:9,lv:L1|L2},
       {x:85,y:88,w:12,h:9,lv:L1|L2}]},
   pub:{id:"pub",
-      spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
-             e:[[52,25],[36,22],[20,26],[66,30],[28,34],[66,20],[12,22],[60,16],[76,34],[40,36]]},
+      spawn:{a:[[32.5,91.5],[43.5,96],[71,95.5],[81.5,93]],
+             e:[[78,13.5],[53.5,74],[79.5,33.5],[44,49.5],[61,56],[68,62],[79,55.5],[52.5,52],[72.5,44],[77,71.5]]},
       obs:[
-      {x:3,y:3,w:56,h:23,l:"주방",lv:TALL},
-      {x:72.5,y:3,w:23.5,h:21.5,l:"냉장고",lv:TALL},
-      {x:21,y:30,w:13.5,h:33,l:"식탁",lv:L1},
-      {x:15,y:36,w:7,h:7.5,lv:L2},
-      {x:35,y:36,w:6.5,h:9,lv:L2},
-      {x:15,y:52,w:6,h:7,lv:L2},
-      {x:35,y:52,w:6.5,h:7.5,lv:L2},
-      {x:59,y:38,w:14,h:32.5,l:"식탁",lv:L1},
-      {x:52.5,y:44,w:7.5,h:8,lv:L2},
-      {x:73,y:44,w:7,h:7.5,lv:L2},
-      {x:52.5,y:60,w:7.5,h:7,lv:L2},
-      {x:73,y:59.5,w:6.5,h:6.5,lv:L2},
-      {x:2,y:88,w:12,h:9,lv:L1|L2},
-      {x:85,y:88,w:12,h:9,lv:L1|L2}]},
-  /* 배경 그림(battle/karaoke.webp)에 맞춘 눈대중 배치입니다.
-     한 칸짜리 방이라 문이 아래 하나뿐입니다 — 대원은 문간에서, 적은 무대 쪽에서 옵니다.
-     좌우 소파와 탁자가 길을 좁혀 가운데 통로 하나만 남습니다. 자세한 자리는 전투지형관리.html */
+      {x:0,y:0,w:9,h:100,l:"벽",lv:TALL},
+      {x:9,y:0,w:6,h:42,l:"벽",lv:TALL},
+      {x:87,y:0,w:13,h:55,l:"벽",lv:TALL},
+      {x:90,y:55,w:10,h:45,l:"벽",lv:TALL},
+      {x:15,y:0,w:57,h:29,l:"뒷선반",lv:TALL},
+      {x:62,y:29,w:8,h:6,l:"뒷선반",lv:TALL},
+      {x:15,y:29,w:47,h:14,l:"바",lv:L1|L2},
+      {x:10,y:42,w:20,h:15,l:"식탁",lv:L1},
+      {x:30,y:47,w:7.5,h:11,l:"의자",lv:L2},
+      {x:13.5,y:55,w:9,h:11,l:"의자",lv:L2},
+      {x:5,y:70,w:22,h:15,l:"식탁",lv:L1},
+      {x:28,y:74,w:6.5,h:10.5,l:"의자",lv:L2},
+      {x:9,y:86,w:10.5,h:12,l:"의자",lv:L2}]},
   karaoke:{id:"karaoke",
-      spawn:{a:[[38,70],[46,70],[54,70],[62,70]],
+      spawn:{a:[[38,70],[46,74.5],[54.5,74],[62,70]],
              e:[[50,28],[40,28],[60,28],[45,34],[56,34],[41,40],[59,40],[50,45],[44,51],[56,51]]},
       obs:[
       {x:0,y:0,w:100,h:24,l:"무대",lv:TALL},
       {x:64,y:20,w:20,h:14,l:"반주기",lv:TALL},
       {x:0,y:0,w:8,h:92,l:"벽",lv:TALL},
       {x:88,y:0,w:12,h:92,l:"벽",lv:TALL},
-      {x:8,y:31,w:20,h:45,l:"소파",lv:L1},
-      {x:74,y:31,w:14,h:42,l:"소파",lv:L1},
-      {x:26,y:39,w:10,h:12,l:"테이블",lv:L1},
-      {x:25,y:59,w:10,h:13,l:"테이블",lv:L1},
-      {x:65,y:39,w:10,h:12,l:"테이블",lv:L1},
-      {x:66,y:60,w:10,h:12,l:"테이블",lv:L1},
+      {x:8,y:31,w:20,h:49.5,l:"소파",lv:L1},
+      {x:75,y:31,w:14,h:48.5,l:"소파",lv:L1},
+      {x:26,y:43.5,w:8.5,h:7.5,l:"테이블",lv:L2},
+      {x:24.5,y:66.5,w:9,h:9,l:"테이블",lv:L2},
+      {x:66,y:43,w:9,h:8,l:"테이블",lv:L2},
+      {x:66.5,y:66,w:8,h:10,l:"테이블",lv:L2},
       {x:0,y:79,w:28,h:13,l:"벽",lv:TALL},
       {x:72,y:79,w:28,h:13,l:"벽",lv:TALL}]},
   tent:{id:"tent",
@@ -829,19 +850,20 @@ const ROOMS={
       {x:61,y:76.5,w:35,h:11,l:"책장",lv:TALL},
       {x:38.5,y:39,w:23.5,h:19,l:"원탁",lv:L1}]},
   stationery:{id:"stationery",
-      spawn:{a:[[12,90],[22,90],[32,90],[42,90]],
-             e:[[30,35],[20.5,32.5],[45,33],[48,52],[72,40.5],[55.5,39.5],[6.5,74],[44,80],[26,80],[34,45]]},
+      spawn:{a:[[11,87.5],[22.5,92.5],[35.5,93],[49,92.5]],
+             e:[[30,35],[20.5,32.5],[45,33],[43,59],[72,40.5],[55.5,39.5],[6.5,74],[52.5,73],[31,70],[39,45]]},
       obs:[
       {x:2,y:2,w:96,h:24,l:"벽",lv:TALL},
       {x:3,y:22,w:11.5,h:11,l:"화분",lv:L1},
       {x:60,y:12,w:37.5,h:23,l:"진열대",lv:TALL},
       {x:78,y:35,w:19,h:12,l:"계산대",lv:L1|L2},
-      {x:54.5,y:48,w:42.5,h:27,l:"진열대",lv:TALL},
-      {x:54.5,y:75,w:25.5,h:20,l:"진열대",lv:TALL},
+      {x:54.5,y:48,w:42.5,h:21,l:"진열대",lv:TALL},
+      {x:54.5,y:76,w:25.5,h:19,l:"진열대",lv:TALL},
       {x:79,y:76,w:18,h:19,l:"계산대",lv:L1|L2},
       {x:3.5,y:40,w:11,h:25,l:"매대",lv:L1|L2},
-      {x:12,y:46,w:11,h:19,l:"의자",lv:L1},
-      {x:17,y:74,w:8,h:12,l:"의자",lv:L1}]},
+      {x:12,y:59,w:11,h:6,l:"의자",lv:L1},
+      {x:17,y:74,w:8,h:7.5,l:"의자",lv:L1},
+      {x:12,y:44.5,w:6,h:10,lv:L1|L2}]},
   alley:{id:"alley",
       spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
              e:[[52,25],[36,22],[20,26],[66,30],[28,34],[66,20],[12,22],[60,16],[76,34],[40,36]]},
@@ -863,17 +885,18 @@ const ROOMS={
       {x:82.5,y:29.5,w:17.5,h:13.5,l:"차",lv:L1|L2},
       {x:70.5,y:32.5,w:12,h:12,lv:L1|L2}]},
   subway:{id:"subway",
-      spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
-             e:[[52,25],[36,22],[20,26],[66,30],[28,34],[66,20],[12,22],[60,16],[76,34],[40,36]]},
+      spawn:{a:[[19.5,94.5],[35.5,95],[65,94.5],[74.5,94]],
+             e:[[25,36],[75,36],[12,40],[88,40],[28,42],[74,42],[30,55],[72,56],[37.5,75.5],[62.5,62.5]]},
       obs:[
-      {x:4,y:4,w:15,h:14,l:"계단",lv:L1|L2},
-      {x:16,y:22,w:8,h:8,lv:TALL},
-      {x:76,y:22,w:8,h:8,lv:TALL},
-      {x:16,y:62,w:8,h:8,lv:TALL},
-      {x:76,y:62,w:8,h:8,lv:TALL},
-      {x:38,y:30,w:24,h:12,l:"소파",lv:L1},
-      {x:42,y:52,w:18,h:10,l:"테이블",lv:L1},
-      {x:86,y:44,w:10,h:16,l:"칸막이",lv:L2}]},
+      {x:0,y:0,w:44,h:27,l:"선로",lv:TALL},
+      {x:44,y:0,w:56,h:27,l:"전동차",lv:TALL},
+      {x:37,y:48.5,w:4.5,h:6,l:"화분",lv:L1},
+      {x:41.5,y:42,w:11.5,h:10,l:"안내판",lv:TALL},
+      {x:53,y:41,w:7,h:11,l:"발매기",lv:TALL},
+      {x:60.5,y:49,w:2.5,h:5,l:"화분",lv:L1},
+      {x:48,y:57.5,w:4.5,h:10.5,lv:L1|L2,mul:0.5},
+      {x:48,y:73,w:4.5,h:12,lv:L1|L2,mul:0.5},
+      {x:48.5,y:90,w:3.5,h:4,lv:L1|L2,mul:0.5}]},
   busstop:{id:"busstop",
       spawn:{a:[[91,56],[90,79],[94,85.5],[93.5,66]],
              e:[[52,25],[36,22],[20,26],[66,28],[16.5,35.5],[66,20],[12,22],[60,16],[10.5,56],[6.5,71]]},
@@ -929,8 +952,8 @@ const ROOMS={
       {x:2,y:88,w:12,h:9,lv:L1|L2},
       {x:85,y:88,w:12,h:9,lv:L1|L2}]},
   police:{id:"police",
-      spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
-             e:[[34,26],[20,30],[78,55],[88,62],[58,52],[42,72],[72,80],[18,62],[64,55],[50,70]]},
+      spawn:{a:[[38.5,89],[45,93.5],[79,92.5],[89.5,88.5]],
+             e:[[34,26],[20,30],[78,55],[88,62],[58,52],[42,72],[68,78],[18,62],[64,55],[50,70]]},
       obs:[
       {x:2,y:2,w:96,h:17,l:"벽",lv:TALL},
       {x:3,y:21,w:9,h:14,l:"화분",lv:L1},
@@ -946,16 +969,12 @@ const ROOMS={
       obs:[
       {x:0,y:0,w:10,h:100,l:"건물",lv:TALL},
       {x:90,y:0,w:10,h:100,l:"건물",lv:TALL},
-      {x:10,y:2,w:8,h:28,l:"차양",lv:L3},
-      {x:82,y:10,w:8,h:26,l:"차양",lv:L3},
-      {x:21,y:0,w:15,h:6,l:"차",lv:L1|L2},
-      {x:42,y:77,w:28,h:19,l:"차",lv:L1|L2},
-      {x:13,y:14,w:9,h:12,l:"잔해",lv:L1},
-      {x:15,y:36,w:9,h:12,l:"잔해",lv:L1},
-      {x:12,y:58,w:8,h:10,l:"잔해",lv:L1},
-      {x:79,y:44,w:7,h:9,l:"잔해",lv:L1},
+      {x:45,y:76.5,w:28,h:13.5,l:"차",lv:L1|L2},
       {x:39.5,y:44,w:20,h:16,lv:L1|L2,mul:0.5},
-      {x:41,y:9,w:18.5,h:19,lv:L1|L2,mul:0.5}]},
+      {x:41,y:9,w:18.5,h:19,lv:L1|L2,mul:0.5},
+      {x:17.5,y:42,w:15.5,h:24.5,lv:L1|L2,mul:0.5},
+      {x:19,y:6,w:16,h:19.5,lv:L1|L2,mul:0.5},
+      {x:58,y:82.5,w:12,h:12,lv:TALL}]},
 };
 let ROOM=ROOMS[PLACES[0].room];
 const DOOR={x:84,y:95,w:14,h:4};
@@ -1239,8 +1258,11 @@ function rollApplicants(n){
   return G.applicants;
 }
 
+/* 시설. cond 가 참이면 열립니다.
+   prog 는 **DEV_SHOW_UNLOCK 일 때만** 보이는 개발용 진행도입니다 —
+   일반 플레이에서 잠긴 칸은 자물쇠와 "잠겨 있다" 뿐입니다. 조건은 겪어서 알아냅니다. */
 const FACILITIES=[
-  {id:"office",ic:"💰",n:"행정실",d:"잡화 매입 · 정원과 출입 인가",
+  {id:"office",ic:"💰",n:"행정실",d:"잡화 매입 · 정원과 게이트 확장",
    cond:g=>g.explores>=1,prog:g=>`탐색 ${Math.min(g.explores,1)} / 1회`,
    msg:"행정실에 불이 켜졌습니다. 게이트에서 가져온 물건을 학교가 값을 쳐서 사들이겠다고 합니다."},
   {id:"shop",ic:"🏪",n:"창고 겸 학생회 매점",d:"학생회가 돈 되는 물건은 다 팝니다",
@@ -1321,7 +1343,7 @@ const NPCS={
            "게이트에서 얻은 모든 물품들은 현재 연구 대상으로 고가에 팔리고 있네.",
            "혹시 가져온 것이 있다면 무엇이든지 우리가 매입하도록 하지.",
            "아, 값을 알 수 없는 물건은 따로 두게. 여기서 열어보면 되니까."],
-    again:["가져온 게 있나. 값은 쳐주지.",
+    again:["가져온 물건은 귀한 연구자료지. 좋은 값에 사도록 하겠네.",
            "요즘은 안쪽 물건이라면 뭐든 팔린다네.",
            "장부는 내가 맞출 테니 자네는 들고 오기만 하게."]},
   shop:{n:"매점 총무",role:"창고 겸 학생회 매점",ic:"🏪",
@@ -1532,9 +1554,10 @@ const preloadAllies=list=>{for(const u of list){const g=(u.sex||"m");allySprite(
    방 종류(ROOM.id)별로 한 장. 있으면 격자·도형·입구 표시를 빼고 이 그림을 깐다.
    그림은 전투 화면 비율(가로:세로 = 100:92)로 미리 눌러 두면 왜곡이 없다. */
 /* 장소 slug 별 전투 배경. 준비되는 대로 한 줄씩 채운다 → art/battle/<slug>.(webp|jpg)
-   미정: pub tent alley subway villa cosmetics */
+   미정: alley villa cosmetics */
 const BG_ART={
   diner:"battle/restaurant.jpg",
+  pub:"battle/pub.webp",
   study:"battle/study.webp",
   bookstore:"battle/bookstore.webp",
   stationery:"battle/stationery.webp",
@@ -1543,6 +1566,7 @@ const BG_ART={
   busstop:"battle/busstop.webp",
   avenue:"battle/avenue.webp",
   karaoke:"battle/karaoke.webp",
+  subway:"battle/subway.webp",
   tent:"battle/tent.webp",
 };
 /* 캠프파이어 씬 배경 — 전투 배경과 달리 세로로 긴 한 장입니다 */
@@ -1890,7 +1914,7 @@ function newGame(slot){
      chemKills:0,bookSold:0,      /* 이공대학 학과사무실이 보는 기록 */
      gate:"front",cleared:[],gateClear:false,
      store:{},loot:{},ground:[],memorial:[],sel:null,invSel:null,rowSel:null,facesUsed:[],gunSeen:{pistol:false,shotgun:false,rifle:false},itemSeen:{},arcadeBest:0,starBest:0,huntBest:0,
-     tips:{},shopDay:-1,shopSold:[],
+     tips:{},shopDay:-1,shopSold:[],capFrom:null,shopStock:null,invest:0,unionOpen:false,
      beds:1,dorm:DORM_START,squad:SQUAD_START,majorCap:{},dualOpen:false,hallId:null,mapMsg:null,shopWho:0,stripMsg:null,metNpc:{},npcSay:null,npcSayFor:null,talkFor:null,talkLine:0,talkNext:null,appraisal:null,
      /* 튜토리얼에도 명단에 올려 둡니다 — 전리품·정비 화면이 party() 하나로 돕니다 */
      player:p,roster:[p],applicants:null,lastGain:null};
@@ -3882,12 +3906,6 @@ function playGain(root,alive){
 const ammoLine=list=>{const t=list||party();
   return Object.entries(AMMO_KIND).map(([k,n])=>
     `${n} <b>${t.reduce((s,r)=>s+roundsOf(r,k),0)}</b>`).join(" · ")};
-/* 지금 입은 것을 슬롯별로 펼쳐 보여줍니다 (보기 전용) */
-function wornPanel(p){
-  return `<div class="inv">${SLOTS.map(sl=>{const it=ITEMS[p.gear[sl.k]];
-    return `<div class="slot ${it?"has":""}"><span class="sn">${sl.n}</span>
-      <span class="si">${it?`${itemIcon(p.gear[sl.k])}${it.n} ${kindTag(it)}<small>${it.d}</small>`:"비어 있음"}</span></div>`}).join("")}</div>`;
-}
 /* 그 사람이 이걸 끼면 무엇이 달라지는가 — 실제로 한 번 끼워보고 derive를 비교합니다 */
 function compareLine(p,id){
   const it=ITEMS[id];
@@ -3899,9 +3917,13 @@ function compareLine(p,id){
   const ghost={stats:p.stats,gear:{...p.gear}};
   ghost.gear[it.slot]=id;
   const a=derive(p),b=derive(ghost),out=[];
-  for(const f of [["atk","공격력"],["guard","피해감소"],["aspd","공속"],["speed","이동"],["maxHp","체력"]]){
+  /* gearLine 과 같은 어순. 회피·치명은 %로 적습니다 —
+     이 둘이 빠져 있어서 트레이닝 바지·운동화처럼 회피만 붙는 물건은 "수치는 그대로" 로 보였습니다. */
+  for(const f of [["atk","공격력"],["guard","피해감소"],["dodge","회피","%"],["crit","치명","%"],
+                  ["aspd","공속"],["speed","이동"],["maxHp","체력"]]){
     if(a[f[0]]===b[f[0]])continue;
-    out.push(`${f[1]} ${a[f[0]]} <span class="${b[f[0]]>a[f[0]]?"du":"dd"}">→ ${b[f[0]]}</span>`);
+    const u=f[2]||"";
+    out.push(`${f[1]} ${a[f[0]]}${u} <span class="${b[f[0]]>a[f[0]]?"du":"dd"}">→ ${b[f[0]]}${u}</span>`);
   }
   if(it.slot==="rh"){
     if(a.dmg!==b.dmg)out.push(`피해 ${a.dmg} → <b>${b.dmg}</b>`);
@@ -4085,6 +4107,8 @@ function playTap(){
 }
 function render(){
   stopLoop();
+  /* 명단이 처음 두 명이 된 순간 학생회 인증 바지가 풀립니다. 뒤에 줄어도 도로 잠기지 않습니다 */
+  if(G.roster.length>=2)G.unionOpen=true;
   let S=G.scene;
   if(S!=="spidergame"&&S!=="stargame"&&S!=="huntgame")arcadeStop();
   if(S!=="title")titleStop();
@@ -4621,7 +4645,7 @@ function render(){
         return `<button class="fac ${o?"":"lock"}" ${o?`data-f="${id}"`:"disabled"}>
           <span class="ic">${o?facIcon(id,f.ic):"🔒"}</span>
           <span class="tx"><b>${o||DEV_SHOW_UNLOCK?f.n:"잠겨 있다"}</b><span>${
-            o?f.d:`<i>${f.prog(G)}</i>`}</span></span></button>`}).join("")}
+            o?f.d:(DEV_SHOW_UNLOCK?`<i>${f.prog(G)}</i>`:"")}</span></span></button>`}).join("")}
       </div>
       <div class="bar"><span class="tag"></span><button class="ghost" id="bk">밖으로</button></div>`;
     el.querySelectorAll("[data-f]").forEach(bt=>bt.onclick=()=>enterFac(bt.dataset.f));
@@ -4656,19 +4680,18 @@ function render(){
       <button id="sell" ${rows.length?"":"disabled"}>전부 판다</button></div></div>
       <div class="card"><h2>정원</h2>
       ${dorm>=DORM_MAX?`<p>${DORM_MAX}명이 한계입니다. 학적부에 더 낼 자리가 없습니다.</p>`
-       :`<p>학적부에 자리를 한 칸 더 냅니다. 자리값은 한 칸 늘 때마다 50 골드씩 붙습니다.</p>
+       :`<p>학적부에 자리를 한 칸 더 냅니다.</p>
          <div class="bar" style="margin-top:10px"><span class="tag">지금 ${dorm}명 → ${dorm+1}명 · 명단 ${G.roster.length}명</span>
          <button id="updorm" ${G.gold<dcost?"disabled":""}>${dcost} 골드로 늘린다</button></div>`}</div>
-      <div class="card"><h2>학적</h2>
+      <div class="card${tfOpen||G.dualOpen?"":" lock"}"><h2>학적</h2>
       ${tfOpen?`<p>전공을 옮기거나, 하나 더 얹습니다.</p>
         <div class="bar" style="margin-top:10px"><span class="tag"></span>
-        <button id="tf">전과를 하고 싶어요</button></div>`
-       :`<p>서로 다른 전공이 ${TRANSFER_KINDS}개는 모여야 전과를 받아 줍니다. 지금은 ${majorKinds()}개.</p>`}
+        <button id="tf">전과를 하고 싶어요</button></div>`:""}
       ${G.dualOpen?`<div class="bar" style="margin-top:8px"><span class="tag">${DUAL_COST} 골드</span>
         <button id="dm">복수전공을 하고 싶어요</button></div>`:""}</div>
-      <div class="card"><h2>게이트 출입 인가</h2>
+      <div class="card"><h2>게이트 확장</h2>
       ${sq>=SQUAD_MAX?`<p>한 번에 ${SQUAD_MAX}명이 한계입니다. 그 이상은 인가가 나지 않습니다.</p>`
-       :`<p>한 번에 게이트로 들여보낼 수 있는 인원을 늘려 받습니다.</p>
+       :`<p>한 번에 게이트로 들여보낼 수 있는 인원을 추가합니다.</p>
          <div class="bar" style="margin-top:10px"><span class="tag">지금 ${sq}명 → ${sq+1}명</span>
          <button id="upsq" ${G.gold<scost?"disabled":""}>${scost} 골드로 받는다</button></div>`}</div>
       <div class="bar"><span class="tag">누적 수입 ${G.goldEarned} 골드</span><button class="ghost" id="bk">캠퍼스로</button></div>`;
@@ -4753,19 +4776,21 @@ function render(){
     const own=id=>G.store[id]||0;
     /* 판매대 재고는 종류마다 하나뿐입니다. 한 번 사면 그 줄이 사라지고,
        다음 탐색을 다녀와야 다시 채워집니다. 탄약은 여기에 걸리지 않습니다. */
-    if(G.shopDay!==G.explores){G.shopDay=G.explores;G.shopSold=[]}
-    const stock=SHOP.filter(id=>!G.shopSold.includes(id));
-    const wi=Math.min(G.shopWho||0,Math.max(0,G.roster.length-1));
-    const who=G.roster[wi]||null;
+    /* 탐색을 다녀올 때마다 판매대를 다시 뽑습니다. 탄약은 여기에 걸리지 않습니다. */
+    if(G.shopDay!==G.explores){G.shopDay=G.explores;G.shopSold=[];rollShop()}
+    if(!G.shopStock)rollShop();
+    const stock=G.shopStock.filter(id=>!G.shopSold.includes(id));
+    const icost=investCost();
+    /* 비교 대상은 지금 출동하는 사람들입니다 */
+    const pick=party();
+    const wi=Math.min(G.shopWho||0,Math.max(0,pick.length-1));
+    const who=pick[wi]||null;
     el.innerHTML=logo+`
       <div class="bar"><span class="tag">창고 겸 학생회 매점</span><span class="tag">골드 <b id="goldnum">${G.gold}</b></span></div>
       ${npcBar("shop")}
-      ${who?`<div class="card"><h2>지금 입고 있는 것</h2>
-      ${G.roster.length>1?`<div class="chips">${G.roster.map((r,i)=>
-        `<button class="pickb ${i===wi?"on":""}" data-who="${i}">${r.name}</button>`).join("")}</div>`:""}
-      ${gearLine(who)}
-      ${wornPanel(who)}</div>`:""}
-      <div class="card"><h2>판매대</h2>
+      <div class="card"><div class="cardhead"><h2>판매대</h2>
+      ${pick.length>1?`<div class="chips" style="margin-top:0">${pick.map((r,i)=>
+        `<button class="pickb ${i===wi?"on":""}" data-who="${i}">${r.name}</button>`).join("")}</div>`:""}</div>
       ${stock.map(id=>{const it=ITEMS[id],o=G.rowSel==="buy:"+id;
         return `<div class="buyrow tap ${o?"open":""}" data-row="buy:${id}">
           <div><b>${itemIcon(id)}${it.n}</b> <span class="tag">창고 ${own(id)} · ${it.price} 골드</span><br>
@@ -4787,6 +4812,11 @@ function render(){
               <button data-ammo="${id}" ${G.gold<it.price?"disabled":""}>${it.price} 골드에 산다</button></div>`:""}</div>`}).join("");
       })()}
       </div>
+      <div class="card"><h2>학생회에 투자</h2>
+      ${icost===null?`<p>판매대가 ${SHOP_SLOT_MAX}칸까지 찼습니다. 더 넣을 데가 없습니다.</p>`
+       :`<p>판매대에 자리를 한 칸 더 냅니다. 넣는 순간 그 자리가 채워집니다.</p>
+         <div class="bar" style="margin-top:10px"><span class="tag">지금 ${shopSlots()}칸 → ${shopSlots()+1}칸</span>
+         <button id="inv" ${G.gold<icost?"disabled":""}>${icost} 골드로 넣는다</button></div>`}</div>
       <div class="card"><h2>창고에서 꺼내주기</h2>
       ${Object.entries(G.store).filter(([,n])=>n>0).map(([id,n])=>{const o=G.rowSel==="hand:"+id;
         return `<div class="buyrow tap ${o?"open":""}" data-row="hand:${id}">
@@ -4802,15 +4832,23 @@ function render(){
       <div class="bar"><span class="tag"></span><button class="ghost" id="bk">캠퍼스로</button></div>`;
     el.querySelectorAll("[data-who]").forEach(b=>b.onclick=()=>{
       G.shopWho=+b.dataset.who;render()});
+    const ivb=document.getElementById("inv");
+    if(ivb)ivb.onclick=()=>{
+      const c=investCost();if(c===null||G.gold<c)return;
+      G.gold-=c;G.invest=(G.invest||0)+1;
+      fillShop();                                 /* 늘어난 자리를 그 자리에서 채웁니다 */
+      markTap("#inv",c);render()};
     el.querySelectorAll("[data-buy]").forEach(b=>b.onclick=()=>{
       const it=ITEMS[b.dataset.buy];if(G.gold<it.price)return;
       if(G.shopSold.includes(it.id))return;
       G.gold-=it.price;markSeen(it.id);G.store[it.id]=(G.store[it.id]||0)+1;
       G.shopSold.push(it.id);G.rowSel=null;        // 팔린 줄은 사라집니다
+      if(G.capFrom==null)G.capFrom=G.explores+1;   // 첫 구매 — 다음 탐색부터 야구모자
       markTap(`[data-buy="${it.id}"]`,it.price);render()});
     el.querySelectorAll("[data-ammo]").forEach(b=>b.onclick=()=>{
       const it=ITEMS[b.dataset.ammo];if(G.gold<it.price)return;
       G.gold-=it.price;markSeen(it.id);G.store[it.id]=(G.store[it.id]||0)+1;
+      if(G.capFrom==null)G.capFrom=G.explores+1;
       markTap(`[data-ammo="${it.id}"]`,it.price);render()});
     el.querySelectorAll("[data-hand]").forEach(b=>b.onclick=()=>{G.rowSel=null;
       const [id,i]=b.dataset.hand.split("|");const r=G.roster[+i];
@@ -5128,7 +5166,7 @@ function render(){
   if(S==="gates"){
     const done=G.cleared||[];
     el.innerHTML=logo+`
-      <div class="bar"><span class="tag">게이트 선택</span><span class="tag">출동 <b>${party().length}</b>명</span></div>
+      <div class="bar"><span class="tag">게이트 선택</span><span class="tag">출동 <b>${party().length}</b> / ${squadMax()}명</span></div>
       <div class="card"><h2>입장할 게이트를 고르세요.</h2></div>
       <div class="bldbg" ${BLD_ART.gate?`style="background-image:url('${artUrl(BLD_ART.gate)}')"`:""}>
       ${GATES.map((g,i)=>{
@@ -5150,7 +5188,7 @@ function render(){
   if(S==="confirm"){
     const t=party();
     el.innerHTML=logo+`
-      <div class="bar"><span class="tag">${G.pickedGate}</span><span class="tag">출동 <b>${t.length}</b>명</span></div>
+      <div class="bar"><span class="tag">${G.pickedGate}</span><span class="tag">출동 <b>${t.length}</b> / ${squadMax()}명</span></div>
       <div class="card"><h2>출동 명단 확인</h2></div>
       ${t.map(r=>`<div class="app">${faceTag(r)}<div class="hd"><b>${r.name}</b>
         <span>${r.major?majorOf(r.major).n:"새내기"} · Lv ${r.lvl}</span></div>

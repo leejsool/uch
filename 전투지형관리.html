@@ -40,6 +40,8 @@
     <option value="1">기는 것 (L1)</option>
     <option value="4">나는 것 (L3)</option></select></label>
   <label class="f">덮개 투명도 <input type="range" id="alpha" min="0.12" max="0.92" step="0.02" value="0.5"></label>
+  <label class="f">반지름 <select id="unit"></select></label>
+  <label class="f"><input type="checkbox" id="nogo" checked> 못 서는 자리</label>
   <label class="f"><input type="checkbox" id="spawn" checked> 스폰 표시</label>
   <label class="f"><input type="checkbox" id="snap" checked> 0.5% 스냅</label>
   <button id="add">+ 벽</button>
@@ -109,6 +111,25 @@ const ROOM_NAME={diner:"음식점",pub:"주점",karaoke:"지하 노래방",tent:
   study:"독서실",villa:"원룸빌라",cosmetics:"화장품가게",police:"경찰 본부",nightstreet:"밤 거리"};
 const HAS_BG={diner:"art/battle/restaurant.jpg"};
 for(const k of ROOM_KEYS) if(!HAS_BG[k]) HAS_BG[k]=`art/battle/${k}.webp`;   // 없으면 격자로 표시
+/* index.html 의 makeFighter·ENEMIES 와 같은 값입니다. 몸집 순으로 늘어놓았습니다.
+   r 은 전투 필드 % 이고, blocked() 이 "사각형 모서리까지 거리 < r" 로 막습니다 —
+   그래서 둘이 나란히 지나갈 길은 r 의 두 배보다 넓어야 합니다. */
+const UNITS=[
+  {k:"ally",      n:"대원",             r:3.2, lvm:HUMAN, side:"a"},
+  {k:"bee",       n:"벌",               r:2.6, lvm:FLY},
+  {k:"worm",      n:"애벌레",           r:2.8, lvm:CRAWL},
+  {k:"hopper",    n:"메뚜기",           r:2.9, lvm:HOP},
+  {k:"cicada",    n:"매미",             r:3,   lvm:HOP},
+  {k:"zomb",      n:"좀비(무리)",       r:3.4, lvm:HUMAN},
+  {k:"dogzomb",   n:"강아지 좀비",      r:3.6, lvm:CRAWL},
+  {k:"hornet",    n:"장수말벌",         r:4,   lvm:FLY},
+  {k:"beetle",    n:"장수풍뎅이",       r:4.6, lvm:HUMAN},
+  {k:"mantis",    n:"사마귀",           r:5.2, lvm:TALL},
+  {k:"crawlzomb", n:"다리가 부러진 좀비",r:5.6, lvm:HUMAN},
+  {k:"spider",    n:"거미",             r:5.8, lvm:2|4},
+  {k:"zombie",    n:"좀비(보스)",       r:6.2, lvm:TALL},
+  {k:"bloodeyes", n:"Blood Eyes",       r:6.6, lvm:TALL},
+];
 const ENEMY_SPOTS=[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]];
 const ALLY_SPOTS=[[36.5,90],[45.5,90],[54.5,90],[63.5,90]];
 
@@ -154,6 +175,8 @@ const DEFAULT_SPAWN={}; for(const k of ROOM_KEYS)
 
 let rooms=clone(DEFAULT), spawns=clone(DEFAULT_SPAWN), DOOR=clone(DEFAULT_DOOR);
 let curRoom="diner", sel=-1, selSp=null, showSpawn=true, showLayer=0, overlayA=0.5, snap=true;
+/* 반지름 보기 — 고른 유닛(없으면 null), 못 서는 자리 덮개, 커서 자리 */
+let unit=null, showNoGo=true, hover=null;
 
 /* ─── 자동 저장/복원 ─── */
 const LS="uch-terrain-v2";
@@ -190,6 +213,42 @@ const toX=v=>v/100*CW, toY=v=>v/100*CH, unX=p=>p/CW*100, unY=p=>p/CH*100;
 const cur=()=>rooms[curRoom];
 const curSp=()=>spawns[curRoom];
 const snapv=v=>snap?Math.round(v*2)/2:Math.round(v*100)/100;
+
+/* index.html 의 blocked() 을 그대로 옮겼습니다. mul 있는 칸(감속)은 벽이 아닙니다. */
+function blockedAt(x,y,r,mask){
+  if(x<r||x>100-r||y<r||y>100-r) return true;
+  for(const o of cur()){
+    if(o.mul!==undefined) continue;
+    if(!(o.lv&mask)) continue;
+    const cx=Math.max(o.x,Math.min(x,o.x+o.w)), cy=Math.max(o.y,Math.min(y,o.y+o.h));
+    if((x-cx)**2+(y-cy)**2 < r*r) return true;
+  }
+  return false;
+}
+/* 못 서는 자리 덮개 — 0.5칸마다 한 번씩 찍어 작은 캔버스에 그린 뒤 늘려 씁니다.
+   끌 때마다 다시 재면 느려지므로 (장소·유닛·사각형) 이 그대로면 쓰던 것을 씁니다. */
+const NG=200;                                   /* 100칸을 0.5칸 간격으로 */
+let ngCv=null, ngKey="";
+function noGoLayer(){
+  const key=curRoom+"|"+unit.k+"|"+JSON.stringify(cur());
+  if(ngKey===key&&ngCv) return ngCv;
+  if(!ngCv){ ngCv=document.createElement("canvas"); ngCv.width=ngCv.height=NG; }
+  const g=ngCv.getContext("2d"), im=g.createImageData(NG,NG), d=im.data;
+  for(let j=0;j<NG;j++) for(let i=0;i<NG;i++){
+    if(!blockedAt((i+0.5)*100/NG,(j+0.5)*100/NG,unit.r,unit.lvm)) continue;
+    const p=(j*NG+i)*4;
+    d[p]=242; d[p+1]=92; d[p+2]=92; d[p+3]=255;
+  }
+  g.putImageData(im,0,0);
+  ngKey=key; return ngCv;
+}
+/* 유닛 한 마리의 발자국. 세로 한 칸이 가로보다 8% 짧게 그려지므로 타원이 됩니다. */
+function footprint(x,y,col,wide){
+  c.save();
+  c.beginPath(); c.ellipse(toX(x),toY(y),toX(unit.r),toY(unit.r),0,0,6.284);
+  c.strokeStyle=col; c.lineWidth=wide?2:1.2; c.setLineDash(wide?[]:[4,3]); c.stroke();
+  c.setLineDash([]); c.restore();
+}
 
 function draw(){
   c.clearRect(0,0,CW,CH);
@@ -248,6 +307,27 @@ function draw(){
     curSp().e.forEach((p,i)=>mark(p,"#F25C5C","적"+(i+1),on("e",i)));
     curSp().a.forEach((p,i)=>mark(p,"#7fd7c4","대"+(i+1),on("a",i)));
   }
+
+  /* ─── 반지름 보기 ─── */
+  if(unit){
+    if(showNoGo){
+      c.save(); c.globalAlpha=overlayA*0.55; c.imageSmoothingEnabled=false;   /* 덮개 투명도 슬라이더를 같이 따른다 */
+      c.drawImage(noGoLayer(),0,0,CW,CH); c.restore();
+    }
+    /* 스폰 자리마다 발자국. 대원을 골랐으면 대원 자리에, 적이면 적 자리에 얹는다. */
+    if(showSpawn){
+      const spots = unit.side==="a" ? curSp().a : curSp().e;
+      const col   = unit.side==="a" ? "#7fd7c4" : "#F25C5C";
+      spots.forEach(p=>footprint(p[0],p[1],col,false));
+    }
+    /* 커서를 따라다니는 발자국 — 아무 데나 대 보며 폭을 잰다 */
+    if(hover){
+      const bad=blockedAt(hover[0],hover[1],unit.r,unit.lvm);
+      footprint(hover[0],hover[1],bad?"#F25C5C":"#fff",true);
+      c.fillStyle=bad?"#F25C5C":"#fff"; c.font="700 11px system-ui"; c.textAlign="center";
+      c.fillText(bad?"못 선다":"선다",toX(hover[0]),toY(hover[1])-toY(unit.r)-5);
+    }
+  }
   syncUI();
 }
 
@@ -292,7 +372,9 @@ cv.addEventListener("pointerdown",ev=>{
   if(inRect(DOOR,xp,yp)){ sel=-2; selSp=null; drag={mode:"move",o:DOOR,ox:xp-DOOR.x,oy:yp-DOOR.y}; draw(); return; }
   sel=-1; selSp=null; drag=null; draw();
 });
+cv.addEventListener("pointerleave",()=>{ if(hover){ hover=null; draw(); } });
 cv.addEventListener("pointermove",ev=>{
+  if(unit){ const q=pos(ev); hover=[unX(q.px),unY(q.py)]; if(!drag) draw(); }
   if(!drag) return;
   const {px,py}=pos(ev), xp=unX(px), yp=unY(py), o=drag.o;
   if(drag.mode==="spawn"){ const p=drag.p;
@@ -368,7 +450,10 @@ function syncUI(){
     +` &nbsp; <span class="sw" style="background:#7fd7c4"></span>대원 자리`
     +` &nbsp; <span class="sw" style="background:#F25C5C"></span>적 자리`
     /* 한 전투에 나오는 적은 최대 6체. 자리가 그보다 적으면 같은 자리에 겹쳐 선다. */
-    +(curSp().e.length<6?` &nbsp; <b style="color:var(--mark)">적 자리가 ${curSp().e.length}칸뿐 — 6칸 미만이면 겹쳐 선다</b>`:"");
+    +(curSp().e.length<6?` &nbsp; <b style="color:var(--mark)">적 자리가 ${curSp().e.length}칸뿐 — 6칸 미만이면 겹쳐 선다</b>`:"")
+    +(unit?`<br><b style="color:#F25C5C">${unit.n}</b> 반지름 <b>${unit.r}</b> · 점유 층 ${SYM(unit.lvm)}
+       — 지나가려면 통로가 <b>${+(unit.r*2).toFixed(1)}</b> 보다 넓어야 하고, 둘이 비껴가려면 <b>${+(unit.r*4).toFixed(1)}</b> 이 필요하다.
+       붉은 덮개는 이 유닛이 <b>설 수 없는 자리</b>다 — 벽에서 반지름만큼 번진 것 + 필드 가장자리.`:"");
   buildOut();
 }
 for(const [id,key] of [["px","x"],["py","y"],["pw","w"],["ph","h"]])
@@ -401,6 +486,10 @@ P("room").value=curRoom;
 P("room").onchange=e=>{ curRoom=e.target.value; sel=-1; selSp=null; draw(); };
 P("layer").onchange=e=>{ showLayer=+e.target.value; draw(); };
 P("alpha").oninput=e=>{ overlayA=+e.target.value; draw(); };
+P("unit").add(new Option("— 안 봄 —",""));
+for(const u of UNITS) P("unit").add(new Option(u.n+" r"+u.r,u.k));
+P("unit").onchange=e=>{ unit=UNITS.find(u=>u.k===e.target.value)||null; if(!unit)hover=null; draw(); };
+P("nogo").onchange=e=>{ showNoGo=e.target.checked; draw(); };
 P("spawn").onchange=e=>{ showSpawn=e.target.checked; if(!showSpawn) selSp=null; draw(); };
 P("snap").onchange=e=>{ snap=e.target.checked; };
 P("add").onclick=()=>{ cur().push({x:45,y:45,w:12,h:12,l:"",lv:7}); sel=cur().length-1; selSp=null; draw(); };
