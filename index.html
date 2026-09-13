@@ -119,6 +119,17 @@
   .skl span{font-size:12px;color:var(--dim)}
   .chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
   .chip{font-size:11px;background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:3px 9px;color:var(--mark)}
+  /* 익힌 힘 — 올리거나(데스크톱) 누르면(모바일) 성능이 툴팁으로 뜹니다.
+     button:hover 의 노란 배경이 이기지 않도록 클래스를 셋 겹쳐 둡니다 */
+  .chips button.chip{position:relative;font-family:inherit;font-weight:600;cursor:pointer;line-height:1.5}
+  .chips button.chip:hover,.chips button.chip:focus-visible,.chips button.chip.on{
+    background:var(--panel2);color:var(--mark);border-color:var(--mark)}
+  .chips .chip .tip{display:none;position:absolute;left:0;bottom:calc(100% + 6px);z-index:40;
+    width:max-content;max-width:min(240px,70vw);text-align:left;white-space:normal;
+    background:var(--panel);border:1px solid var(--mark);border-radius:4px;padding:7px 9px;
+    font-size:11.5px;font-weight:400;color:var(--ink);line-height:1.6;
+    box-shadow:0 6px 16px rgba(0,0,0,.55)}
+  .chips .chip:hover .tip,.chips .chip:focus-visible .tip,.chips .chip.on .tip{display:block}
 
   .buyrow{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;
     background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:10px;margin-top:8px}
@@ -165,6 +176,10 @@
     border:1px solid var(--line);background:var(--panel2);color:var(--dim);cursor:pointer;font-family:inherit}
   .rec{font-size:11.5px;color:var(--dim);line-height:1.75;margin-top:4px}
   .pickb.on{border-color:var(--mark);color:var(--mark);background:#463A5F}
+  /* 출동 명단 — 노랑 출동 · 초록 입원 · 반투명 대기 */
+  .pickb.rest{border-color:var(--ok);color:var(--ok);background:#22402F}
+  .pickb.rest:disabled{opacity:1;border-color:var(--ok)!important;color:var(--ok)!important;background:#22402F!important}
+  .pickb.off{opacity:.45}
   .kd{font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:99px;vertical-align:1px}
   .kd.perm{background:#28402F;color:var(--ok)} .kd.inst{background:#4A2438;color:#F08AB0}
   .kd.junk{background:#3A3450;color:var(--dim)}
@@ -219,7 +234,9 @@
     border-left-color:var(--gate);margin-bottom:0;
     -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
     box-shadow:0 3px 14px rgba(0,0,0,.45)}
-  .bldbg .place:hover,.bldbg .place:focus-visible{background:rgba(38,31,60,.92)}
+  /* 글자색까지 같이 잡습니다 — button:hover 의 검은 글씨가 이기면 배경에 묻혀 안 보입니다 */
+  .bldbg .place:hover,.bldbg .place:focus-visible{background:rgba(38,31,60,.92);color:var(--mark)}
+  .bldbg .place:hover h3,.bldbg .place:focus-visible h3{color:var(--mark)}
   .bldbg .place h3{text-shadow:0 1px 3px rgba(0,0,0,.7)}
   #map{position:relative;width:100%;aspect-ratio:941/1672;border:1px solid var(--line);
     border-radius:5px;overflow:hidden;background:#1B2A3A}
@@ -379,6 +396,7 @@ const MAJORS=[
   {id:"lib",    n:"문헌정보학과", d:"약점을 찾아냅니다"},
   /* 학과사무실에서 실제로 고를 수 있는 전공 — 전공 스킬은 차차 붙입니다 */
   {id:"tkd",    n:"태권도학과",   d:"맨몸으로 부딪칩니다"},
+  {id:"archery",n:"양궁",        d:"활을 다룹니다"},
   {id:"nurse",  n:"간호학과",     d:"다친 사람을 돌봅니다"},
   {id:"mil",    n:"군사학",      d:"총기를 다룰 수 있습니다"},
   /* 이공대학 계열 — 네 갈래가 저마다 따로 열립니다(SCI_MAJORS) */
@@ -386,6 +404,7 @@ const MAJORS=[
   {id:"phys",   n:"물리학과",     d:"힘이 실리는 자리를 압니다"},
   {id:"mech",   n:"기계공학과",   d:"손에 잡히는 것은 뜯어 고칩니다"},
   {id:"bio",    n:"생명공학과",   d:"몸이 무엇으로 되어 있는지 압니다"},
+  {id:"food",   n:"식품공학과",   d:"먹을 것을 압니다"},
 ];
 /* ── 이공대학 계열 전공이 열리는 조건 ──
    이 조건은 게임 안 어디에도 적지 않습니다. 우연히 열리는 것이 이 건물의 연출입니다.
@@ -395,6 +414,8 @@ const SCI_MAJORS=[
   {id:"phys", open:g=>(g.bookSold||0)>=2},
   {id:"mech", open:g=>["apron","mic","lighter","cutter"].every(k=>!!(g.itemSeen||{})[k])},
   {id:"bio",  open:g=>(g.cleared||[]).includes("front")},
+  /* 식품공학과만은 열린 것을 알려 줍니다 — 게이트 안에서 무언가를 먹고 돌아오면 팝업이 뜹니다 */
+  {id:"food", open:g=>!!g.foodHeal},
 ];
 const sciOpen=g=>SCI_MAJORS.filter(m=>m.open(g)).map(m=>m.id);
 const SCI_IDS=SCI_MAJORS.map(m=>m.id);
@@ -533,16 +554,32 @@ const ITEMS={
           req:GUN_MAJORS,ammo:"shotgun",d:"공격력 20/14/5(가까울수록 셈), 공속 −30%, 사거리 +9 · 관통 · 곁의 적도 휩쓴다"},
   rifle:{n:"소총",slot:"rh",kind:"perm",atk:12,aspdM:1.0,rng:12,dmg:DMG.PIERCE,style:"gun",
           req:GUN_MAJORS,ammo:"rifle",d:"공격력 +12, 사거리 +12 · 관통"},
-  /* ── 탄약 · 가방 칸을 차지하지 않고 본부에 쌓입니다 ── */
+  /* ── 학생회 제작 활 ──
+     총과 같은 길(ammo)을 쓰지만 전공 제한이 없습니다. 대신 열 번에 한 번은 헛나갑니다
+     (miss — 회피와 따로 굴리고, 빗나감을 먼저 봅니다). */
+  bow:{n:"학생회 제작 활",slot:"rh",kind:"perm",atk:5,rng:7,dmg:DMG.PIERCE,style:"gun",
+       bow:true,ammo:"arrow",miss:0.10,price:30,
+       d:"공격력 +5, 사거리 +7, 10% 확률로 빗나감 · 관통 · 화살을 쓴다"},
+  /* ── 학생회장봉 · 학생회장의 의뢰를 마치면 받습니다 ── */
+  unionrod:{n:"학생회장봉",slot:"rh",kind:"perm",atk:7,aspdM:1.15,rng:1,dmg:DMG.BLUNT,style:"swing",
+       d:"공격력 +7, 공속 +15%, 사거리 +1 · 타격"},
+  /* ── 응급 키트 · 응급의학 실습실에서만 팝니다.
+     게이트 안에서 배낭에 이고 다니면 어둠 에너지에 먹힐 수 있습니다(KIT_ROT). ── */
+  medkit:{n:"응급 키트",kind:"perm",kit:true,price:20,use:{pct:0.35},
+       d:"쓰면 체력 35% 회복"},
+  medkitD:{n:"침식된 응급 키트",kind:"inst",kit:true,use:{pct:0.50},
+       d:"쓰면 체력 50% 회복 · 게이트를 나가면 사라진다"},
+  /* ── 탄약 · 배낭 한 칸에 한 뭉치씩 사람이 이고 다닙니다 ── */
   ammoP:{n:"권총 탄약",kind:"ammo",ammo:"pistol",qty:12,price:15,d:"권총 12발"},
   ammoS:{n:"산탄총 탄약",kind:"ammo",ammo:"shotgun",qty:6,price:18,d:"산탄총 6발"},
   ammoR:{n:"소총 탄약",kind:"ammo",ammo:"rifle",qty:20,price:26,d:"소총 20발"},
+  ammoA:{n:"화살",kind:"ammo",ammo:"arrow",qty:30,price:15,d:"화살 30발"},
   baton:{n:"경찰봉",slot:"rh",kind:"perm",atk:5,aspdM:1.10,dmg:DMG.BLUNT,style:"swing",
           d:"공격력 +5, 공속 +10% · 타격"},
   vestp:{n:"방탄조끼",slot:"top",kind:"perm",guard:6,hp:10,d:"피해 −6, 체력 +10"},
   jacket:{n:"학과 점퍼",slot:"top",kind:"perm",guard:1,hp:8,price:10,d:"피해 −1, 체력 +8"},
   /* ── 잡화 ── */
-  tuna:{n:"참치캔",kind:"junk",price:25,use:{hp:10},d:"먹으면 체력 10 회복 · 팔면 25 골드"},
+  tuna:{n:"참치캔",kind:"junk",price:25,use:{hp:20},d:"먹으면 체력 20 회복 · 팔면 25 골드"},
   soju:{n:"소주",kind:"junk",price:30,d:"팔면 30 골드"},
   oldbook:{n:"헌책",kind:"junk",price:15,d:"팔면 15 골드"},
   balm:{n:"립밤",kind:"junk",price:20,d:"팔면 20 골드"},
@@ -550,7 +587,7 @@ const ITEMS={
   ballpen:{n:"볼펜",kind:"junk",price:10,d:"팔면 10 골드"},
   coin:{n:"동전 뭉치",kind:"junk",price:12,d:"팔면 12 골드"},
   battery:{n:"보조배터리",kind:"junk",price:45,d:"팔면 45 골드"},
-  snack:{n:"과자",kind:"junk",price:8,use:{hp:5},d:"먹으면 체력 5 회복 · 팔면 8 골드"},
+  snack:{n:"과자",kind:"junk",price:15,use:{hp:15},d:"먹으면 체력 15 회복 · 팔면 15 골드"},
   mug:{n:"머그컵",kind:"junk",price:14,d:"팔면 14 골드"},
   lighter:{n:"라이터",kind:"junk",price:9,d:"팔면 9 골드"},
   earphone:{n:"이어폰",kind:"junk",price:22,d:"팔면 22 골드"},
@@ -587,6 +624,8 @@ const DARK_UP={
   apron:    {guard:4,hp:10,dodge:8},         /* 앞치마 */
   workpants:{guard:4},                       /* 작업복 바지 */
   slippers: {dodge:9,crit:6},                /* 삼선 슬리퍼 */
+  medkitD:  {use:{pct:0.75}},                /* 침식된 응급 키트 */
+  crystal:  {skill:true},                    /* 어둠 에너지 결정 — 결정으로 키우면 힘이 된다 */
 };
 /* 이름도 id 도 원본 뒤에 + 를 붙입니다 — 커터칼 → 커터칼+.
    나중에 2단 강화를 넣으면 lv 2 로 불러 커터칼++ 를 그대로 만들 수 있습니다. */
@@ -594,10 +633,15 @@ const darkId=(id,lv=1)=>id+"+".repeat(lv);
 /* 원본 설명문과 같은 어순으로 적습니다 — 무기는 공격력·공속·사거리, 방어구는 피해·체력·회피·치명 */
 function darkDesc(it){
   const p=[],pc=v=>`${v<0?"−":"+"}${Math.round(Math.abs(v)*100)}%`;
+  const tail=it.kind==="inst"?" · 게이트를 나가면 사라진다":"";
+  /* 장비가 아닌 것 — 쓰는 물건은 무엇을 하는지만 적습니다 */
+  if(it.skill)return "쓰면 새로운 힘을 하나 익힌다"+tail;
+  if(it.use&&it.use.pct)return `쓰면 체력 ${Math.round(it.use.pct*100)}% 회복`+tail;
   if(it.atk){
     p.push(`공격력 +${it.atk}`);
     if(it.aspdM&&it.aspdM!==1)p.push(`공속 ${pc(it.aspdM-1)}`);
     if(it.rng)p.push(`사거리 +${it.rng}`);
+    if(it.miss)p.push(`${Math.round(it.miss*100)}% 확률로 빗나감`);
   }else{
     if(it.guard)p.push(`피해 −${it.guard}`);
     if(it.hp)p.push(`체력 +${it.hp}`);
@@ -647,6 +691,9 @@ const WORK_UP={
   shotgun: {atk:20,fall:[[7,28],[12,20],[999,8]],rng:10,g:200,
             d:"공격력 28/20/8(가까울수록 셈), 공속 −30%, 사거리 +10 · 관통 · 곁의 적도 휩쓴다"},
   rifle:   {atk:18,rng:14,g:180},
+  /* 활 — 손을 보면 헛나가는 일이 절반으로 줍니다 */
+  bow:     {atk:9,rng:8,miss:0.05,g:120},
+  unionrod:{atk:11,aspdM:1.25,rng:2,g:120},
 };
 const workId=id=>id+"+";
 const workCost=id=>(WORK_UP[id]||{}).g||0;
@@ -661,8 +708,8 @@ const baseOf=id=>(ITEMS[id]&&(ITEMS[id].dark||ITEMS[id].base))||id;
 Object.keys(ITEMS).forEach(k=>ITEMS[k].id=k);
 /* 매점 판매대에 오를 수 있는 물건 전부. 조건이 붙은 둘은 shopPool() 이 걸러냅니다.
    한 번에 다 오르지는 않습니다 — 자리 수(shopSlots)만큼 무작위로 뽑습니다. */
-const SHOP=["jacket","pen","book","spray","cap","upants"];
-const SHOP_AMMO=["ammoP","ammoS","ammoR"];
+const SHOP=["jacket","pen","book","spray","cap","upants","bow"];
+const SHOP_AMMO=["ammoP","ammoS","ammoR","ammoA"];
 /* 판매대 자리 — 처음 3칸. '학생회에 투자' 로 한 칸씩, 6칸까지 늘립니다 */
 const SHOP_SLOT0=3, SHOP_SLOT_MAX=6, INVEST_COST=[40,120,250];
 const shopSlots=()=>Math.min(SHOP_SLOT_MAX,SHOP_SLOT0+(G.invest||0));
@@ -672,6 +719,7 @@ function shopPool(){
   return SHOP.filter(id=>
     id==="cap"    ? (G.capFrom!=null&&G.explores>=G.capFrom)   /* 한 번 사 본 뒤 다음 탐색부터 */
   : id==="upants" ? !!G.unionOpen                              /* 명단이 두 명이 된 뒤부터 */
+  : id==="bow"    ? !!G.bowOpen                                /* 학생회가 활을 만든 뒤부터 */
   : true);
 }
 /* 판매대 채우기. 팔린 것도 G.shopStock 에 남겨 두어야 자리 수가 맞습니다. */
@@ -682,7 +730,7 @@ function fillShop(){
     G.shopStock.push(rest.splice(Math.floor(Math.random()*rest.length),1)[0]);
 }
 const rollShop=()=>{G.shopStock=[];fillShop()};
-const AMMO_KIND={pistol:"권총",shotgun:"산탄총",rifle:"소총"};
+const AMMO_KIND={pistol:"권총",shotgun:"산탄총",rifle:"소총",arrow:"화살"};
 /* 해당 총기를 한 번이라도 손에 넣어야 매점에서 그 탄약을 팝니다 */
 function seenGun(type){
   if(G.gunSeen&&G.gunSeen[type])return true;
@@ -750,6 +798,12 @@ function rollLoot(place,day){
   const out=[];
   const jn=1+((Math.random()<0.45)?1:0);
   for(let i=0;i<jn;i++) out.push(pick(place.junk));
+  /* 식품공학과 — 먹을 것이 한 개 더 나올 수 있습니다 */
+  const fl=foodLv();
+  if(fl){
+    const eat=place.junk.filter(id=>ITEMS[id].use);
+    if(eat.length&&Math.random()<FOOD_DROP[fl]) out.push(pick(eat));
+  }
   let gn=(Math.random()<0.55?1:0)+(Math.random()<0.25+place.risk*0.1?1:0)+(day>=3&&Math.random()<0.3?1:0);
   for(let i=0;i<gn;i++) out.push(pick(place.gear));
   if(place.special&&Math.random()<place.special.chance) out.push(pick(place.special.ids));
@@ -1072,9 +1126,12 @@ const isMaj=(u,m)=>hasMaj(u.ref,m);
 const bareTkd=u=>isMaj(u,"tkd")&&!u.hasW&&!u.hasS;      /* 양손이 빈 태권도학과 */
 const armedMaj=(u,m)=>isMaj(u,m)&&!!u.hasW;             /* 무기를 든 — 적수공권의 거울상 */
 const rhOf=u=>(u.ref&&ITEMS[u.ref.gear.rh])||null;
-const gunMaj=(u,m)=>{const rh=rhOf(u);return isMaj(u,m)&&!!(rh&&rh.ammo)};
+/* 활도 탄약(화살)을 쓰지만 총은 아닙니다 — 제식 사격·탄창 개조는 붙지 않습니다 */
+const gunMaj=(u,m)=>{const rh=rhOf(u);return isMaj(u,m)&&!!(rh&&rh.ammo&&!rh.bow)};
 const chemMaj=u=>{const rh=rhOf(u);return isMaj(u,"chem")&&!!(rh&&rh.dmg===DMG.CHEM)};
+const bowMaj=u=>{const rh=rhOf(u);return isMaj(u,"archery")&&!!(rh&&rh.bow)};   /* 활을 든 양궁 */
 const TKD_COMBO=0.25, TKD_COMBO_CUT=0.90;   /* 연타 — 확률과 줄어드는 뜸 */
+const BOOM_RATE=0.5, BOOM_PAD=6;            /* 천궁(양궁) — 폭발이 곁에 주는 비율과 거리 */
 const INSTANTS=[
   {k:"caf",   n:"카페인은 내친구",   br:"aspd",  v:1,            d:"공격 속도 +15%",             f:u=>u.aspd*=1.15},
   {k:"caf2",  n:"카페인은 내친구+",  br:"aspd",  v:2, up:"caf",  d:"공격 속도 +30%",             f:u=>u.aspd*=1.30},
@@ -1162,7 +1219,38 @@ const INSTANTS=[
   {k:"m_mil",   maj:"mil", n:"제식 사격", br:"mix", v:18,
      d:"총을 든 군사학 대원만 · 공격력 +18%, 사거리 +3",
      f:u=>{if(gunMaj(u,"mil")){u.atk*=1.18;u.range+=3}}},
+  /* ── 양궁 ── 전부 '활을 든 양궁 대원'에게만 걸립니다(bowMaj).
+     빗나감(u.miss)·폭발(u.boomP)·멀티샷(u.multi)은 tick 의 활 갈래가 봅니다 */
+  {k:"m_boom",  maj:"archery", n:"천궁", br:"mix", v:50,
+     d:`활을 든 양궁 대원만 · 50% 확률로 화살이 박힌 자리가 터져 곁의 적도 ${BOOM_RATE*100|0}%를 맞는다`,
+     f:u=>{if(bowMaj(u))u.boomP=0.5}},
+  {k:"m_boom2", maj:"archery", up:"m_boom", n:"천궁+", br:"mix", v:100,
+     d:`활을 든 양궁 대원만 · 화살이 박힌 자리가 늘 터져 곁의 적도 ${BOOM_RATE*100|0}%를 맞는다`,
+     f:u=>{if(bowMaj(u))u.boomP=1}},
+  {k:"m_sharp", maj:"archery", n:"명궁", br:"mix", v:2,
+     d:"활을 든 양궁 대원만 · 빗나감 절반, 공격력·사거리 +2",
+     f:u=>{if(bowMaj(u)){u.miss*=0.5;u.atk+=2;u.range+=2}}},
+  {k:"m_sharp2",maj:"archery", up:"m_sharp", n:"명궁+", br:"mix", v:4,
+     d:"활을 든 양궁 대원만 · 빗나가지 않고, 공격력·사거리 +4",
+     f:u=>{if(bowMaj(u)){u.miss=0;u.atk+=4;u.range+=4}}},
+  /* 멀티샷은 명궁과 천궁을 둘 다 가졌을 때만 나옵니다 (needAll — skillPool 이 봅니다) */
+  {k:"m_msh",   maj:"archery", n:"멀티샷", br:"mix", v:20,
+     needAll:[["m_sharp","m_sharp2"],["m_boom","m_boom2"]],
+     d:"활을 든 양궁 대원만 · 공격 속도 −20%, 한 번에 두 적을 쏘고 화살은 한 발만 쓴다",
+     f:u=>{if(bowMaj(u)){u.aspd*=0.80;u.multi=1}}},
+  {k:"m_msh2",  maj:"archery", up:"m_msh", n:"멀티샷+", br:"mix", v:40,
+     d:"활을 든 양궁 대원만 · 한 번에 두 적을 쏘고 화살은 한 발만 쓴다 · 적이 하나면 두 번 쏜다",
+     f:u=>{if(bowMaj(u))u.multi=2}},
+  /* ── 식품공학과 ── 응급 키트에는 걸리지 않습니다(kit) */
+  {k:"m_food",  maj:"food", n:"맛있는 불량식품", br:"mix", v:30,
+     d:"체력을 채우는 먹을 것이 더 자주 나오고, 회복량 +30%",f:u=>{}},
+  {k:"m_food2", maj:"food", up:"m_food", n:"맛있는 불량식품+", br:"mix", v:50,
+     d:"더 자주 나오고 회복량 +50% · 먹으면 다른 파티원의 체력도 5% 회복",f:u=>{}},
 ];
+/* 식품공학과 — 파티가 지금 가진 단계(0·1·2). 회복량과 등장 확률이 여기서 갈립니다 */
+const FOOD_HEAL=[1,1.30,1.50], FOOD_DROP=[0,0.30,0.50], FOOD_SHARE=0.05;
+const foodLv=()=>{const s=(G&&G.instants)||[];
+  return s.some(x=>x.k==="m_food2")?2:s.some(x=>x.k==="m_food")?1:0};
 const skillOf=k=>INSTANTS.find(s=>s.k===k);
 /* 지금까지 쌓인 갈래별 수치. 상위 스킬이 선행을 대체하므로 겹쳐 세지 않습니다 */
 function branchSum(){
@@ -1186,6 +1274,8 @@ function skillPool(){
     if(s.gate&&G.gate!==s.gate)return false;      /* 그 게이트 안에서만 열리는 것 */
     if(have.has(s.k)||past.has(s.k))return false;
     if(s.up&&!have.has(s.up))return false;
+    /* needAll — 묶음마다 하나씩은 가지고 있어야 열립니다 (멀티샷) */
+    if(s.needAll&&!s.needAll.every(g=>g.some(k=>have.has(k))))return false;
     if(s.req&&!s.req(t))return false;
     return true;
   });
@@ -1216,7 +1306,9 @@ function derive(p){
     crit:+Math.max(0,s.luk*0.5+critAdd).toFixed(1),
     style:rh?rh.style:"swing",dmg:rh?rh.dmg:DMG.BLUNT,rng:rh&&rh.rng?rh.rng:0,
     /* 거리별 위력·광역은 무기가 가진 성질이라 스탯과 섞지 않고 그대로 넘깁니다 */
-    fall:rh?rh.fall:null,fallBase:rh?rh.atk:0,splash:rh?rh.splash:0};
+    fall:rh?rh.fall:null,fallBase:rh?rh.atk:0,splash:rh?rh.splash:0,
+    /* 활 — 헛나가는 확률과 활인지 여부. 스킬이 여기에 손을 댑니다 */
+    miss:(rh&&rh.miss)||0,bow:!!(rh&&rh.bow)};
 }
 function emptyGear(){const g={};SLOTS.forEach(s=>g[s.k]=null);return g}
 /* 착용한 것을 전부 벗겨 매점 창고로 보냅니다. 배낭은 5칸뿐이라 창고로 갑니다. */
@@ -1245,7 +1337,7 @@ function rollStudent(){
   const nm=randName();
   const s={name:nm.name,sex:nm.sex,face:pickFace(nm.sex),
            lvl:1,exp:0,major:null,stats:st,gear:emptyGear(),bag:[],
-           ammo:{pistol:0,shotgun:0,rifle:0},points:0,inParty:true,log:[]};
+           ammo:EMPTY_AMMO(),points:0,inParty:true,log:[]};
   s.hp=derive(s).maxHp;
   return s;
 }
@@ -1257,6 +1349,22 @@ function rollApplicants(n){
   for(let i=0;i<n;i++)G.applicants.push(rollStudent());
   return G.applicants;
 }
+
+/* ═══════════ 학생회장의 의뢰 ═══════════
+   done 이 참이 되면 학생회관에서 보상을 받아 창고에 넣습니다.
+   받은 것은 G.questDone 에 쌓입니다 — 한 번만 받습니다. */
+const QUESTS=[
+  {id:"mantis",n:"정문 게이트 사흘째",
+   d:"사흘째 안쪽에 있는 것을 학생회가 보고 싶어 합니다. 쓰러뜨리고 오세요.",
+   done:g=>!!(g.bossKilled||{}).mantis, give:"unionrod"},
+];
+const questGot=q=>(G.questDone||[]).includes(q.id);
+/* 활로 이만큼 잡으면 예체능대학에서 양궁 전공이 열립니다 */
+const BOW_MAJOR=3;
+/* 응급 키트 — 값, 다시 들어오기까지의 탐색 횟수, 전투 한 번마다 침식될 확률 */
+const KIT_COST=20, KIT_WAIT=2, KIT_ROT=0.05;
+/* 학생회 제작 활이 매점에 오르는 조건 — 정문 게이트 이틀째를 넘기고 탐색 3회 */
+const BOW_OPEN_DAY=2, BOW_OPEN_EXP=3;
 
 /* 시설. cond 가 참이면 열립니다.
    prog 는 **DEV_SHOW_UNLOCK 일 때만** 보이는 개발용 진행도입니다 —
@@ -1280,9 +1388,9 @@ const FACILITIES=[
   {id:"adm",ic:"📋",n:"입학처",d:"신입생을 모집합니다",
    cond:g=>g.explores>=2,prog:g=>`탐색 ${Math.min(g.explores,2)} / 2회`,
    msg:"소문이 돌았는지 입학처에 지원서가 쌓이기 시작했습니다.<br><br>혼자 들어가지 않아도 됩니다."},
-  {id:"union",ic:"🏛",n:"학생회관",d:"파티 편성과 장비 정리",
+  {id:"union",ic:"🏛",n:"학생회관",d:"학생회장의 의뢰",
    cond:g=>g.explores>=3,prog:g=>`탐색 ${Math.min(g.explores,3)} / 3회`,
-   msg:"학생회관이 정리됐습니다.<br><br>누구를 데리고 들어갈지, 무엇을 들려 보낼지 여기서 정합니다."},
+   msg:"학생회관이 정리됐습니다.<br><br>학생회장이 부탁할 것이 있다며 사람을 찾고 있습니다."},
   /* 실습동은 이공대학 안에 있습니다. 이공계 전공 대원이 있어야 돌아가므로,
      학과사무실보다 반드시 뒤에 열립니다 — 건물이 먼저 밝아질 일이 없습니다.
      골드는 '지금 가진 것'을 봅니다. 쓰고 나면 다시 잠깁니다. */
@@ -1311,7 +1419,9 @@ const FACILITIES=[
    msg:"운동장 한쪽에 이름을 새길 자리를 만들었습니다.<br><br>돌아오지 못한 사람들의 기록이 여기 남습니다."},
   /* 학과사무실 — 건물마다 하나씩, 그 건물의 전공만 배정합니다.
      major 칸이 있는 시설은 전공 배정 화면으로 넘어갑니다. */
-  {id:"deptArts",ic:"🥋",n:"학과사무실",d:"태권도학과 전공 배정",major:"tkd",
+  /* 예체능대학 — 태권도학과가 기본이고, 활로 세 마리를 잡아 본 뒤에 양궁이 붙습니다 */
+  {id:"deptArts",ic:"🥋",n:"학과사무실",d:"예체능 계열 전공 배정",
+   majors:g=>["tkd"].concat((g.bowKills||0)>=BOW_MAJOR?["archery"]:[]),
    cond:g=>topLvl(g)>=MAJOR_LV,prog:g=>`Lv ${MAJOR_LV} 대원이 나오면 열림 (현재 최고 Lv ${topLvl(g)})`,
    msg:"예체능대학 학과사무실이 문을 열었습니다.<br><br>도장은 비었지만 매트는 남아 있습니다. 태권도학과 전공을 정할 수 있습니다."},
   {id:"deptMed",ic:"💉",n:"학과사무실",d:"간호학과 전공 배정",major:"nurse",
@@ -1351,20 +1461,29 @@ const NPCS={
            "오늘은 처음이라 준비한 물품이 많지는 않아요. 당신이 게이트에서 많은 물품을 가져와 행정실에 넘길 수록 우리가 준비할 수 있는 물건이 많아져요."],
     again:["아직 살아있네요? 학생회에서 보증하는 물품들을 사용해 보세요. 다음에도 살아서 돌아오고 싶다면."]},
   adm:{n:"입학처 직원",role:"입학처",ic:"📋",
-    first:["지원서가 계속 들어옵니다. 밖이 더 무서운 모양이에요.",
-           "한 명 받는 데 20골드입니다. 서류값이라고 해 두죠.",
-           "누가 오래 버틸지는… 저도 모릅니다."],
-    again:["오늘 들어온 지원서입니다.","마음에 안 들면 새로 받아 오죠.","이름부터 적게 하세요."]},
+    first:[["adm","당신이 게이트에 들어가려 한다는 사람이군요."],
+           ["pc","맞아요. 그런데 역시 혼자서는 너무 위험하네요."],
+           ["adm","당신에 용기에 감동받은 사람들이 함께 게이트를 탐험하려고 지원하고 있어요."],
+           ["pc","정말인가요!"],
+           ["adm","적당한 위험수당만 지급한다면 기꺼이 당신을 돕는답니다."],
+           ["pc","위험수당?"],
+           ["adm","세상은 전부 돈이에요. 몰랐어요?"],
+           ["pc","..."]],
+    again:["오늘 들어온 지원서입니다.","신중하게 영입하세요.","이름부터 적게 하세요."]},
   union:{n:"학생회장",role:"학생회관",ic:"🏛",
-    first:["누구를 데려갈지는 여기서 정합니다.",
-           "네 명이 한계예요. 그 이상은 문이 못 버팁니다.",
-           "장비는 나눠 쓰세요. 아까워하다 죽습니다."],
-    again:["편성 바꾸실 겁니까?","장비부터 챙기세요.","넷을 넘길 수는 없습니다."]},
-  clinic:{n:"보건 교사",role:"응급의학 실습실",ic:"🩺",
-    first:["다쳐 돌아오는 학생이 많아져 실습실을 열었습니다.",
-           "침대는 하나뿐입니다. 한 명만 눕힐 수 있어요.",
-           "탐색 한 번에 10골드. 낫는 만큼만 받겠습니다."],
-    again:["누굴 눕히시겠습니까?","침대는 하나입니다.","무리해서 넣지 마세요. 돈 나갑니다."]},
+    first:["학생회는 안쪽 사정을 알아야 합니다. 그런데 들어갈 사람이 없어요.",
+           "대신 다녀와 주면 값은 치릅니다. 창고에 쟁여 둔 것이 좀 있거든요.",
+           "부탁할 것을 적어 두었습니다. 보고 가세요."],
+    again:["부탁드린 건은 어떻게 됐습니까?","값은 치릅니다. 학생회 이름을 걸고요.","적어 둔 것부터 보세요."]},
+  clinic:{n:"응급의학과 전임교수",role:"응급의학 실습실",ic:"🩺",
+    /* 첫 방문 대사 — [화자, 대사]. 화자가 없으면 이 NPC 가 말합니다 */
+    first:[["clinic","이런, 학생! 어쩌다가 이렇게 된 거야."],
+           ["pc","네. 게이트에서 조금 무리했나봐요."],
+           ["clinic","후... 후후.. 흐흐흐"],
+           ["pc","뭐에요 갑자기 변태같이"],
+           ["clinic","아무것도 아니야. 후훗. 어서 이리와서 누워 볼래? 빨리. 빨리빨리."],
+           ["pc","정말 이 사람을 믿어도 되는걸까?"]],
+    again:["누굴 눕히시겠습니까?","야 엄살 부리지 마. 안 죽어 안 죽어.","무리해서 넣지 마세요. 돈 나갑니다."]},
   arcade:{n:"오락실 주인",role:"게임장",ic:"🕹",
     first:["안쪽 것들을 본떠 만든 기계입니다. 무섭죠? 재밌기도 하고.",
            "기계마다 다녀올 때 한 번씩만 상금이 나갑니다.",
@@ -1410,6 +1529,35 @@ const npcHead=id=>`<div class="npc">${npcFace(id)}<div class="who"><b>${NPCS[id]
 function npcBar(id){
   if(!NPCS[id]||G.npcSayFor!==id||!G.npcSay)return "";
   return `<div class="npcbar">${npcFace(id,1)}<div class="line"><b>${NPCS[id].n}</b><span>${G.npcSay}</span></div></div>`;
+}
+/* 대사 한 줄. 줄은 "글" 이거나 [화자, 글] 입니다 —
+   화자 pc 는 주인공, na 는 나레이션, 나머지는 NPCS 의 열쇠입니다. */
+const pcOf=()=>(G.roster&&G.roster[0])||G.player;
+function pcHead(){
+  const pc=pcOf();
+  return `<div class="npc">${pc&&pc.face?`<div class="face img"><img src="${artUrl(pc.face)}" alt=""></div>`:`<div class="face">🙂</div>`
+    }<div class="who"><b>${pc?pc.name:"나"}</b><span>게이트 생환자</span></div></div>`;
+}
+function sayBlock(ln,defId){
+  const who=Array.isArray(ln)?ln[0]:defId, t=Array.isArray(ln)?ln[1]:ln;
+  if(who==="na")return `<p>${t}</p>`;
+  if(who==="pc")return `${pcHead()}<p class="say">${t}</p>`;
+  return `${npcHead(who)}<p class="say">${t}</p>`;
+}
+/* 화자 이름 — 팝업 대사의 제목으로 씁니다 */
+const sayName=ln=>{
+  const who=Array.isArray(ln)?ln[0]:null;
+  return who==="na"?"":who==="pc"?(pcOf()?pcOf().name:"나"):(NPCS[who]?NPCS[who].n:"");
+};
+/* 팝업으로 이어지는 대사. 마지막 줄에서 onDone 이 돕니다 */
+function popupTalk(lines,onDone){
+  let i=0;
+  const step=()=>{
+    if(i>=lines.length){if(onDone)onDone();return}
+    const ln=lines[i++],last=i>=lines.length;
+    popup(sayName(ln)||"　",Array.isArray(ln)?ln[1]:ln,last?"확인":"계속",step,true);
+  };
+  step();
 }
 function enterFac(id){
   if(id==="adm"&&!G.applicants)rollApplicants(3);
@@ -1844,6 +1992,12 @@ function unpackSave(sv){
   if(!d.majorCap)d.majorCap={};
   if(d.dualOpen===undefined)d.dualOpen=false;
   if(d.bookSold===undefined)d.bookSold=0;
+  /* 이번 판에 새로 생긴 칸들 — 없던 저장본은 빈 값으로 채웁니다 */
+  if(!d.gateDay)d.gateDay={};
+  if(!d.bossKilled)d.bossKilled={};
+  if(!d.questDone)d.questDone=[];
+  if(d.bowKills===undefined)d.bowKills=0;
+  if(d.kitFrom===undefined)d.kitFrom=null;
   /* 탄약이 본부에 쌓이던 시절의 저장본 — 쌓여 있던 것을 창고의 뭉치로 바꿉니다 */
   if(d.ammo){
     d.store=d.store||{};
@@ -1854,7 +2008,7 @@ function unpackSave(sv){
     delete d.ammo;
   }
   for(const r of [...(d.roster||[]),d.playerRaw].filter(Boolean))
-    if(!r.ammo)r.ammo={pistol:0,shotgun:0,rifle:0};
+    if(!r.ammo)r.ammo=EMPTY_AMMO();
   d.offer=d.offer?d.offer.map(i=>PLACES[i]).filter(Boolean):null;
   d.here=(d.here===null||d.here===undefined)?null:PLACES[d.here];
   d.lastGain=null;
@@ -1905,15 +2059,17 @@ function bootGame(){migrateSave();G={scene:"title"};feed=[];armBack();render()}
 function newGame(slot){
   const base={vit:10,maj:10,str:10,spd:10,agi:10,luk:10};
   const p={name:"이경호",sex:"m",face:"face/lee.webp",   /* 주인공은 전용 초상 */lvl:1,exp:0,major:null,stats:{...base},base:{...base},
-           gear:emptyGear(),bag:[],ammo:{pistol:0,shotgun:0,rifle:0},points:1,inParty:true,log:["첫 게이트 진입"]};
+           gear:emptyGear(),bag:[],ammo:EMPTY_AMMO(),points:1,inParty:true,log:["첫 게이트 진입"]};
   p.hp=derive(p).maxHp;
   G={slot:(slot===undefined?curSlot():slot),scene:"intro",introLine:0,gold:0,mode:"tutorial",
      explores:0,goldEarned:0,deaths:0,recruited:0,woundedReturn:false,gunHome:false,
-     day:1,instants:[],offer:null,here:null,fought:false,announced:[],
-     extraSkill:false,extraNow:false,night:false,
-     chemKills:0,bookSold:0,      /* 이공대학 학과사무실이 보는 기록 */
-     gate:"front",cleared:[],gateClear:false,
-     store:{},loot:{},ground:[],memorial:[],sel:null,invSel:null,rowSel:null,facesUsed:[],gunSeen:{pistol:false,shotgun:false,rifle:false},itemSeen:{},arcadeBest:0,starBest:0,huntBest:0,
+     day:1,dayOn:false,instants:[],offer:null,here:null,fought:false,announced:[],
+     extraSkill:false,extraNow:false,night:false,skillBack:null,
+     chemKills:0,bookSold:0,foodHeal:false,      /* 이공대학 학과사무실이 보는 기록 */
+     gate:"front",cleared:[],gateClear:false,gateDay:{},bossKilled:{},
+     bowKills:0,bowOpen:false,bowBought:false,   /* 학생회 제작 활 */
+     bedUsed:false,kitFrom:null,questDone:[],restOpen:null,chipSel:null,
+     store:{},loot:{},ground:[],memorial:[],sel:null,invSel:null,rowSel:null,facesUsed:[],gunSeen:{pistol:false,shotgun:false,rifle:false,arrow:false},itemSeen:{},arcadeBest:0,starBest:0,huntBest:0,
      tips:{},shopDay:-1,shopSold:[],capFrom:null,shopStock:null,invest:0,unionOpen:false,
      beds:1,dorm:DORM_START,squad:SQUAD_START,majorCap:{},dualOpen:false,hallId:null,mapMsg:null,shopWho:0,stripMsg:null,metNpc:{},npcSay:null,npcSayFor:null,talkFor:null,talkLine:0,talkNext:null,appraisal:null,
      /* 튜토리얼에도 명단에 올려 둡니다 — 전리품·정비 화면이 party() 하나로 돕니다 */
@@ -1925,6 +2081,12 @@ const party=()=>{
   const s=av.filter(r=>r.inParty);
   return (s.length?s:av).slice(0,squadMax());
 };
+/* 명단을 보여줄 차례 — 출동 → 입원 → 대기, 같은 조건이면 먼저 고용된 순 */
+function rosterOrder(){
+  const t=party(), rank=r=>t.includes(r)?0:r.resting?1:2;
+  return G.roster.map((r,i)=>({r,i}))
+    .sort((a,b)=>rank(a.r)-rank(b.r)||a.i-b.i).map(x=>x.r);
+}
 
 /* ═══════════ 전투 ═══════════ */
 let cv,ctx,W=400,H=340,raf=null,last=0,B=null;
@@ -2217,6 +2379,8 @@ function makeFighter(p,i,n){
     range:7+d.rng,guard:d.guard,guardVar:0,dodge:d.dodge,crit:d.crit,cool:.3+i*.15,anim:null,color:"#4FC3D9",
     style:d.style,dmgType:d.dmg,broken:[],wid:p.gear.rh,
     fall:d.fall,fallBase:d.fallBase,splash:d.splash,
+    /* 활 — 빗나감·폭발·멀티샷은 스킬이 얹습니다 */
+    miss:d.miss,bow:d.bow,boomP:0,multi:0,
     wearing:SLOTS.map(s=>({slot:s.k,it:ITEMS[p.gear[s.k]]})).filter(w=>w.it),
     hasW:!!p.gear.rh,hasS:!!p.gear.lh,sid:p.gear.lh};
   for(const s of G.instants)s.f(u);
@@ -2225,7 +2389,7 @@ function makeFighter(p,i,n){
   u.hp=Math.min(u.hp,u.maxHp);
   const rh=ITEMS[p.gear.rh];
   if(rh&&rh.ammo){        // 총알은 그 사람이 이고 온 것만 씁니다. 떨어지면 배낭/맨손으로 갑니다
-    u.gun={type:rh.ammo,range:u.range,style:"gun",dmg:rh.dmg,n:rh.n,aspdM:rh.aspdM||1};
+    u.gun={type:rh.ammo,range:u.range,style:"gun",dmg:rh.dmg,n:rh.n,aspdM:rh.aspdM||1,bow:!!rh.bow};
     u.ammoType=rh.ammo;u.ammoN=roundsOf(p,rh.ammo);
     u.atkFull=u.atk;
     u.meleeAtk=Math.max(1,+(u.atk-rh.atk).toFixed(1));
@@ -2253,6 +2417,7 @@ function swapToBagWeapon(u){
   u.style=it.style||"swing";u.dmgType=it.dmg||DMG.BLUNT;
   u.fall=it.fall||null;u.fallBase=it.atk||0;u.splash=it.splash||0;
   u.wid=nid;u.hasW=true;u.combo=0;         /* 손에 무기가 있으면 연타는 꺼집니다 */
+  u.bow=false;u.miss=0;u.multi=0;u.boomP=0;/* 활을 내려놓으면 활 성질도 같이 내려놓습니다 */
   const w=u.wearing.find(x=>x.slot==="rh");
   if(w)w.it=it; else u.wearing.push({slot:"rh",it});
   u.gun=null;u.anim=null;
@@ -2304,6 +2469,8 @@ function makeZombieOf(a){
 function nextDay(){
   if(G.gateClear){G.scene="retreat";render();return}
   if(G.day<gateOf().days)G.day++;
+  /* 새 일차는 아직 시작하지 않았습니다 — 여기서 나가면 이 날은 세지 않습니다 */
+  G.dayOn=false;
   G.offer=null;G.skillOffer=null;G.scene="instant";render();
 }
 /* 적을 얼마나 불릴지 재는 날짜. 야간 탐색은 날짜를 먹지 않는 대신
@@ -2385,6 +2552,8 @@ function battleImgs(){
 /* startBattle 은 그림 로딩만 걸어 두므로, 싸우는 도중에 배경·대원 그림이
    뒤늦게 뜬다. 여기서 로딩이 끝날 때까지(최대 4초) 대기 화면을 거친다. */
 function enterBattle(list,keys){
+  /* 전투를 시작한 일차만 '버틴 날'로 셉니다 (귀환 화면의 일차 수) */
+  if(G.mode==="run")G.dayOn=true;
   startBattle(list,keys);
   G._blAt=Date.now();
   G.scene="battleload";
@@ -2429,11 +2598,11 @@ function tick(dt){
     /* 자가 재생(생명공학과) — 싸우는 내내 조금씩 아뭅니다 */
     if(u.regen)u.hp=Math.min(u.maxHp,u.hp+u.maxHp*u.regen*dt);
     if(u.gun){                            // 남은 탄약에 따라 총/배낭 무기/맨손을 오간다
-      if((u.ammoN||0)>0){u.style="gun";u.range=u.gun.range;u.atk=u.atkFull;u.dmgType=u.gun.dmg;u.hasW=true}
+      if((u.ammoN||0)>0){u.style="gun";u.range=u.gun.range;u.atk=u.atkFull;u.dmgType=u.gun.dmg;u.hasW=true;u.bow=u.gun.bow}
       else{
         /* 다 쏘면 배낭 맨 위의 오른손 무기를 뽑아 듭니다. 뽑고 나면 u.gun 이 없어집니다 */
-        if(!u.dry){u.dry=true;say(`${u.name}의 ${u.gun.n} 탄약이 떨어졌다.`);swapToBagWeapon(u)}
-        if(u.gun){u.style="swing";u.range=7;u.atk=u.meleeAtk;u.dmgType=DMG.BLUNT;u.hasW=false}
+        if(!u.dry){u.dry=true;say(`${u.name}의 ${u.gun.bow?"화살":`${u.gun.n} 탄약`}이 떨어졌다.`);swapToBagWeapon(u)}
+        if(u.gun){u.style="swing";u.range=7;u.atk=u.meleeAtk;u.dmgType=DMG.BLUNT;u.hasW=false;u.bow=false}
       }
     }
     if(u.anim){
@@ -2461,17 +2630,45 @@ function tick(dt){
             if(ch)o.chem=(o.chem||0)+1;
             if(bl)knockBack(u,o,rate<1?KNOCK*0.6:KNOCK);
           };
-          hit(a.tgt,1);
-          if(cr)B.fx.push({x:a.tgt.x,y:a.tgt.y-4,t:"치명타",c:"#FF8A3D",life:.9,off:0});
           let swept=0;
-          /* 휘두르기는 반, 산탄총은 무기가 정한 비율만큼 곁에 있던 것들도 맞는다 */
-          const sr=u.style==="swing"?SPLASH_RATE:(u.splash||0);
-          if(sr>0){
-            for(const o of B.foes){
-              if(o===a.tgt||o.hp<=0)continue;
-              if(D(u,o)<u.range+o.r+SPLASH_PAD){hit(o,sr);swept++}
+          if(u.bow){
+            /* ── 활 ──
+               빗나감을 먼저 굴리고, 맞은 것만 회피 판정(hurt)으로 넘깁니다.
+               천궁은 화살이 박힌 자리에서 터져 곁의 것들을 같이 긁습니다. */
+            const shoot=tg=>{
+              if(!tg||tg.hp<=0)return;
+              if(u.miss>0&&Math.random()<u.miss){say(`${u.name}의 화살이 빗나갔다.`);return}
+              const was=tg.hp;
+              hit(tg,1);
+              if(was>0&&tg.hp<=0)G.bowKills=(G.bowKills||0)+1;
+              if(u.boomP>0&&Math.random()<u.boomP){
+                B.fx.push({x:tg.x,y:tg.y-3,t:"폭발",c:"#FF8A3D",life:.8,off:0});
+                for(const o of B.foes){
+                  if(o===tg||o.hp<=0)continue;
+                  if(D(tg,o)<o.r+BOOM_PAD){const w2=o.hp;hit(o,BOOM_RATE);swept++;
+                    if(w2>0&&o.hp<=0)G.bowKills=(G.bowKills||0)+1}
+                }
+              }
+            };
+            shoot(a.tgt);
+            /* 멀티샷 — 화살 한 발로 둘을 뚫습니다. 하나뿐이면 상위만 두 번 쏩니다 */
+            if(u.multi){
+              const rest=B.foes.filter(o=>o.hp>0&&o!==a.tgt);
+              if(rest.length)shoot(rest.reduce((b,o)=>D(u,o)<D(u,b)?o:b));
+              else if(u.multi>=2)shoot(a.tgt);
+            }
+          }else{
+            hit(a.tgt,1);
+            /* 휘두르기는 반, 산탄총은 무기가 정한 비율만큼 곁에 있던 것들도 맞는다 */
+            const sr=u.style==="swing"?SPLASH_RATE:(u.splash||0);
+            if(sr>0){
+              for(const o of B.foes){
+                if(o===a.tgt||o.hp<=0)continue;
+                if(D(u,o)<u.range+o.r+SPLASH_PAD){hit(o,sr);swept++}
+              }
             }
           }
+          if(cr)B.fx.push({x:a.tgt.x,y:a.tgt.y-4,t:"치명타",c:"#FF8A3D",life:.9,off:0});
           say(`${u.name}이(가) ${a.tgt.name}을(를) ${u.style==="gun"?"쐈다":u.dmgType==="찌르기"?"찔렀다":"때렸다"}.`
             +(cr?" 급소에 들어갔다!":"")+(swept?` 옆에 있던 ${swept}체도 휩쓸렸다.`:""));
         }else say(`${u.name}의 공격이 빗나갔다.`);
@@ -3177,6 +3374,14 @@ function finishBattle(){
     }
     G.roster=G.roster.filter(r=>!dead.includes(r));
   }
+  /* 게이트마다 몇 일차까지 치렀는지, 어떤 보스를 넘겼는지 적어 둡니다 —
+     학생회장의 의뢰와 매점의 활 해금이 이 장부를 봅니다 */
+  if(G.mode==="run"){
+    G.gateDay=G.gateDay||{};
+    G.gateDay[G.gate]=Math.max(G.gateDay[G.gate]||0,G.day);
+    G.bossKilled=G.bossKilled||{};
+    for(const f of B.foes)if(f.boss)G.bossKilled[f.key]=true;
+  }
   /* 마지막 날의 보스를 넘겼다 — 이 게이트는 여기서 끝난다 */
   if(G.mode==="run"&&G.day>=gateOf().days&&B.foes.some(f=>f.boss))G.gateClear=true;
   /* 복수전공 해금 — 서로 다른 네 전공이 살아서 10일차를 넘긴 순간 한 번만 */
@@ -3194,6 +3399,14 @@ function finishBattle(){
   if(G.mode==="run"&&!G.gateClear&&B.foes.some(f=>f.boss)){
     G.ground.push({id:"campkit",src:"수확"});
   }
+  /* 응급 키트는 게이트 안에서 어둠 에너지에 먹힙니다 — 전투 한 번마다 굴립니다 */
+  if(G.mode==="run"){
+    let rot=0;
+    for(const a of alive){const r=a.ref;if(!r)continue;
+      r.bag.forEach((id,i)=>{if(id==="medkit"&&Math.random()<KIT_ROT){r.bag[i]="medkitD";rot++}})}
+    if(rot){markSeen("medkitD");
+      popup("응급 키트","응급 키트 아이템이 어둠 에너지에 침식되었습니다.")}
+  }
   G.night=false;
   const results=grantExp(alive.map(a=>a.ref),exp);
   for(const r of results)r.hp0=hp0.has(r.p)?hp0.get(r.p):r.p.hp;
@@ -3207,7 +3420,8 @@ function finishBattle(){
    탄약은 본부에 쌓이지 않고 사람이 배낭에 이고 다닙니다. 한 칸이 한 뭉치이고,
    뭉치 크기는 ITEMS[…].qty 입니다 — 권총 탄약 12발들이면 13발은 두 칸을 씁니다.
    밸런스는 이 뭉치 크기로 잡습니다. */
-const AMMO_ID={pistol:"ammoP",shotgun:"ammoS",rifle:"ammoR"};
+const AMMO_ID={pistol:"ammoP",shotgun:"ammoS",rifle:"ammoR",arrow:"ammoA"};
+const EMPTY_AMMO=()=>({pistol:0,shotgun:0,rifle:0,arrow:0});
 const ammoQty=t=>ITEMS[AMMO_ID[t]].qty;
 const roundsOf=(p,t)=>(p&&p.ammo&&p.ammo[t])||0;
 const ammoSlots=p=>Object.keys(AMMO_ID).reduce((n,t)=>n+Math.ceil(roundsOf(p,t)/ammoQty(t)),0);
@@ -3224,7 +3438,7 @@ const ammoFits=(p,t,n)=>{
   return (Math.ceil(cur/q)*q-cur)+Math.max(0,bagRoom(p))*q>=n;
 };
 function giveAmmo(p,t,n){
-  if(!p.ammo)p.ammo={pistol:0,shotgun:0,rifle:0};
+  if(!p.ammo)p.ammo=EMPTY_AMMO();
   if(!ammoFits(p,t,n))return false;
   p.ammo[t]=roundsOf(p,t)+n;
   G.gunSeen[t]=true;markSeen(AMMO_ID[t]);
@@ -3241,6 +3455,31 @@ function giveItem(p,id){
   if(bagRoom(p)<=0)return false;
   if(it.ammo)G.gunSeen[it.ammo]=true;
   markSeen(id);tipInstItem(id);p.bag.push(id);return true;
+}
+/* 지금 이 사람의 그 칸이 비어 있어 바로 입힐 수 있는가 */
+const canWearNow=(p,id)=>{const it=ITEMS[id];
+  return !!(p&&it&&it.slot&&!p.gear[it.slot]&&canUse(p,it))};
+/* 물건을 사람에게 건네는 한 길목 —
+   ① 입을 수 있고 그 칸이 비었으면 배낭을 거치지 않고 그 자리에서 입힙니다
+   ② 아니면 배낭에 넣습니다.
+   둘 다 안 되면 아무것도 바꾸지 않고 null 을 돌려줍니다. */
+function handTo(p,id){
+  if(canWearNow(p,id)){
+    const it=ITEMS[id];
+    if(tryGear(p,()=>{p.gear[it.slot]=id})){markSeen(id);tipInstItem(id);return "wear"}
+  }
+  if(p&&canTake(p,id)&&giveItem(p,id))return "bag";
+  return null;
+}
+/* 매점에서 산 물건을 어디에 둘지 —
+   혼자 나가는 판이면 창고를 거치지 않고 그 한 사람에게 갑니다. 못 받으면 창고. */
+function buyTo(id){
+  const t=party(), r=t.length===1?t[0]:null;
+  const w=r?handTo(r,id):null;
+  if(!w){G.store[id]=(G.store[id]||0)+1;markSeen(id)}
+  const it=ITEMS[id];
+  if(it.ammo&&G.gunSeen)G.gunSeen[it.ammo]=true;   /* 총·활을 사면 그 탄약이 판매대에 오릅니다 */
+  return w||"store";
 }
 function takeAllGround(list){
   for(const p of list){
@@ -3322,16 +3561,17 @@ function equipFromBag(p,bagIdx){
 /* ─── 어둠 에너지 결정 ───
    그 사람이 지금 지닌 현장 장비(찬 것 + 배낭에 든 것)만 강화 대상입니다.
    이미 강화된 것은 DARK_UP 에 없으므로 두 번 강화되지 않습니다. */
-function darkTargets(p){
+function darkTargets(p,self){
   const out=[];
   for(const s of SLOTS){const id=p.gear[s.k];if(id&&DARK_UP[id])out.push({w:"slot",k:s.k,id,sn:s.n})}
-  p.bag.forEach((id,i)=>{if(DARK_UP[id])out.push({w:"bag",k:i,id,sn:"배낭"})});
+  /* 쓰는 결정 자신은 뺍니다 — 결정 둘이 있으면 서로를 키울 수 있습니다 */
+  p.bag.forEach((id,i)=>{if(DARK_UP[id]&&i!==self)out.push({w:"bag",k:i,id,sn:"배낭"})});
   return out;
 }
 /* 결정 하나로 장비 하나. 같은 칸에 그대로 갈아 끼우므로 벗었다 낄 필요가 없습니다.
    체력 보정이 걸린 장비도 있어 tryGear 로 감쌉니다(문짝 체력 +10 → +16). */
 function darkUse(p,bi,gi){
-  const c=ITEMS[p.bag[bi]], g=darkTargets(p)[gi];
+  const c=ITEMS[p.bag[bi]], g=darkTargets(p,bi)[gi];
   if(!c||!c.crystal||!g)return false;
   const nid=darkId(g.id);
   const ok=tryGear(p,()=>{
@@ -3375,13 +3615,24 @@ function workUse(i){
   toast(`${ITEMS[t.id].n} → ${ITEMS[nid].n}`);
   return true;
 }
+/* 소모품 — 응급 키트(kit)는 최대 체력의 몇 %, 먹을 것은 정해진 만큼 채웁니다.
+   식품공학과 스킬은 먹을 것에만 걸립니다. */
 function useItem(p,bi){
   const it=ITEMS[p.bag[bi]];
   if(!it||!it.use)return;
   const m=derive(p).maxHp;
   if(p.hp>=m)return;
-  p.hp=Math.min(m,p.hp+it.use.hp);
+  const amt=it.use.pct?Math.round(m*it.use.pct)
+                      :Math.round(it.use.hp*(it.kit?1:FOOD_HEAL[foodLv()]));
+  p.hp=Math.min(m,p.hp+amt);
   p.bag.splice(bi,1);
+  if(!it.kit){
+    /* 식품공학과 해금 — 게이트 안에서 응급 키트가 아닌 것으로 회복한 적이 있는가 */
+    if(G.mode==="run")G.foodHeal=true;
+    /* 맛있는 불량식품+ — 나눠 먹은 나머지도 조금 낫습니다 */
+    if(foodLv()>=2)for(const o of party())if(o!==p){
+      const mm=derive(o).maxHp;o.hp=Math.min(mm,o.hp+Math.round(mm*FOOD_SHARE))}
+  }
 }
 function unequip(p,slot){
   const id=p.gear[slot];
@@ -3941,7 +4192,8 @@ function gearLine(p){
    group: 물건을 넘겨줄 수 있는 동료 목록 */
 function invPanel(p,pi,mode,group){
   const warn=G.gearMsg&&G.gearMsg.pi===pi?`<div class="tag" style="margin-top:8px;color:var(--bad)">${G.gearMsg.t}</div>`:"";
-  const atBase=CAMPUS_SCENES.indexOf(G.scene)>=0;   // 창고는 본진에서만 닿습니다
+  /* 창고는 본진에서만 닿습니다 — 출동 명단 확인(confirm)도 아직 문 밖이라 넣을 수 있습니다 */
+  const atBase=CAMPUS_SCENES.indexOf(G.scene)>=0||G.scene==="confirm";
   const mates=(group||[]).filter(r=>r!==p);
   /* 그림이 커지면서 글자리가 좁아졌습니다. 그래서 버튼은 평소에 숨겨 두고,
      줄을 누른 그 줄에서만 아래에 한 줄로 펼칩니다. */
@@ -3957,9 +4209,10 @@ function invPanel(p,pi,mode,group){
         <button class="mini" data-un="${pi}|${s.k}" ${bagRoom(p)<=0?"disabled":""}>내림</button>
         <button class="mini bad" data-dr="${pi}|slot|${s.k}">버림</button></div>`:""}
     </div>`}).join("");
-  const dkt=darkTargets(p);            /* 어둠 에너지 결정으로 강화할 수 있는 것 */
   const bag=p.bag.map((id,bi)=>{
     const it=ITEMS[id];
+    /* 어둠 에너지 결정으로 강화할 수 있는 것 — 줄마다 따로 셉니다(자기 자신은 뺍니다) */
+    const dkt=it.crystal?darkTargets(p,bi):[];
     const canWear=!!it.slot, k=`${pi}|bag|${bi}`, act=mode==="manage";
     const full=p.hp>=derive(p).maxHp;
     return `<div class="slot has ${act?"tap":""} ${on(k)?"open":""}" ${act?`data-sel="${k}"`:""}>
@@ -3968,14 +4221,15 @@ function invPanel(p,pi,mode,group){
       ${act?`<span class="caret">${on(k)?"▴":"▾"}</span>`:""}
       ${act&&on(k)?`<div class="acts">
         ${canWear?`<button class="mini" data-eq="${pi}|${bi}">착용</button>`:""}
-        ${it.use?`<button class="mini" data-use="${pi}|${bi}" ${full?"disabled":""}>먹는다</button>`:""}
-        ${it.crystal?(dkt.length
+        ${it.use?`<button class="mini" data-use="${pi}|${bi}" ${full?"disabled":""}>${it.kit?"쓴다":"먹는다"}</button>`:""}
+        ${it.skill?`<button class="mini dk" data-sc="${pi}|${bi}" ${atBase?"disabled":""}>쓴다</button>`:""}
+        ${it.crystal&&!it.skill?(dkt.length
           ?`<span class="tag">강화할 것</span>${dkt.map((g,gi)=>
               `<button class="mini dk" data-dk="${pi}|${bi}|${gi}">${ITEMS[g.id].n}<small> ${g.sn}</small></button>`).join("")}`
           :`<span class="tag">강화할 현장 장비가 없습니다</span>`):""}
         ${atBase?`<button class="mini" data-st="${pi}|${bi}">창고</button>`:""}
         <button class="mini bad" data-dr="${pi}|bag|${bi}">버림</button>
-        ${mates.map(o=>`<button class="mini" data-mv="${pi}|${bi}|${G.roster.indexOf(o)}" ${bagRoom(o)<=0?"disabled":""}>${o.name} ▸</button>`).join("")}
+        ${mates.map(o=>`<button class="mini" data-mv="${pi}|${bi}|${G.roster.indexOf(o)}" ${(bagRoom(o)>0||canWearNow(o,id))?"":"disabled"}>${o.name} ▸</button>`).join("")}
       </div>`:""}
     </div>`}).join("");
   /* 탄약은 뭉치마다 한 줄씩, 남은 발수를 그림 오른쪽 위에 붙여 보여줍니다.
@@ -4022,6 +4276,13 @@ function bindInv(){
   el.querySelectorAll("[data-mv]").forEach(b=>b.onclick=()=>{G.invSel=null;
     const [fi,bi,ti]=b.dataset.mv.split("|");
     const from=G.roster[+fi],to=G.roster[+ti];
+    const id=from.bag[+bi];
+    /* 받는 쪽의 그 칸이 비어 있으면 배낭을 거치지 않고 바로 입힙니다 */
+    if(canWearNow(to,id)){
+      from.bag.splice(+bi,1);
+      if(!handTo(to,id))to.bag.push(id);
+      from.hp=Math.min(from.hp,derive(from).maxHp);render();return;
+    }
     if(bagRoom(to)<=0)return;
     to.bag.push(from.bag.splice(+bi,1)[0]);
     from.hp=Math.min(from.hp,derive(from).maxHp);render()});
@@ -4031,6 +4292,13 @@ function bindInv(){
     G.store[id]=(G.store[id]||0)+1;G.gearMsg=null;render()});
   el.querySelectorAll("[data-use]").forEach(b=>b.onclick=()=>{G.invSel=null;
     const [pi,bi]=b.dataset.use.split("|");useItem(G.roster[+pi],+bi);render()});
+  /* 어둠 에너지 결정+ — 그 자리에서 힘을 고르는 창이 한 번 열리고 사라집니다 */
+  el.querySelectorAll("[data-sc]").forEach(b=>b.onclick=()=>{G.invSel=null;
+    const [pi,bi]=b.dataset.sc.split("|");const p=G.roster[+pi];
+    if(!(ITEMS[p.bag[+bi]]||{}).skill)return;
+    p.bag.splice(+bi,1);
+    G.skillBack=G.scene;G.skillOffer=null;G.extraNow=true;
+    G.scene="instant";render()});
   el.querySelectorAll("[data-dk]").forEach(b=>b.onclick=()=>{G.invSel=null;
     const [pi,bi,gi]=b.dataset.dk.split("|");
     darkUse(G.roster[+pi],+bi,+gi);G.gearMsg=null;render()});
@@ -4074,8 +4342,92 @@ function allocScreen(p,title,note,after){
     p.hp=Math.min(derive(p).maxHp,p.hp);render()});
   document.getElementById("ok").onclick=()=>{delete p.spent;after()};
 }
-const chips=()=>G.instants.length?`<div class="chips">${G.instants.map(s=>`<span class="chip">${s.n}</span>`).join("")}</div>`:"";
+/* 익힌 힘 — 줄에 마우스를 올리거나 눌러 보면 그 힘이 무엇을 하는지 툴팁으로 나옵니다 */
+/* ── 출동 명단 ── 게이트 화면 맨 위에 고용된 사람을 전부 늘어놓습니다.
+   노랑 = 출동 · 초록 = 입원 · 나머지는 반투명. 이름을 누르면 출동 여부가 바뀝니다. */
+function partyStrip(){
+  const t=party();
+  return `<div class="card"><div class="cardhead"><h2>출동 명단</h2>
+    <span class="tag">${t.length} / ${squadMax()}명</span></div>
+    <div class="chips">${rosterOrder().map(r=>{
+      const cls=r.resting?"rest":t.includes(r)?"on":"off";
+      return `<button class="pickb ${cls}" data-pt="${G.roster.indexOf(r)}"${r.resting?" disabled":""}>${r.name}</button>`;
+    }).join("")}</div></div>`;
+}
+function bindStrip(){
+  el.querySelectorAll("[data-pt]").forEach(b=>b.onclick=()=>{
+    const r=G.roster[+b.dataset.pt];
+    if(r.resting)return;
+    /* 아무도 안 고른 판에서는 party() 가 앞에서부터 자동으로 뽑습니다.
+       한 명을 건드리는 순간 지금 나가는 사람들을 그대로 표로 굳혀 둡니다. */
+    if(!G.roster.some(x=>x.inParty&&!x.resting))for(const x of party())x.inParty=true;
+    if(!r.inParty&&G.roster.filter(x=>x.inParty&&!x.resting).length>=squadMax())return;
+    r.inParty=!r.inParty;render()});
+}
+const chips=()=>G.instants.length?`<div class="chips">${G.instants.map((s,i)=>
+  `<button class="chip${G.chipSel===i?" on":""}" data-chip="${i}">${s.n}<span class="tip">${s.d}</span></button>`
+  ).join("")}</div>`:"";
+function bindChips(){
+  el.querySelectorAll("[data-chip]").forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.chip;G.chipSel=(G.chipSel===i?null:i);render()});
+}
 function pendingUnlock(){return FACILITIES.find(f=>f.cond(G)&&!G.announced.includes(f.id))}
+/* ── 해금 안내 ──
+   화면을 통째로 가로채지 않고 팝업으로 띄웁니다. 본진 화면에 닿는 순간에만 도므로
+   게이트 안에서 조건이 차도 캠퍼스로 돌아온 뒤에야 뜹니다(입학처·응급의학 실습실). */
+function showUnlock(){
+  const f=pendingUnlock();
+  if(!f)return false;
+  G.announced.push(f.id);
+  G.unlockFrom=G.scene;
+  if(f.onUnlock)f.onUnlock();          /* 안내를 닫기 전에 효과부터 겁니다 */
+  const done=()=>{
+    if(G.freeRecruit){G.scene="volunteer";render();return}
+    if(f.introTo){G.hallId=f.introTo;G.scene="hall"}
+    render();
+  };
+  if(f.intro)popupTalk(f.intro,done);          /* 대사로 연출하는 시설 */
+  else popup(`${f.ic} ${f.n}`,f.msg,"확인",done,true);
+  return true;
+}
+/* ── 캠퍼스로 돌아왔을 때 한 번씩 알리는 것들 ──
+   조건은 게이트 안에서 차지만, 알림은 문을 나선 뒤에 뜹니다.
+   해금 안내창이 떠 있으면 그것부터 닫게 두고 다음 그리기에서 다시 봅니다. */
+function campusNotes(){
+  if(document.querySelector(".pop"))return;
+  if(!G.bowOpen&&(G.gateDay||{}).front>=BOW_OPEN_DAY&&G.explores>=BOW_OPEN_EXP){
+    G.bowOpen=true;
+    popup("소문","학생회에는 다양한 취미와 좋은 손재주를 가진 학생들이 있습니다. 그들이 기어코 활을 만들었다는 소문이 들립니다. 매점에서 팔 지도 모릅니다.");
+    return;
+  }
+  G.tips=G.tips||{};
+  if(G.foodHeal&&!G.tips.majFood){
+    G.tips.majFood=true;
+    popup("이공대학","이공대학에서 식품공학과 전공을 고를 수 있게 되었습니다.");
+  }
+}
+/* 활을 처음 산 날 — 총무가 화살 한 통을 얹어 줍니다 */
+function bowGift(){
+  popupTalk([
+    ["pc","이게 학생회의 장인들이 제작한 활인가요?"],
+    ["shop","장인은 모르겠고 건프라 만들기 좋아하는 애랑, 고고학 좋아하는 애랑, 뭐 재료공학과 애랑 몇몇이 한참 매달리긴 했어요."],
+    ["na","말을 마친 총무는 갑자기 생각났다는 듯 무언가를 내민다."],
+    ["shop","여기, 화살이에요."],
+    ["na","화살 30개를 받았다."],
+    ["pc","공짜로 주는거에요?"],
+    ["shop","화살도 없이 활을 쏠 수는 없으니까. 첫 구매 서비스라고 생각해요. 나중에 화살을 더 만들면 매점에서 팔테니 돈 챙겨 오세요."],
+    ["pc","테스트용 샘플같은 개념이었군."],
+  ],()=>{
+    /* 활을 가진 사람의 배낭으로. 자리가 없으면 창고로 */
+    const has=r=>["bow","bow+"].includes(r.gear.rh)||r.bag.some(id=>id==="bow"||id==="bow+");
+    const who=G.roster.find(has);
+    if(!who||!giveAmmo(who,"arrow",ITEMS.ammoA.qty)){
+      G.store.ammoA=(G.store.ammoA||0)+1;markSeen("ammoA");
+    }
+    G.gunSeen.arrow=true;
+    render();
+  });
+}
 const lootTotal=()=>Object.entries(G.loot).reduce((s,[id,n])=>s+ITEMS[id].price*n,0);
 /* 감정 — 가중치대로 하나를 뽑아 확정 물건으로 바꿉니다 */
 function appraise(id){
@@ -4113,10 +4465,7 @@ function render(){
   let S=G.scene;
   if(S!=="spidergame"&&S!=="stargame"&&S!=="huntgame")arcadeStop();
   if(S!=="title")titleStop();
-  if(CAMPUS_SCENES.includes(S)){
-    const nf=pendingUnlock();
-    if(nf){G.unlockFrom=S;G.unlockId=nf.id;G.introStep=0;S=G.scene="unlocked"}
-  }
+  if(CAMPUS_SCENES.includes(S)){showUnlock();if(S==="campus")campusNotes()}
   const p=G.player;
 
   if(S==="title"){
@@ -4171,39 +4520,6 @@ function render(){
   }
   if(SAVE_SCENES.indexOf(S)>=0)saveGame();   // 안전한 화면에 닿을 때마다 기록한다
 
-  if(S==="unlocked"){
-    const f=FACILITIES.find(x=>x.id===G.unlockId);
-    const finish=()=>{
-      G.introStep=0;
-      G.announced.push(f.id);
-      if(f.onUnlock)f.onUnlock();
-      if(G.freeRecruit)G.scene="volunteer";
-      else if(f.introTo){G.hallId=f.introTo;G.scene="hall"}   // 대사 뒤엔 건물 안으로
-      else G.scene=G.unlockFrom||"campus";
-      render()};
-    if(f.intro){                       // 안내문 대신 대사로 연출하는 시설
-      const i=G.introStep||0,ln=f.intro[i],last=i>=f.intro.length-1;
-      const pc=G.roster[0]||G.player;
-      let body;
-      if(ln[0]==="na")        body=`<p>${ln[1]}</p>`;
-      else if(ln[0]==="pc")   body=`<div class="npc">${pc.face?`<div class="face img"><img src="${artUrl(pc.face)}" alt=""></div>`:`<div class="face">🙂</div>`}<div class="who"><b>${pc.name}</b><span>게이트 생환자</span></div></div><p class="say">${ln[1]}</p>`;
-      else                    body=`${npcHead(ln[0])}<p class="say">${ln[1]}</p>`;
-      el.innerHTML=logo+`
-        <div class="bar"><span class="tag">캠퍼스</span><span class="tag">새로 열림</span></div>
-        <div class="card" style="border-color:var(--mark)">${body}</div>
-        <div class="bar"><button class="ghost" id="sk">건너뛴다</button>
-        <button id="nx">${last?"확인":"계속"}</button></div>`;
-      document.getElementById("nx").onclick=()=>{if(last)finish();else{G.introStep=i+1;render()}};
-      document.getElementById("sk").onclick=finish;
-      return;
-    }
-    el.innerHTML=logo+`
-      <div class="bar"><span class="tag">캠퍼스</span><span class="tag">새로 열림</span></div>
-      <div class="card" style="border-color:var(--mark)"><h2>${f.ic} ${f.n}</h2><p>${f.msg}</p></div>
-      <div class="bar"><span class="tag"></span><button id="ok">확인</button></div>`;
-    document.getElementById("ok").onclick=finish;
-    return;
-  }
   if(S==="volunteer"){
     const v=G.freeRecruit;
     el.innerHTML=logo+`
@@ -4272,18 +4588,22 @@ function render(){
         :`<div class="card"><h2>더 열리는 것이 없습니다</h2><p>이 게이트에서 고를 수 있는 힘을 전부 익혔습니다.</p></div>`}
       ${chips()}
       <div class="bar">
-        ${tut?`<span class="tag"></span>`:`<button class="ghost" id="home">캠퍼스로</button>`}
-        ${(tut||!G.skillOffer.length)?`<button id="skip">계속</button>`:`<span class="tag"></span>`}</div>`;
+        ${(tut||G.skillBack)?`<span class="tag"></span>`:`<button class="ghost" id="home">캠퍼스로</button>`}
+        ${(tut||G.skillBack||!G.skillOffer.length)?`<button id="skip">계속</button>`:`<span class="tag"></span>`}</div>`;
     /* 캠프파이어에서 수련을 골랐으면 그 아침에만 한 번 더 고릅니다 */
     const go=()=>{
       if(G.extraSkill&&!tut&&G.skillOffer.length){
         G.extraSkill=false;G.extraNow=true;G.skillOffer=null;render();return}
       G.extraSkill=false;G.extraNow=false;
-      G.skillOffer=null;G.scene=tut?"tutplace":"encounter";render()};
+      G.skillOffer=null;
+      /* 어둠 에너지 결정+ 로 연 창이면 원래 있던 화면으로 돌아갑니다 */
+      if(G.skillBack){const b=G.skillBack;G.skillBack=null;G.scene=b;render();return}
+      G.scene=tut?"tutplace":"encounter";render()};
     el.querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>{learnSkill(G.skillOffer[+b.dataset.s]);go()});
     const sk=document.getElementById("skip"); if(sk)sk.onclick=go;
     const hm=document.getElementById("home");
     if(hm)hm.onclick=()=>{G.skillOffer=null;G.scene="retreat";render()};
+    bindChips();
     return;
   }
   if(S==="tutplace"){
@@ -4311,7 +4631,6 @@ function render(){
     el.innerHTML=logo+`
       <div class="bar"><span class="tag">${G.gateName} · <b>${G.day}</b>일차</span>
       <span class="tag">가방 ${t.reduce((s,r)=>s+r.bag.length+ammoSlots(r),0)} / ${t.length*BAG_MAX}</span></div>
-      <div class="tag">탄약 · ${ammoLine()}</div>
       ${chips()}
       <div class="card"><h2>어디로 갈까</h2>${(()=>{
         /* 할 말이 없는 날은 문단째 안 그립니다 */
@@ -4337,6 +4656,7 @@ function render(){
       enterBattle(party(),rollEncounter(G.day,pl.risk,party().length))});
     document.getElementById("pass").onclick=()=>nextDay();
     document.getElementById("out").onclick=()=>{G.scene="retreat";render()};
+    bindChips();
     return;
   }
   if(S==="battleload"){
@@ -4533,13 +4853,15 @@ function render(){
       a+(ITEMS[id].kind==="junk"?ITEMS[id].price:0),0),0);
     const mystN=(tut?[p]:G.roster).reduce((s,r)=>s+r.bag.filter(id=>ITEMS[id].mystery).length,0);
     const cleared=!tut&&G.gateClear;
+    /* 아직 전투를 시작하지 않은 일차는 세지 않습니다 — 2일차를 마치고 나서면 '2일차까지' */
+    const held=Math.max(1,G.dayOn?G.day:G.day-1);
     const nextG=cleared?GATES.find(g=>g.need===gateOf().id):null;
     el.innerHTML=logo+`<div class="card"><h2>${tut?"일단 물러난다":cleared?"게이트가 닫힌다":"게이트를 나선다"}</h2>
       <p>${tut?"고작 벌레 두 마리였는데 손이 떨린다. 더 안쪽에는 무엇이 있을지 가늠이 되지 않는다.<br><br>두려움을 느낀 당신은 일단 귀환하기로 한다.":
         cleared?`${gateOf().n}의 가장 안쪽에 있던 것이 쓰러졌습니다. 문이 스스로 오므라들고, 당신들은 밖으로 밀려납니다.`
           +(nextG?`<br><br><b style="color:var(--gate)">${nextG.n}</b>가 열렸습니다.`:"")
           +`<br><br>몸에 붙었던 요령과 현장에서 주운 것들은 문을 나서는 순간 사라집니다.`:
-        `${G.day}일차까지 버텼습니다. 몸에 붙었던 요령과 현장에서 주운 것들은 문을 나서는 순간 사라집니다.`}</p></div>
+        `${held}일차까지 버텼습니다. 몸에 붙었던 요령과 현장에서 주운 것들은 문을 나서는 순간 사라집니다.`}</p></div>
       <div class="card"><h2>가지고 나갈 것</h2>
       <div class="derived">팔 수 있는 잡화 <b>${junkVal}</b> 골드어치${mystN?` · 감정할 물건 <b>${mystN}</b>개`:""}${keep.length?` · 반출품 <b>${keep.join(", ")}</b>`:""}</div>
       ${lose.length?`<div class="tag" style="margin-top:8px;color:var(--bad)">사라짐 · ${lose.join(", ")}</div>`:""}</div>
@@ -4571,7 +4893,7 @@ function render(){
         }
         r.hp=Math.min(m,r.hp+Math.round(m*rate));
       }
-      G.fought=false;G.instants=[];G.day=1;G.offer=null;G.here=null;G.ground=[];
+      G.fought=false;G.instants=[];G.day=1;G.dayOn=false;G.skillBack=null;G.offer=null;G.here=null;G.ground=[];
       G.extraSkill=false;G.extraNow=false;G.night=false;
       G.scene=tut?"briefing":"campus";render()};
     return;
@@ -4600,7 +4922,7 @@ function render(){
     const id=G.talkFor,np=NPCS[id],ls=np.first,last=G.talkLine>=ls.length-1;
     el.innerHTML=logo+`
       <div class="bar"><span class="tag">${np.role}</span><span class="tag">${G.talkLine+1} / ${ls.length}</span></div>
-      <div class="card">${npcHead(id)}<p class="say">${ls[G.talkLine]}</p></div>
+      <div class="card">${sayBlock(ls[G.talkLine],id)}</div>
       <div class="bar"><button class="ghost" id="sk">건너뛴다</button><button id="nx">${last?"들어간다":"계속"}</button></div>`;
     const go=()=>{G.metNpc[id]=true;G.npcSay=pick(np.again);G.npcSayFor=id;G.scene=G.talkNext;render()};
     document.getElementById("nx").onclick=()=>{if(last)go();else{G.talkLine++;render()}};
@@ -4619,12 +4941,19 @@ function render(){
       ${G.mapMsg?`<div class="tag" style="color:var(--dim)">${G.mapMsg}</div>`:""}
       <div class="card"><h2>명단 · ${G.roster.length}명</h2>
       ${G.bedKick?`<div class="tag" style="color:var(--bad);margin-bottom:8px">골드가 모자라 ${G.bedKick}이(가) 퇴원했습니다</div>`:""}
-      ${G.roster.map(r=>{
-        const on=party().includes(r);
+      ${rosterOrder().map(r=>{
+        const on=party().includes(r), ri=G.roster.indexOf(r);
+        /* 입원 중인 사람은 얼굴과 체력만 — 나머지는 눌러야 펼쳐집니다 */
+        const open=!r.resting||G.restOpen===ri;
         const st=r.resting?'<span style="color:var(--ok)">입원</span>':on?'<span style="color:var(--mark)">출동</span>':"대기";
         return `<div class="app ${r.resting?"":on?"sel":"out"}">
           ${faceTag(r)}<div class="hd"><b>${r.name}</b><span>${st} · ${majorName(r)} · Lv ${r.lvl}</span></div>
-          ${hpLine(r)}${statGrid(r)}${invPanel(r,G.roster.indexOf(r),"manage",G.roster)}${gearLine(r)}${expBar(r)}</div>`}).join("")}</div>`;
+          ${hpLine(r)}
+          ${open?`${statGrid(r)}${invPanel(r,ri,"manage",G.roster)}${gearLine(r)}${expBar(r)}`:""}
+          ${r.resting?`<div class="bar" style="margin-top:9px"><span class="tag"></span>
+            <button class="ghost" data-rop="${ri}">${open?"접기":"펼치기"}</button></div>`:""}</div>`}).join("")}</div>`;
+    el.querySelectorAll("[data-rop]").forEach(b=>b.onclick=()=>{
+      const i=+b.dataset.rop;G.restOpen=(G.restOpen===i?null:i);render()});
     bindInv();
     el.querySelectorAll("[data-b]").forEach(bt=>bt.onclick=()=>{
       const b=BUILDINGS.find(x=>x.id===bt.dataset.b);
@@ -4825,11 +5154,11 @@ function render(){
         ${who?compareLine(who,id):""}</div>
         <span class="caret">${o?"▴":"▾"}</span>
         ${o?`<div class="acts"><span class="tag">누구에게</span>
-          <div class="chips">${G.roster.map((r,i)=>`<button class="pickb" data-hand="${id}|${i}" ${canTake(r,id)?"":"disabled"}>${r.name}</button>`).join("")}</div>
+          <div class="chips">${G.roster.filter(r=>!r.resting).map(r=>`<button class="pickb" data-hand="${id}|${G.roster.indexOf(r)}" ${(canTake(r,id)||canWearNow(r,id))?"":"disabled"}>${r.name}</button>`).join("")}</div>
         </div>`:""}</div>`}).join("")||`<div class="tag" style="margin-top:10px">창고가 비었습니다.</div>`}
       </div>
-      ${G.roster.map(r=>`<div class="app">${faceTag(r)}<div class="hd"><b>${r.name}</b><span>${majorName(r)} · Lv ${r.lvl}</span></div>
-        ${invPanel(r,G.roster.indexOf(r),"manage",G.roster)}${gearLine(r)}</div>`).join("")}
+      ${G.roster.filter(r=>!r.resting).map(r=>`<div class="app">${faceTag(r)}<div class="hd"><b>${r.name}</b><span>${majorName(r)} · Lv ${r.lvl}</span></div>
+        ${hpLine(r)}${invPanel(r,G.roster.indexOf(r),"manage",G.roster.filter(x=>!x.resting))}${gearLine(r)}</div>`).join("")}
       <div class="bar"><span class="tag"></span><button class="ghost" id="bk">캠퍼스로</button></div>`;
     el.querySelectorAll("[data-who]").forEach(b=>b.onclick=()=>{
       G.shopWho=+b.dataset.who;render()});
@@ -4842,19 +5171,25 @@ function render(){
     el.querySelectorAll("[data-buy]").forEach(b=>b.onclick=()=>{
       const it=ITEMS[b.dataset.buy];if(G.gold<it.price)return;
       if(G.shopSold.includes(it.id))return;
-      G.gold-=it.price;markSeen(it.id);G.store[it.id]=(G.store[it.id]||0)+1;
+      G.gold-=it.price;
+      /* 혼자 나갈 때는 창고를 거치지 않고 곧바로 그 사람에게 갑니다 (칸이 비었으면 입기까지) */
+      buyTo(it.id);
       G.shopSold.push(it.id);G.rowSel=null;        // 팔린 줄은 사라집니다
       if(G.capFrom==null)G.capFrom=G.explores+1;   // 첫 구매 — 다음 탐색부터 야구모자
+      /* 활은 첫 구매 때만 총무가 화살을 얹어 줍니다 */
+      if(it.id==="bow"&&!G.bowBought){G.bowBought=true;bowGift()}
       markTap(`[data-buy="${it.id}"]`,it.price);render()});
     el.querySelectorAll("[data-ammo]").forEach(b=>b.onclick=()=>{
       const it=ITEMS[b.dataset.ammo];if(G.gold<it.price)return;
-      G.gold-=it.price;markSeen(it.id);G.store[it.id]=(G.store[it.id]||0)+1;
+      G.gold-=it.price;buyTo(it.id);
       if(G.capFrom==null)G.capFrom=G.explores+1;
       markTap(`[data-ammo="${it.id}"]`,it.price);render()});
     el.querySelectorAll("[data-hand]").forEach(b=>b.onclick=()=>{G.rowSel=null;
       const [id,i]=b.dataset.hand.split("|");const r=G.roster[+i];
-      if(!giveItem(r,id))return;
-      G.store[id]--;render()});
+      if(!(G.store[id]>0))return;
+      if(!handTo(r,id))return;                     /* 못 받으면 창고에 그대로 둡니다 */
+      G.store[id]--; if(G.store[id]<=0)delete G.store[id];
+      render()});
     bindInv();
     document.getElementById("bk").onclick=()=>{G.scene="campus";render()};
     playTap();
@@ -4886,25 +5221,29 @@ function render(){
     document.getElementById("bk").onclick=()=>{G.scene="campus";render()};
     return;
   }
+  /* ── 학생회관 · 학생회장의 의뢰 ──
+     파티 편성은 게이트 화면으로 옮겼습니다. 여기는 부탁과 보상만 다룹니다. */
   if(S==="union"){
-    const sel=G.roster.filter(r=>r.inParty&&!r.resting).length;
     el.innerHTML=logo+`
-      <div class="bar"><span class="tag">학생회관</span><span class="tag">선발 <b>${Math.min(sel,squadMax())}</b> / ${squadMax()}명</span></div>
+      <div class="bar"><span class="tag">학생회관</span><span class="tag">골드 <b>${G.gold}</b></span></div>
       ${npcBar("union")}
-      <div class="card"><h2>파티 편성과 장비</h2></div>
-      ${G.roster.map((r,i)=>`<div class="app ${r.resting?"out":r.inParty?"sel":"out"}">
-        ${faceTag(r)}<div class="hd"><b>${r.name}</b><span>${r.resting?"입원 중":r.inParty?"출동":"대기"} · ${majorName(r)} · Lv ${r.lvl}</span></div>
-        ${hpLine(r)}${statGrid(r)}${invPanel(r,i,"manage",G.roster)}${gearLine(r)}
-        <div class="bar" style="margin-top:9px"><span class="tag"></span>
-        <button class="ghost" data-t="${i}" ${r.resting||(!r.inParty&&sel>=squadMax())?"disabled":""}>${r.inParty?"대기시킨다":"출동시킨다"}</button></div>
-      </div>`).join("")}
+      <div class="card"><h2>부탁해 둔 것</h2></div>
+      ${QUESTS.map((q,i)=>{const ok=q.done(G),got=questGot(q);
+        return `<div class="card"${got?"":ok?' style="border-color:var(--mark)"':""}>
+          <h2>${q.n}</h2><p>${q.d}</p>
+          <div class="bar" style="margin-top:11px">
+          <span class="tag">사례 · <b>${ITEMS[q.give].n}</b></span>
+          ${got?`<span class="tag" style="color:var(--ok)">받았습니다</span>`
+            :ok?`<button data-q="${i}">사례를 받는다</button>`
+               :`<span class="tag">아직입니다</span>`}</div></div>`}).join("")}
       <div class="bar"><span class="tag"></span><button class="ghost" id="bk">캠퍼스로</button></div>`;
-    el.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{
-      const r=G.roster[+b.dataset.t];
-      if(r.resting)return;
-      if(!r.inParty&&G.roster.filter(x=>x.inParty&&!x.resting).length>=squadMax())return;
-      r.inParty=!r.inParty;render()});
-    bindInv();
+    el.querySelectorAll("[data-q]").forEach(b=>b.onclick=()=>{
+      const q=QUESTS[+b.dataset.q];
+      if(!q.done(G)||questGot(q))return;
+      (G.questDone=G.questDone||[]).push(q.id);
+      G.store[q.give]=(G.store[q.give]||0)+1;markSeen(q.give);
+      popup("사례",`${ITEMS[q.give].n}을(를) 창고에 넣었습니다.`,"확인",()=>render());
+      render()});
     document.getElementById("bk").onclick=()=>{G.scene="campus";render()};
     return;
   }
@@ -4914,6 +5253,8 @@ function render(){
     const inBeds=G.roster.filter(r=>r.resting);
     const free=beds-inBeds.length;
     const cost=bedCost();
+    /* 응급 키트는 한 번 사면 탐색을 두 번 다녀와야 다시 들어옵니다 */
+    const kitOk=G.kitFrom==null||G.explores>=G.kitFrom;
     el.innerHTML=logo+`
       <div class="bar"><span class="tag">응급의학 실습실 · 침상 ${beds}개 (${free}개 빔)</span><span class="tag">골드 <b>${G.gold}</b></span></div>
       ${npcBar("clinic")}
@@ -4935,10 +5276,13 @@ function render(){
         `<div class="tag" style="margin-top:11px;color:var(--mark)">침상이 다 찼습니다.</div>`}</div>
       <div class="card"><h2>침상 증설</h2>
       ${beds>=BED_MAX?`<p>${BED_MAX}개가 한계입니다. 더 들일 자리가 없습니다.</p>`
-       :`<p>안 쓰는 교실을 하나 더 틔웁니다. 다음 침상은 <b>${cost}</b> 골드,
-         그 뒤로는 ${BED_COST.slice(beds).map(c=>c+"골드").join(" → ")} 순으로 오릅니다.</p>
-         <div class="bar" style="margin-top:10px"><span class="tag">지금 ${beds}개 → ${beds+1}개</span>
+       :`<div class="bar" style="margin-top:10px"><span class="tag">지금 ${beds}개 → ${beds+1}개</span>
          <button id="up" ${G.gold<cost?"disabled":""}>${cost} 골드로 늘린다</button></div>`}</div>
+      ${G.bedUsed?`<div class="card"><h2>응급 키트</h2>
+      <p>${ITEMS.medkit.d}</p>
+      ${kitOk?`<div class="bar" style="margin-top:10px"><span class="tag">창고로 들어갑니다</span>
+        <button id="buykit" ${G.gold<KIT_COST?"disabled":""}>${KIT_COST} 골드에 산다</button></div>`
+       :`<div class="tag" style="margin-top:10px">지금은 내줄 것이 없습니다.</div>`}</div>`:""}
       <div class="card"><h2>대기실</h2>
       ${G.roster.filter(r=>!r.resting).map(r=>{
         const m=derive(r).maxHp,pct=Math.round(r.hp/m*100);
@@ -4948,7 +5292,16 @@ function render(){
           <button data-bed="${G.roster.indexOf(r)}" ${free<=0||pct>=100?"disabled":""}>눕힌다</button></div></div>`}).join("")}</div>
       <div class="bar"><span class="tag"></span><button class="ghost" id="bk">캠퍼스로</button></div>`;
     el.querySelectorAll("[data-bed]").forEach(b=>b.onclick=()=>{
-      const r=G.roster[+b.dataset.bed];r.resting=true;r.inParty=false;logAdd(r,"응급의학 실습실 입원");render()});
+      const r=G.roster[+b.dataset.bed];r.resting=true;r.inParty=false;
+      G.bedUsed=true;                     /* 침상을 한 번 쓰면 응급 키트를 내줍니다 */
+      logAdd(r,"응급의학 실습실 입원");render()});
+    const bk2=document.getElementById("buykit");
+    if(bk2)bk2.onclick=()=>{
+      if(G.gold<KIT_COST||!kitOk)return;
+      G.gold-=KIT_COST;G.store.medkit=(G.store.medkit||0)+1;markSeen("medkit");
+      G.kitFrom=G.explores+KIT_WAIT;
+      popup("응급 키트","응급 키트를 창고에 넣었습니다.","확인",()=>render());
+      render()};
     el.querySelectorAll("[data-strip]").forEach(b=>b.onclick=()=>{
       const ri=+b.dataset.strip,p=G.roster[ri],r=stripGear(p);
       G.stripMsg={pi:ri,t:`${p.name}의 장비 ${r.moved}점을 창고로 옮겼습니다.`
@@ -5167,7 +5520,8 @@ function render(){
   if(S==="gates"){
     const done=G.cleared||[];
     el.innerHTML=logo+`
-      <div class="bar"><span class="tag">게이트 선택</span><span class="tag">출동 <b>${party().length}</b> / ${squadMax()}명</span></div>
+      <div class="bar"><span class="tag">게이트 선택</span><span class="tag">골드 <b>${G.gold}</b></span></div>
+      ${partyStrip()}
       <div class="card"><h2>입장할 게이트를 고르세요.</h2></div>
       <div class="bldbg" ${BLD_ART.gate?`style="background-image:url('${artUrl(BLD_ART.gate)}')"`:""}>
       ${GATES.map((g,i)=>{
@@ -5183,14 +5537,15 @@ function render(){
     el.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{
       G.picked=GATES[+b.dataset.g].id;G.pickedGate=GATES[+b.dataset.g].n;
       G.scene="confirm";render()});
+    bindStrip();
     document.getElementById("bk").onclick=()=>{G.scene="campus";render()};
     return;
   }
   if(S==="confirm"){
     const t=party();
     el.innerHTML=logo+`
-      <div class="bar"><span class="tag">${G.pickedGate}</span><span class="tag">출동 <b>${t.length}</b> / ${squadMax()}명</span></div>
-      <div class="card"><h2>출동 명단 확인</h2></div>
+      <div class="bar"><span class="tag">${G.pickedGate}</span><span class="tag">골드 <b>${G.gold}</b></span></div>
+      ${partyStrip()}
       ${t.map(r=>`<div class="app">${faceTag(r)}<div class="hd"><b>${r.name}</b>
         <span>${r.major?majorOf(r.major).n:"새내기"} · Lv ${r.lvl}</span></div>
         ${statGrid(r)}${invPanel(r,G.roster.indexOf(r),"manage",t)}${gearLine(r)}${hpLine(r)}</div>`).join("")}
@@ -5204,20 +5559,20 @@ function render(){
         <div><b>${ITEMS[id].kind==="ammo"?itemIconN(id,ITEMS[id].qty):itemIcon(id)}${ITEMS[id].n}</b> × ${n}<br><span class="tag">${ITEMS[id].d}</span></div>
         <span class="caret">${o?"▴":"▾"}</span>
         ${o?`<div class="acts"><span class="tag">누구에게</span>
-          <div class="chips">${t.map(r=>`<button class="pickb" data-hand="${id}|${G.roster.indexOf(r)}" ${canTake(r,id)?"":"disabled"}>${r.name}</button>`).join("")}</div>
+          <div class="chips">${t.map(r=>`<button class="pickb" data-hand="${id}|${G.roster.indexOf(r)}" ${(canTake(r,id)||canWearNow(r,id))?"":"disabled"}>${r.name}</button>`).join("")}</div>
         </div>`:""}</div>`}).join("")||`<div class="tag" style="margin-top:10px">창고가 비었습니다.</div>`}</div>
       <div class="card"><h2>정말 들어가시겠습니까?</h2>
       <p>${G.pickedGate} 안쪽은 아직 아무도 지도를 그리지 못했습니다.</p></div>
       <div class="bar"><button class="ghost" id="no">아니오</button><button id="yes">들어간다</button></div>`;
     el.querySelectorAll("[data-hand]").forEach(b=>b.onclick=()=>{G.rowSel=null;
       const [id,i]=b.dataset.hand.split("|");const r=G.roster[+i];
-      if(!(G.store[id]>0)||!giveItem(r,id))return;
+      if(!(G.store[id]>0)||!handTo(r,id))return;
       G.store[id]--; if(G.store[id]<=0)delete G.store[id];
       render()});
-    bindInv();
+    bindInv();bindStrip();
     document.getElementById("no").onclick=()=>{G.scene="gates";render()};
     document.getElementById("yes").onclick=()=>{
-      G.mode="run";G.day=1;G.instants=[];G.offer=null;G.ground=[];G.sel=null;
+      G.mode="run";G.day=1;G.dayOn=false;G.instants=[];G.offer=null;G.ground=[];G.sel=null;
       G.extraSkill=false;G.extraNow=false;G.night=false;
       G.gate=G.picked||"front";G.gateClear=false;
       G.gateName=G.pickedGate;G.scene="gateforce";render()};
