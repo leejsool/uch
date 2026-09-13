@@ -405,6 +405,8 @@ const MAJORS=[
   {id:"mech",   n:"기계공학과",   d:"손에 잡히는 것은 뜯어 고칩니다"},
   {id:"bio",    n:"생명공학과",   d:"몸이 무엇으로 되어 있는지 압니다"},
   {id:"food",   n:"식품공학과",   d:"먹을 것을 압니다"},
+  /* 사범대학 계열 */
+  {id:"elem",   n:"초등교육과",   d:"가르치는 법을 압니다"},
 ];
 /* ── 이공대학 계열 전공이 열리는 조건 ──
    이 조건은 게임 안 어디에도 적지 않습니다. 우연히 열리는 것이 이 건물의 연출입니다.
@@ -416,9 +418,40 @@ const SCI_MAJORS=[
   {id:"bio",  open:g=>(g.cleared||[]).includes("front")},
   /* 식품공학과만은 열린 것을 알려 줍니다 — 게이트 안에서 무언가를 먹고 돌아오면 팝업이 뜹니다 */
   {id:"food", open:g=>!!g.foodHeal},
+  /* 건축학과 — 게이트 안에서 서로 다른 장소 6곳에 들어가 봤을 때 (G.placesSeen, 방 id 기준) */
+  {id:"arch", open:g=>(g.placesSeen||[]).length>=ARCH_PLACES},
 ];
+const ARCH_PLACES=6;
 const sciOpen=g=>SCI_MAJORS.filter(m=>m.open(g)).map(m=>m.id);
+/* 도서관 서가 — {n:제목, d:본문}. 한 권씩 채워 넣으면 도서관에 그대로 꽂힙니다 */
+const LIBRARY=[];
 const SCI_IDS=SCI_MAJORS.map(m=>m.id);
+/* ── 인문사회대학 계열 전공이 열리는 조건 ── 이공대학과 같은 방식입니다.
+   하나라도 차면 건물이 열리고, 학과사무실과 도서관이 같이 켜집니다. */
+const HUM_MAJORS=[
+  {id:"lib",  open:g=>["planner","ballpen"].every(k=>!!(g.itemSeen||{})[k])},   /* 다이어리 · 볼펜 */
+  /* 철학과 — 소주를 마셔 본 적이 있고 Lv2 대원이 있을 때. 열리면 캠퍼스에서 팝업(campusNotes) */
+  {id:"phil", open:g=>!!g.sojuDrunk&&topLvl(g)>=MAJOR_LV},
+];
+const SOJU={atk:3,aspdM:1.10,miss:0.20};   /* 소주 한 병의 취기 — 다음 전투 한 번 */
+const humOpen=g=>HUM_MAJORS.filter(m=>m.open(g)).map(m=>m.id);
+/* ── 사범대학 계열 전공이 열리는 조건 ── 같은 방식입니다.
+   아직 비어 있어 건물은 잠긴 채입니다. {id, open:g=>…} 한 줄을 넣으면 그 조건으로 열립니다. */
+const EDU_MAJORS=[
+  /* 초등교육과 — 서로 다른 전공이 4개 이상 열렸을 때 (사범대학 자신은 세지 않습니다) */
+  {id:"elem", open:g=>openMajorsElsewhere(g).length>=ELEM_MAJORS},
+];
+const ELEM_MAJORS=4;
+/* 사범대학을 뺀, 문이 열린 학과사무실들이 지금 내놓는 전공 전부 */
+function openMajorsElsewhere(g){
+  const s=new Set();
+  for(const f of FACILITIES){
+    if(f.id==="deptEdu"||!(f.majors||f.major)||!f.cond(g))continue;
+    for(const m of (f.majors?f.majors(g):[f.major]))s.add(m);
+  }
+  return [...s];
+}
+const eduOpen=g=>EDU_MAJORS.filter(m=>m.open(g)).map(m=>m.id);
 /* 실습동은 이공계 전공을 실제로 **정한 대원**이 있어야 돌아갑니다 (열려 있기만 한 것과 다릅니다) */
 const hasSciMajor=g=>(g.roster||[]).some(r=>majorsOf(r).some(m=>SCI_IDS.includes(m)));
 const WORK_OPEN=200;    /* 실습동이 돌아가는 데 필요한 지금 가진 골드 */
@@ -466,6 +499,7 @@ const TRANSFER_KINDS=3;                  /* 전과가 열리는 전공 가짓수
 const transferCost=r=>50*((r.transfers||0)+1);
 const DUAL_DAY=10, DUAL_COST=200, DUAL_PARTY=4;   /* 복수전공 해금과 값 */
 const GUN_MAJORS=["soldier","police","mil"];
+const SOLDIER_KILLS=10;   /* 군인 전공 — 총으로 쓰러뜨려야 하는 수 */
 /* 파티에서 가장 높은 레벨 — 학과사무실 해금에 씁니다 */
 const topLvl=g=>Math.max(1,...(g.roster||[]).map(r=>r.lvl));
 const canUse=(p,it)=>!it.req||majorsOf(p).some(m=>it.req.includes(m));
@@ -580,7 +614,9 @@ const ITEMS={
   jacket:{n:"학과 점퍼",slot:"top",kind:"perm",guard:1,hp:8,price:10,d:"피해 −1, 체력 +8"},
   /* ── 잡화 ── */
   tuna:{n:"참치캔",kind:"junk",price:25,use:{hp:20},d:"먹으면 체력 20 회복 · 팔면 25 골드"},
-  soju:{n:"소주",kind:"junk",price:30,d:"팔면 30 골드"},
+  /* 소주 — 마시면 다음 전투 한 번 동안 취기가 남습니다(p.drunk → makeFighter) */
+  soju:{n:"소주",kind:"junk",price:30,use:{hp:15,drunk:true},
+    d:"마시면 체력 15 회복 · 다음 전투 공격력 +3, 공속 +10%, 빗나감 +20% · 팔면 30 골드"},
   oldbook:{n:"헌책",kind:"junk",price:15,d:"팔면 15 골드"},
   balm:{n:"립밤",kind:"junk",price:20,d:"팔면 20 골드"},
   tcard:{n:"교통카드",kind:"junk",price:40,d:"팔면 40 골드"},
@@ -786,6 +822,8 @@ const nightPlace=()=>PLACES.find(p=>p.night);
 function markSeen(id){if(id&&G&&G.itemSeen)G.itemSeen[id]=true}
 const itemKnown=id=>DEV_SHOW_UNLOCK||!!(G.itemSeen&&G.itemSeen[id]);
 const itemLabel=id=>itemKnown(id)?ITEMS[id].n:"??";
+/* 구조 파악 단계 — 0 없음 · 1 구조 파악 · 2 구조 파악+ */
+const archLv=()=>{const ks=(G.instants||[]).map(s=>s.k);return ks.includes("m_arch2")?2:ks.includes("m_arch")?1:0};
 /* 그 장소에서 나올 수 있는 것 전부(잡화·장비·특수·탄약) */
 const placeItems=pl=>[...new Set([...pl.junk,...pl.gear,
   ...(pl.special?pl.special.ids:[]),...(pl.ammo?(pl.ammo.ids||pl.ammo):[]),"crystal"])];
@@ -1131,6 +1169,7 @@ const gunMaj=(u,m)=>{const rh=rhOf(u);return isMaj(u,m)&&!!(rh&&rh.ammo&&!rh.bow
 const chemMaj=u=>{const rh=rhOf(u);return isMaj(u,"chem")&&!!(rh&&rh.dmg===DMG.CHEM)};
 const bowMaj=u=>{const rh=rhOf(u);return isMaj(u,"archery")&&!!(rh&&rh.bow)};   /* 활을 든 양궁 */
 const TKD_COMBO=0.25, TKD_COMBO_CUT=0.90;   /* 연타 — 확률과 줄어드는 뜸 */
+const TKD_COMBO_ALLY=0.15;                  /* 연타+ — 나머지 아군이 받는 확률 */
 const BOOM_RATE=0.5, BOOM_PAD=6;            /* 천궁(양궁) — 폭발이 곁에 주는 비율과 거리 */
 const INSTANTS=[
   {k:"caf",   n:"카페인은 내친구",   br:"aspd",  v:1,            d:"공격 속도 +15%",             f:u=>u.aspd*=1.15},
@@ -1168,6 +1207,10 @@ const INSTANTS=[
   {k:"crit2", n:"급소 노리기+", br:"crit", v:2, up:"crit",  d:"치명타 +11%", f:u=>u.crit+=11},
   /* ── 전공 스킬 ── */
   {k:"m_soldier",maj:"soldier",n:"정조준",   br:"atk",  v:20, d:"공격력 +20%",              f:u=>u.atk*=1.20},
+  /* 정조준+ — 파티 전원. 사거리는 총을 든 대원에게만 (u.gun.range 가 makeFighter 에서 이 값을 받아 갑니다) */
+  {k:"m_soldier2",maj:"soldier",up:"m_soldier",n:"정조준+",br:"mix",v:25,
+     d:"공격력 +25%, 공격 속도 +5% · 총을 든 대원은 사거리 +3",
+     f:u=>{u.atk*=1.25;u.aspd*=1.05;const rh=rhOf(u);if(rh&&rh.ammo&&!rh.bow)u.range+=3}},
   {k:"m_police", maj:"police", n:"진압 훈련", br:"guard",v:3,  d:"받는 피해 −3",             f:u=>u.guard+=3},
   {k:"m_chem",   maj:"chem",   n:"약품 조제", br:"mix",  v:10, d:"공격력·공격 속도 +10%",     f:u=>{u.atk*=1.10;u.aspd*=1.10}},
   {k:"m_phil",   maj:"phil",   n:"설득",     br:"hp",   v:20, d:"최대 체력 +20",            f:u=>{u.maxHp+=20;u.hp+=20}},
@@ -1175,7 +1218,11 @@ const INSTANTS=[
   {k:"m_med",    maj:"nurse",  n:"응급 처치", br:"heal", v:25, d:"전투 시작마다 체력 25 회복", f:u=>u.hp=Math.min(u.maxHp,u.hp+25)},
   {k:"m_cs",     maj:"cs",     n:"조준 보정", br:"rng",  v:3,  d:"공격 사거리 +3",           f:u=>u.range+=3},
   {k:"m_dance",  maj:"dance",  n:"스텝",     br:"dodge",v:12, d:"이동 +12%, 회피 +9%",      f:u=>{u.vspeed*=1.12;u.dodge+=9}},
-  {k:"m_arch",   maj:"arch",   n:"구조 파악", br:"guard",v:2,  d:"받는 피해 −2, 이동 +3%",    f:u=>{u.guard+=2;u.vspeed*=1.03}},
+  /* 구조 파악 — 전투 몫은 파티 전원. 장소 후보 +1·느린 지형·미리 보기는 archLv() 가 G.instants 를 보고 겁니다 */
+  {k:"m_arch",   maj:"arch",   n:"구조 파악", br:"guard",v:2,  d:"받는 피해 −2, 이동 +3%, 고를 수 있는 장소 +1",    f:u=>{u.guard+=2;u.vspeed*=1.03}},
+  {k:"m_arch2",  maj:"arch", up:"m_arch", n:"구조 파악+", br:"guard",v:3,
+     d:"받는 피해 −2, 이동 +3%, 고를 수 있는 장소 +1 · 장소 안의 느린 지형을 무시하고, 아직 얻지 못한 물건도 흐리게 보인다",
+     f:u=>{u.guard+=2;u.vspeed*=1.03}},
   {k:"m_lib",    maj:"lib",    n:"약점 기록", br:"atk",  v:14, d:"공격력 +14%",              f:u=>u.atk*=1.14},
   /* 태권도학과 것만은 파티 전원이 아니라, 양손이 빈 태권도학과 대원에게만 걸립니다.
      무기와 방패를 다 버리는 값이 커서 다른 전공 스킬보다 후하게 잡았습니다. */
@@ -1189,6 +1236,10 @@ const INSTANTS=[
   {k:"m_tkdc",   maj:"tkd",    n:"연타", br:"mix", v:25,
      d:`양손이 빈 태권도학과 대원만 · ${TKD_COMBO*100|0}% 확률로 다음 공격 뜸 ${TKD_COMBO_CUT*100|0}% 감소`,
      f:u=>{if(bareTkd(u))u.combo=TKD_COMBO}},
+  /* 연타+ — 본인은 그대로, 나머지 아군은 무기를 들었든 말든 조금 받습니다 */
+  {k:"m_tkdc2",  maj:"tkd", up:"m_tkdc", n:"연타+", br:"mix", v:40,
+     d:`양손이 빈 태권도학과 대원 ${TKD_COMBO*100|0}%, 나머지 아군 ${TKD_COMBO_ALLY*100|0}% 확률로 다음 공격 뜸 ${TKD_COMBO_CUT*100|0}% 감소`,
+     f:u=>{u.comboAlly=TKD_COMBO_ALLY;u.combo=bareTkd(u)?TKD_COMBO:TKD_COMBO_ALLY}},
   /* ── 이공대학 계열 ── 태권도와 같이 "조건에 맞는 그 대원만" 걸리는 것이 많습니다 */
   /* 물리학과 — 무기를 든 쪽. 적수공권의 거울상입니다 */
   {k:"m_phys",  maj:"phys", n:"지렛대", br:"mix", v:22,
@@ -1199,8 +1250,8 @@ const INSTANTS=[
      f:u=>{if(armedMaj(u,"phys")){u.atk*=1.35;u.knockM=2}}},
   /* 기계공학과 — 탄약이 배낭을 차지하게 된 뒤로 값이 큽니다 */
   {k:"m_mech",  maj:"mech", n:"탄창 개조", br:"mix", v:25,
-     d:"총을 든 기계공학과 대원만 · 25% 확률로 탄약이 줄지 않고, 공격 속도 +10%",
-     f:u=>{if(gunMaj(u,"mech")){u.ammoSave=0.25;u.aspd*=1.10}}},
+     d:"아군 파티에서 탄창을 쓰는 모든 공격(총, 활)에서 25% 확률로 탄약이 줄지 않고, 공격 속도 +10%",
+     f:u=>{const rh=rhOf(u);if(rh&&rh.ammo){u.ammoSave=0.25;u.aspd*=1.10}}},
   /* 생명공학과 — 전투 중에 계속 아무는 것은 이쪽뿐입니다 */
   {k:"m_bio",   maj:"bio", n:"자가 재생", br:"mix", v:8,
      d:"생명공학과 대원만 · 전투 중 1초마다 최대 체력의 0.8% 회복",
@@ -1403,7 +1454,7 @@ const FACILITIES=[
    cond:g=>!!g.woundedReturn,prog:g=>`체력 절반 이하로 돌아온 사람이 생기면 열림`,
    msg:"게이트에서 다친 채 귀환하는 사람들이 많아졌습니다.<br><br>대학에서는 응급의학 실습실을 개방하여 치료가 필요한 학생들이 사용할 수 있게 되었습니다.",
    onUnlock:()=>{                       // 다친 사람을 대신할 자원자가 무료로 합류한다 — 고정 인물 신재혁
-     const v={name:"신재혁",sex:"m",face:FACE_ART.anon.m,   /* 전용 초상은 나중에 넣는다 */
+     const v={name:"신재혁",sex:"m",face:FACE_ART.shin,      /* 전용 초상 — 무작위 얼굴 풀에는 넣지 않습니다 */
               lvl:1,exp:0,major:null,
               stats:{vit:11,maj:10,str:8,spd:12,agi:10,luk:9},
               gear:emptyGear(),bag:[],points:0,inParty:true,log:[]};
@@ -1419,15 +1470,18 @@ const FACILITIES=[
    msg:"운동장 한쪽에 이름을 새길 자리를 만들었습니다.<br><br>돌아오지 못한 사람들의 기록이 여기 남습니다."},
   /* 학과사무실 — 건물마다 하나씩, 그 건물의 전공만 배정합니다.
      major 칸이 있는 시설은 전공 배정 화면으로 넘어갑니다. */
-  /* 예체능대학 — 태권도학과가 기본이고, 활로 세 마리를 잡아 본 뒤에 양궁이 붙습니다 */
+  /* 예체능대학 — 태권도학과가 기본이고, 활로 세 마리를 잡아 본 뒤에 양궁이,
+     체력이 가득한 채로 귀환한 대원이 나온 뒤에 무용과가 붙습니다 */
   {id:"deptArts",ic:"🥋",n:"학과사무실",d:"예체능 계열 전공 배정",
-   majors:g=>["tkd"].concat((g.bowKills||0)>=BOW_MAJOR?["archery"]:[]),
+   majors:g=>["tkd"].concat((g.bowKills||0)>=BOW_MAJOR?["archery"]:[],g.danceHome?["dance"]:[]),
    cond:g=>topLvl(g)>=MAJOR_LV,prog:g=>`Lv ${MAJOR_LV} 대원이 나오면 열림 (현재 최고 Lv ${topLvl(g)})`,
    msg:"예체능대학 학과사무실이 문을 열었습니다.<br><br>도장은 비었지만 매트는 남아 있습니다. 태권도학과 전공을 정할 수 있습니다."},
   {id:"deptMed",ic:"💉",n:"학과사무실",d:"간호학과 전공 배정",major:"nurse",
    cond:g=>topLvl(g)>=MAJOR_LV,prog:g=>`Lv ${MAJOR_LV} 대원이 나오면 열림 (현재 최고 Lv ${topLvl(g)})`,
    msg:"의학대학 학과사무실이 문을 열었습니다.<br><br>실습실 옆방입니다. 간호학과 전공을 정할 수 있습니다."},
-  {id:"deptRotc",ic:"🎖",n:"학과사무실",d:"군사학 전공 배정",major:"mil",
+  /* ROTC — 군사학이 기본이고, 총으로 적을 SOLDIER_KILLS 체 쓰러뜨린 뒤에 군인이 붙습니다 */
+  {id:"deptRotc",ic:"🎖",n:"학과사무실",d:"군사학 전공 배정",
+   majors:g=>["mil"].concat((g.gunKills||0)>=SOLDIER_KILLS?["soldier"]:[],g.ammoOut?["police"]:[]),
    cond:g=>!!g.gunHome&&topLvl(g)>=MAJOR_LV,
    prog:g=>!g.gunHome?"게이트에서 총기를 가지고 살아 돌아오면 열림"
                      :`Lv ${MAJOR_LV} 대원이 나오면 열림 (현재 최고 Lv ${topLvl(g)})`,
@@ -1439,9 +1493,24 @@ const FACILITIES=[
    cond:g=>sciOpen(g).length>0,
    prog:g=>"잠겨 있다",
    msg:"이공대학 학과사무실에 불이 들어왔습니다.<br><br>복도 게시판에 남은 수강 편람이 아직 읽힙니다. 열려 있는 전공만 배정할 수 있습니다."},
+  /* 인문사회대학 — 이공대학처럼 열린 전공만 내놓고, 조건은 드러내지 않습니다 */
+  {id:"deptHum",ic:"📜",n:"학과사무실",d:"인문사회 계열 전공 배정",majors:g=>humOpen(g),
+   cond:g=>humOpen(g).length>0,
+   prog:g=>"잠겨 있다",
+   msg:"인문사회대학 학과사무실의 문이 열렸습니다.<br><br>열려 있는 전공만 배정할 수 있습니다."},
+  /* 도서관 — 학과사무실과 같이 켜집니다. 게임 안의 지식을 풀어 둘 자리입니다 */
+  {id:"library",ic:"📚",n:"도서관",d:"남겨진 기록을 읽습니다",
+   cond:g=>humOpen(g).length>0,
+   prog:g=>"잠겨 있다",
+   msg:"인문사회대학 도서관의 불이 켜졌습니다."},
+  /* 사범대학 — 인문사회대학과 같은 방식. EDU_MAJORS 가 비어 있는 동안은 열리지 않습니다 */
+  {id:"deptEdu",ic:"🍎",n:"학과사무실",d:"사범 계열 전공 배정",majors:g=>eduOpen(g),
+   cond:g=>eduOpen(g).length>0,
+   prog:g=>"잠겨 있다",
+   msg:"사범대학 학과사무실의 문이 열렸습니다.<br><br>열려 있는 전공만 배정할 수 있습니다."},
 ];
 const FAC_SCENE={office:"office",shop:"shop",adm:"admissions",union:"union",clinic:"clinic",tower:"tower",arcade:"arcade",work:"work",
-                 deptArts:"dept",deptMed:"dept",deptRotc:"dept",deptSci:"dept"};
+                 deptArts:"dept",deptMed:"dept",deptRotc:"dept",deptSci:"dept",deptHum:"dept",library:"library",deptEdu:"dept"};
 
 /* ═══════════ 시설 담당자 ═══════════
    first — 그 시설에 처음 들어갈 때 한 번. 줄 단위로 넘깁니다.
@@ -1579,7 +1648,7 @@ const CAMPUS_SCENES=["campus","hall","office","shop","admissions","union","gates
    그림은 전부 art 폴더에 둡니다. 빈 칸("")이면 지금처럼 이모지나 글자로 나옵니다.
    파일을 만들어 넣고 아래 표에 이름만 적으면 그 자리에 바로 붙습니다. */
 const ART="art/";
-const NPC_ART={office:"npc/office.webp",shop:"npc/shop.webp",adm:"",union:"",clinic:"",arcade:"",tower:"",work:"",
+const NPC_ART={office:"npc/office.webp",shop:"npc/shop.webp",adm:"npc/adm.webp",union:"",clinic:"npc/clinic.webp",arcade:"",tower:"",work:"",
                deptArts:"",deptMed:"",deptRotc:""};
 const FAC_ART={office:"",shop:"",adm:"",union:"",clinic:"",arcade:"",tower:"",work:"",gate:"",
                deptArts:"",deptMed:"",deptRotc:""};
@@ -1592,13 +1661,14 @@ const BLD_ART={main:"bld/main.webp",med:"bld/med.webp",arts:"bld/arts.webp",
    box는 그림 기준 백분율 [왼쪽, 위, 오른쪽, 아래]. 그림을 바꾸면 이 숫자만 다시 재면 됩니다.
    facs가 비면 아직 쓰임을 정하지 않은 건물, null이면 게이트입니다. */
 const BUILDINGS=[
-  {id:"arts",  n:"예체능대학",   box:[26.7, 7.4,45.5,10.6], facs:["arcade","deptArts"]},
+  /* 학과사무실이 있는 건물은 학과사무실을 맨 앞에 둡니다 — 건물 안 목록이 이 순서로 그려집니다 */
+  {id:"arts",  n:"예체능대학",   box:[26.7, 7.4,45.5,10.6], facs:["deptArts","arcade"]},
   {id:"rotc",  n:"ROTC",        box:[60.5, 6.8,77.7,10.9], facs:["deptRotc"]},
-  {id:"human", n:"인문사회대학", box:[17.7,23.4,38.5,27.1], facs:[]},   /* 학과사무실 미정 */
-  {id:"edu",   n:"사범대학",     box:[66.1,23.9,84.8,27.5], facs:[]},
+  {id:"human", n:"인문사회대학", box:[17.7,23.4,38.5,27.1], facs:["deptHum","library"]},
+  {id:"edu",   n:"사범대학",     box:[66.1,23.9,84.8,27.5], facs:["deptEdu"]},
   {id:"field", n:"대운동장",     box:[44,39.62,62,42.9], facs:["union"]},
   {id:"sci",   n:"이공대학",     box:[15,53.75,33,57.75], facs:["deptSci","work"]},
-  {id:"med",   n:"의학대학",     box:[74.7,53.2,92.8,56.8], facs:["clinic","deptMed","tower"]},
+  {id:"med",   n:"의학대학",     box:[74.7,53.2,92.8,56.8], facs:["deptMed","clinic","tower"]},
   {id:"main",  n:"본관",        box:[48,67.3,63.5,70.55], facs:["office","shop","adm"]},
   {id:"gate",  n:"정문",        box:[46,82.9,61,86.9], facs:null},
 ];
@@ -1624,6 +1694,7 @@ const FACE_ART={
      "face/f-spd-1.webp"],
   /* 줄 초상이 다 떨어졌을 때 쓰는 얼굴 없는 그림. 여럿이 같이 써도 됩니다 */
   anon:{m:"face/m-anon.webp", f:"face/f-anon.webp"},
+  shin:"face/m-shin.webp",                           /* 고정 인물 신재혁 */
 };
 const isAnon=f=>f===FACE_ART.anon.m||f===FACE_ART.anon.f;
 /* 이미 나간 초상은 다시 주지 않습니다.
@@ -1766,6 +1837,8 @@ const ITEM_ART={        /* 아이템 아이콘 — 만든 것부터 한 줄씩 �
   jeans:"item/jeans.png",
   workpants:"item/workpants.png",
   soju:"item/soju.png",
+  medkit:"item/medkit.png",
+  medkitD:"item/medkitD.png",
   oldbook:"item/oldbook.png",
   balm:"item/balm.png",
   tcard:"item/tcard.png",
@@ -1979,6 +2052,9 @@ function unpackSave(sv){
   d.instants=(d.instants||[]).map(skillOf).filter(Boolean);
   d.skillOffer=d.skillOffer?d.skillOffer.map(skillOf).filter(Boolean):null;
   if(!d.itemSeen)d.itemSeen={};
+  /* 신재혁 전용 초상이 없던 저장본 — 어나니머스로 들어온 신재혁에게 초상을 줍니다 */
+  for(const r of [...(d.roster||[]),...(d.memorial||[])])
+    if(r&&r.name==="신재혁"&&(!r.face||r.face===FACE_ART.anon.m))r.face=FACE_ART.shin;
   if(!d.tips)d.tips={};                  /* 안내창 기록이 없던 저장본 */
   if(!d.shopSold)d.shopSold=[];          /* 매점 재고 기록이 없던 저장본 */
   if(d.shopDay===undefined)d.shopDay=-1;
@@ -2066,6 +2142,11 @@ function newGame(slot){
      day:1,dayOn:false,instants:[],offer:null,here:null,fought:false,announced:[],
      extraSkill:false,extraNow:false,night:false,skillBack:null,
      chemKills:0,bookSold:0,foodHeal:false,      /* 이공대학 학과사무실이 보는 기록 */
+     danceHome:false,                            /* 무용과 — 체력이 가득한 채로 귀환한 적이 있나 */
+     sojuDrunk:false,                            /* 철학과 — 소주를 마셔 본 적이 있나 */
+     gunKills:0,                                 /* 군인 — 총으로 쓰러뜨린 수 */
+     ammoOut:false,                              /* 경찰대학생 — 탄약이 떨어져 근접으로 넘어간 적이 있나 */
+     placesSeen:[],                              /* 건축학과 — 게이트 안에서 들어가 본 장소(방 id) */
      gate:"front",cleared:[],gateClear:false,gateDay:{},bossKilled:{},
      bowKills:0,bowOpen:false,bowBought:false,   /* 학생회 제작 활 */
      bedUsed:false,kitFrom:null,questDone:[],restOpen:null,chipSel:null,
@@ -2176,10 +2257,17 @@ function blocked(x,y,r,mask){
   return false;
 }
 /* 감속·가속 지대 — mul 있는 사각형 안에 중심이 들어가면 이동 속도에 곱해진다. lv 로 대상 층 선택. */
-function terrainMul(x,y,mask){
+/* 건축학과 해금 — 게이트 안에서 들어가 본 장소(방 id)를 적어 둡니다 */
+function seePlace(pl){
+  G.placesSeen=G.placesSeen||[];
+  if(pl&&!G.placesSeen.includes(pl.room))G.placesSeen.push(pl.room);
+}
+/* noSlow — 구조 파악+. 느리게 만드는 칸(mul<1)만 건너뜁니다 */
+function terrainMul(x,y,mask,noSlow){
   let m=1;
   for(const o of ROOM.obs){
     if(!o.mul||!(o.lv&mask))continue;
+    if(noSlow&&o.mul<1)continue;
     if(x>=o.x&&x<=o.x+o.w&&y>=o.y&&y<=o.y+o.h)m*=o.mul;
   }
   return m;
@@ -2337,7 +2425,7 @@ function moveTo(u,tx,ty,dt){
   const ox=u.x,oy=u.y;
   /* 둔화(장수풍뎅이에게 받힘)가 남아 있으면 그만큼 느려집니다 */
   const slow=(u.slowT>0)?(u.slowM||1):1;
-  const vx=tx-u.x,vy=ty-u.y,d=Math.hypot(vx,vy)||1,st=u.vspeed*dt*terrainMul(u.x,u.y,u.lvm)*slow;
+  const vx=tx-u.x,vy=ty-u.y,d=Math.hypot(vx,vy)||1,st=u.vspeed*dt*terrainMul(u.x,u.y,u.lvm,u.side==="a"&&archLv()>=2)*slow;
   u.face=Math.atan2(vy,vx);
   const nx=u.x+vx/d*st,ny=u.y+vy/d*st;
   if(!blocked(nx,u.y,u.r,u.lvm))u.x=nx;
@@ -2384,6 +2472,8 @@ function makeFighter(p,i,n){
     wearing:SLOTS.map(s=>({slot:s.k,it:ITEMS[p.gear[s.k]]})).filter(w=>w.it),
     hasW:!!p.gear.rh,hasS:!!p.gear.lh,sid:p.gear.lh};
   for(const s of G.instants)s.f(u);
+  /* 소주 — 이번 전투 한 번만. 빗나감은 무기 성질(u.miss)과 따로 들고 다닙니다 */
+  if(p.drunk){p.drunk=false;u.atk+=SOJU.atk;u.aspd*=SOJU.aspdM;u.drunkMiss=SOJU.miss;u.miss=(u.miss||0)+SOJU.miss}
   u.dodge=Math.min(60,u.dodge||0);      // 아무리 쌓아도 다 피하지는 못한다
   u.crit=Math.min(80,u.crit||0);
   u.hp=Math.min(u.hp,u.maxHp);
@@ -2416,7 +2506,7 @@ function swapToBagWeapon(u){
   u.range=7+(it.rng||0);
   u.style=it.style||"swing";u.dmgType=it.dmg||DMG.BLUNT;
   u.fall=it.fall||null;u.fallBase=it.atk||0;u.splash=it.splash||0;
-  u.wid=nid;u.hasW=true;u.combo=0;         /* 손에 무기가 있으면 연타는 꺼집니다 */
+  u.wid=nid;u.hasW=true;u.combo=u.comboAlly||0; /* 손에 무기가 있으면 연타는 꺼지고, 연타+ 몫만 남습니다 */
   u.bow=false;u.miss=0;u.multi=0;u.boomP=0;/* 활을 내려놓으면 활 성질도 같이 내려놓습니다 */
   const w=u.wearing.find(x=>x.slot==="rh");
   if(w)w.it=it; else u.wearing.push({slot:"rh",it});
@@ -2601,7 +2691,8 @@ function tick(dt){
       if((u.ammoN||0)>0){u.style="gun";u.range=u.gun.range;u.atk=u.atkFull;u.dmgType=u.gun.dmg;u.hasW=true;u.bow=u.gun.bow}
       else{
         /* 다 쏘면 배낭 맨 위의 오른손 무기를 뽑아 듭니다. 뽑고 나면 u.gun 이 없어집니다 */
-        if(!u.dry){u.dry=true;say(`${u.name}의 ${u.gun.bow?"화살":`${u.gun.n} 탄약`}이 떨어졌다.`);swapToBagWeapon(u)}
+        /* 경찰대학생 해금 — 탄약(화살 포함)이 떨어져 근접으로 넘어간 적이 있는가 */
+        if(!u.dry){u.dry=true;G.ammoOut=true;say(`${u.name}의 ${u.gun.bow?"화살":`${u.gun.n} 탄약`}이 떨어졌다.`);swapToBagWeapon(u)}
         if(u.gun){u.style="swing";u.range=7;u.atk=u.meleeAtk;u.dmgType=DMG.BLUNT;u.hasW=false;u.bow=false}
       }
     }
@@ -2612,7 +2703,9 @@ function tick(dt){
       const total=gn?GUN_TOTAL:th?THRUST_TOTAL:SWING_TOTAL;
       if(!a.hit&&prev<imp&&a.t>=imp){
         a.hit=true;
-        if(a.tgt&&a.tgt.hp>0&&D(u,a.tgt)<u.range+a.tgt.r){
+        /* 활은 화살마다 따로 굴리고, 그 밖의 공격은 취기(소주)만 여기서 굴립니다 */
+        const tipsy=!u.bow&&u.drunkMiss>0&&Math.random()<u.drunkMiss;
+        if(!tipsy&&a.tgt&&a.tgt.hp>0&&D(u,a.tgt)<u.range+a.tgt.r){
           const cr=Math.random()*100<(u.crit||0);   // 운이 좋으면 급소가 열린다
           /* 산탄총처럼 거리에 따라 위력이 갈리는 무기는 무기 몫만 갈아 끼웁니다.
              스탯·스킬로 올린 몫은 그대로 두어야 배율이 이상하게 커지지 않습니다. */
@@ -2626,7 +2719,10 @@ function tick(dt){
           /* 화학은 맞은 쪽마다 쌓인 정도가 달라, 대상별로 따로 셈합니다 */
           const hit=(o,rate)=>{
             const dmg=(ch?raw*chemMul(o,u):raw)*(cr?CRIT_MUL:1)*rate;
+            const was=o.hp;
             hurt(o,dmg,rate<1?"#E9C46A":(cr?"#FF8A3D":"#F2D74E"),u.dmgType);
+            /* 군인 해금 — 총으로 쓰러뜨린 수 (활은 bowKills 가 따로 셉니다) */
+            if(u.style==="gun"&&!u.bow&&was>0&&o.hp<=0)G.gunKills=(G.gunKills||0)+1;
             if(ch)o.chem=(o.chem||0)+1;
             if(bl)knockBack(u,o,rate<1?KNOCK*0.6:KNOCK);
           };
@@ -3621,11 +3717,13 @@ function useItem(p,bi){
   const it=ITEMS[p.bag[bi]];
   if(!it||!it.use)return;
   const m=derive(p).maxHp;
-  if(p.hp>=m)return;
+  if(p.hp>=m&&!it.use.drunk)return;          /* 술은 체력이 가득해도 마실 수 있습니다 */
   const amt=it.use.pct?Math.round(m*it.use.pct)
                       :Math.round(it.use.hp*(it.kit?1:FOOD_HEAL[foodLv()]));
   p.hp=Math.min(m,p.hp+amt);
   p.bag.splice(bi,1);
+  /* 소주 — 다음 전투에 취기를 남기고, 철학과 해금 기록을 남깁니다 */
+  if(it.use.drunk){p.drunk=true;G.sojuDrunk=true}
   if(!it.kit){
     /* 식품공학과 해금 — 게이트 안에서 응급 키트가 아닌 것으로 회복한 적이 있는가 */
     if(G.mode==="run")G.foodHeal=true;
@@ -4221,7 +4319,7 @@ function invPanel(p,pi,mode,group){
       ${act?`<span class="caret">${on(k)?"▴":"▾"}</span>`:""}
       ${act&&on(k)?`<div class="acts">
         ${canWear?`<button class="mini" data-eq="${pi}|${bi}">착용</button>`:""}
-        ${it.use?`<button class="mini" data-use="${pi}|${bi}" ${full?"disabled":""}>${it.kit?"쓴다":"먹는다"}</button>`:""}
+        ${it.use?`<button class="mini" data-use="${pi}|${bi}" ${full&&!it.use.drunk?"disabled":""}>${it.kit?"쓴다":it.use.drunk?"마신다":"먹는다"}</button>`:""}
         ${it.skill?`<button class="mini dk" data-sc="${pi}|${bi}" ${atBase?"disabled":""}>쓴다</button>`:""}
         ${it.crystal&&!it.skill?(dkt.length
           ?`<span class="tag">강화할 것</span>${dkt.map((g,gi)=>
@@ -4404,6 +4502,11 @@ function campusNotes(){
   if(G.foodHeal&&!G.tips.majFood){
     G.tips.majFood=true;
     popup("이공대학","이공대학에서 식품공학과 전공을 고를 수 있게 되었습니다.");
+    return;
+  }
+  if(humOpen(G).includes("phil")&&!G.tips.majPhil){
+    G.tips.majPhil=true;
+    popup("인문사회대학","인문대학에 철학과 전공이 해금되었습니다.");
   }
 }
 /* 활을 처음 산 날 — 총무가 화살 한 통을 얹어 줍니다 */
@@ -4625,7 +4728,7 @@ function render(){
       // 밤 거리(night)는 캠프파이어에서만 가므로 낮 후보에서 뺍니다.
       const day=PLACES.filter(p=>!p.night);
       const pool=G.day===1?day.filter(p=>p.risk===0):day;
-      G.offer=[...pool].sort(()=>Math.random()-.5).slice(0,2);
+      G.offer=[...pool].sort(()=>Math.random()-.5).slice(0,2+(archLv()?1:0));   /* 구조 파악 +1 */
     }
     const t=party();
     el.innerHTML=logo+`
@@ -4645,14 +4748,14 @@ function render(){
         <h3>${pl.n}</h3><p>${pl.d}</p>
         <span class="risk">위험도 ${"★".repeat(pl.risk+1)}</span>
         <span class="finds">나올 만한 것 · ${placeItems(pl).map(id=>
-          `<i class="${itemKnown(id)?"kn":"unk"}">${itemLabel(id)}</i>`).join(" ")}</span></button>`).join("")}
-      <div class="bar"><button class="ghost" id="pass">둘 다 지나친다</button>
+          `<i class="${itemKnown(id)?"kn":"unk"}">${archLv()>=2?ITEMS[id].n:itemLabel(id)}</i>`).join(" ")}</span></button>`).join("")}
+      <div class="bar"><button class="ghost" id="pass">${G.offer.length>2?"모두":"둘 다"} 지나친다</button>
       <button class="ghost" id="out">게이트에서 나간다</button></div>
       <div class="card"><h2>파티</h2>
       ${t.map((r,i)=>`<div class="app">${faceTag(r)}<div class="hd"><b>${r.name}</b><span>배낭 ${r.bag.length+ammoSlots(r)}/${BAG_MAX}</span></div>
         ${hpLine(r)}</div>`).join("")}</div>`;
     el.querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{
-      const pl=G.offer[+b.dataset.p];G.here=pl;ROOM=ROOMS[pl.room];
+      const pl=G.offer[+b.dataset.p];G.here=pl;ROOM=ROOMS[pl.room];seePlace(pl);
       enterBattle(party(),rollEncounter(G.day,pl.risk,party().length))});
     document.getElementById("pass").onclick=()=>nextDay();
     document.getElementById("out").onclick=()=>{G.scene="retreat";render()};
@@ -4817,7 +4920,7 @@ function render(){
       /* 야간 탐색 — 날짜는 그대로 두고 다음 날 배율의 적과 붙습니다 */
       const pl=nightPlace();
       pl.risk=rollNightRisk();
-      G.night=true;G.here=pl;ROOM=ROOMS[pl.room];
+      G.night=true;G.here=pl;ROOM=ROOMS[pl.room];seePlace(pl);
       popup("야간 탐색",
         `불을 등지고 어두운 거리로 나섭니다.<br><br>위험도 ${"★".repeat(pl.risk+1)}`,
         "나선다",
@@ -4876,6 +4979,8 @@ function render(){
       const hasGun=r=>SLOTS.some(s=>{const it=ITEMS[r.gear[s.k]];return it&&it.ammo})
                     ||r.bag.some(id=>ITEMS[id].ammo);
       if(went.some(r=>r.hp>0&&hasGun(r)))G.gunHome=true;
+      /* 체력이 가득한 채로 돌아온 대원이 있으면 예체능대학에 무용과가 붙습니다 (귀환 회복 전 기준) */
+      if(went.some(r=>r.hp>0&&r.hp>=derive(r).maxHp))G.danceHome=true;
       if(tut){G.roster=[p];G.mode="campus";if(!G.announced.includes("office"))G.announced.push("office")}
       for(const r of G.roster){
         for(const s of SLOTS){const it=ITEMS[r.gear[s.k]];if(it&&it.kind==="inst")r.gear[s.k]=null}
@@ -4884,6 +4989,7 @@ function render(){
           if(it.kind==="junk")G.loot[id]=(G.loot[id]||0)+1;
           else if(it.kind==="perm")nb.push(id)}
         r.bag=nb;
+        r.drunk=false;                 /* 싸우지 않고 나온 취기는 문을 나서며 깹니다 */
         const m=derive(r).maxHp;
         if(went.includes(r)&&r.hp/m<=0.5)G.woundedReturn=true;
         let rate=went.includes(r)?0.10:0.05;
@@ -5433,7 +5539,7 @@ function render(){
         ?`이곳에서 정할 수 있는 전공은 ${pool.map(m=>`<b style="color:var(--mark)">${m.n}</b>`).join(" · ")} 입니다.`
         :pool.length===1
         ?`이곳에서 정할 수 있는 전공은 <b style="color:var(--mark)">${pool[0].n}</b> 하나입니다.`
-        :`<b style="color:var(--mark)">군인</b>과 <b style="color:var(--mark)">경찰대학생</b>만 총을 다룰 수 있습니다.`}</p>
+        :`총을 다루려면 적합한 전공이 필요합니다.`}</p>
       <div class="derived" style="margin-top:8px">${pool.map(m=>
         `${m.n} <b>${majorCount(m.id)} / ${majorCap(m.id)}</b>`).join(" · ")}</div>${
         capNext()?`<div class="tag" style="margin-top:6px">${capNext()} 전공마다 한 자리씩 더 열립니다.</div>`:""}</div>
@@ -5504,6 +5610,17 @@ function render(){
         ${m.log.length?`<div class="tag" style="margin-top:8px">기록</div>
           <div class="rec">${m.log.map(l=>`<div>· ${l}</div>`).join("")}</div>`:""}
       </div>`).join(""):`<div class="card"><p>아직 아무 이름도 새겨지지 않았습니다.</p></div>`}
+      <div class="bar"><span class="tag"></span><button class="ghost" id="bk">캠퍼스로</button></div>`;
+    document.getElementById("bk").onclick=()=>{G.scene="campus";render()};
+    return;
+  }
+  if(S==="library"){
+    /* 도서관 — 게임 안의 지식을 LIBRARY 에 한 권씩 채워 넣을 자리입니다 */
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">도서관</span></div>
+      ${npcBar("library")}
+      ${LIBRARY.length?LIBRARY.map(b=>`<div class="card"><h2>${b.n}</h2><p>${b.d}</p></div>`).join("")
+        :`<div class="card"><p>서가가 비어 있습니다.</p></div>`}
       <div class="bar"><span class="tag"></span><button class="ghost" id="bk">캠퍼스로</button></div>`;
     document.getElementById("bk").onclick=()=>{G.scene="campus";render()};
     return;
