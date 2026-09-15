@@ -179,7 +179,8 @@ function makeCols(){
     {id:"br",   t:"갈래",  w:r=>brName(r.s.br), h:r=>esc(brName(r.s.br))},
     {id:"name", t:"이름",  w:r=>r.s.n,   h:r=>`<span class="nm">${nameHtml(r.s)}</span>`},
     {id:"tier", t:"단계",  w:r=>r.tier,  h:r=>esc(TIER[r.tier]||("상위 "+r.tier))},
-    {id:"d",    t:"효과",  w:r=>r.s.d||"", cls:"d", h:r=>esc(r.s.d||"")},
+    /* {25}·{!20}·{x2} 는 전공활용 보정 표시 — 기준값만 보여 줍니다 (index 의 scaleTxt) */
+    {id:"d",    t:"효과",  w:r=>r.s.d||"", cls:"d", h:r=>esc((r.s.d||"").replace(/\{[!x]?([\d.]+)\}/g,"$1"))},
     {id:"v",    t:"값",    w:r=>r.s.v||0, num:1, h:r=>r.s.v?String(r.s.v):dash()},
     {id:"up",   t:"선행",  w:r=>r.s.up?nameOf(r.s.up):"", h:r=>r.s.up?esc(nameOf(r.s.up)):dash()},
     {id:"cond", t:"획득 조건", w:r=>r.cond.join(", "), cls:"cond", h:r=>esc(r.cond.join(" · "))},

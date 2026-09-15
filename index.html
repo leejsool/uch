@@ -506,13 +506,48 @@ function openMajorsElsewhere(g){
 const eduOpen=g=>EDU_MAJORS.filter(m=>m.open(g)).map(m=>m.id);
 /* 실습동은 이공계 전공을 실제로 **정한 대원**이 있어야 돌아갑니다 (열려 있기만 한 것과 다릅니다) */
 const hasSciMajor=g=>(g.roster||[]).some(r=>majorsOf(r).some(m=>SCI_IDS.includes(m)));
-const WORK_OPEN=200;    /* 실습동이 돌아가는 데 필요한 지금 가진 골드 */
+const WORK_OPEN=200;    /* 실습동이 처음 열리는 데 필요한 지금 가진 골드 — 열린 뒤에는 보지 않습니다 */
 const majorOf=id=>MAJORS.find(m=>m.id===id)||null;
 /* ── 복수전공 ── 전공은 최대 두 개(major · major2).
    전공을 읽는 자리는 전부 이 두 함수를 지납니다. 한 곳이라도 r.major 만 보면
    복수전공자가 제2전공을 못 쓰게 됩니다. */
 const majorsOf=p=>p?[p.major,p.major2].filter(Boolean):[];
 const hasMaj=(p,m)=>!!p&&(p.major===m||p.major2===m);
+/* ── 전공 패시브 ── 전공을 갖는 순간부터 그 사람에게만 붙는 보너스입니다.
+   파티 전원에게 거는 전공 스킬(G.instants)과 따로 돕니다. 복수전공이면 둘 다 받습니다.
+   값은 전공활용(stats.maj) 10 기준이고, 1 많을 때마다 +7%, 1 모자랄 때마다 −7% 입니다 (passiveRate · MAJ_STEP·MAJ_STEP_RATE).
+   보너스는 그 배율을 곱하고, 불리한 값(음수)은 반대로 줄어듭니다 — 전공활용이 높으면 덜 느려집니다.
+     hp·atk·guard·dodge  더하는 값 (dodge 는 %)       spd·atkP  이동 속도·공격력 %
+     bare                 오른손·왼손 장비가 모두 비었을 때만 더하는 값
+     after                게이트 안 전투가 끝날 때 finishBattle() 이 채우는 체력
+   derive() 가 스탯에 섞으므로 캠퍼스 화면·비교·전투에 똑같이 들어갑니다. 여기 없는 전공은 아직 패시브가 없습니다. */
+const PASSIVES={
+  tkd: {hp:10, bare:{atk:5,guard:3,dodge:5}},
+  mil: {spd:-15, atkP:5},
+  food:{hp:5, after:5},
+};
+const MAJ_STEP=1, MAJ_STEP_RATE=0.07, MAJ_RATE_MIN=0.4;
+const passiveRate=p=>Math.max(MAJ_RATE_MIN,
+  1+MAJ_STEP_RATE*Math.trunc((((p&&p.stats&&p.stats.maj)||10)-10)/MAJ_STEP));
+/* 배율을 먹인 값 — 보너스는 ×rate, 불리한 값은 ×(2−rate). 크기를 정수로 반올림합니다(설명 글 scaleTxt 와 같게) */
+const passiveScale=(v,rate)=>Math.sign(v)*Math.round(Math.abs(v)*(v>=0?rate:Math.max(0,2-rate)));
+function passiveVals(pv,rate){
+  const o={};
+  for(const [k,v] of Object.entries(pv))
+    o[k]=typeof v==="object"?passiveVals(v,rate):passiveScale(v,rate);
+  return o;
+}
+const passivesOf=p=>majorsOf(p).filter(m=>PASSIVES[m]).map(m=>passiveVals(PASSIVES[m],passiveRate(p)));
+/* 사람이 읽는 한 줄 — 기준값 뒤에 전공활용 보정을 괄호로: 최대 체력 +10(+3).
+   rate 를 빼면 기준값만. 표시 규칙은 전공 스킬 설명과 같습니다(scaleTxt) */
+function passiveText(pv,rate){
+  const sg=n=>n<0?`−{!${-n}}`:`+{${n}}`;
+  const part=o=>[o.hp?`최대 체력 ${sg(o.hp)}`:"",o.atk?`공격력 ${sg(o.atk)}`:"",o.atkP?`공격력 ${sg(o.atkP)}%`:"",
+    o.guard?`받는 피해 −{${o.guard}}`:"",o.dodge?`회피 ${sg(o.dodge)}%`:"",
+    o.spd?`이동 속도 ${sg(o.spd)}%`:""].filter(Boolean).join(", ");
+  return scaleTxt([part(pv),pv.bare?`양손이 비어 있으면 ${part(pv.bare)}`:"",
+    pv.after?`게이트 안에서 전투가 끝날 때마다 체력 +{${pv.after}}`:""].filter(Boolean).join(" · "),rate);
+}
 /* 전공은 Lv MAJOR_LV 부터 고를 수 있고, 정하기 전까지는 모두 '새내기' 입니다 */
 const majorName=p=>{
   const ms=majorsOf(p).map(majorOf).filter(Boolean);
@@ -551,6 +586,14 @@ const TRANSFER_KINDS=3;                  /* 전과가 열리는 전공 가짓수
 const transferCost=r=>50*((r.transfers||0)+1);
 const DUAL_DAY=10, DUAL_COST=200, DUAL_PARTY=4;   /* 복수전공 해금과 값 */
 const GUN_MAJORS=["soldier","police","mil"];
+/* 의학대학 계열 — 회복스프레이 같은 의학 장비를 드는 전공 */
+const MED_MAJORS=["nurse","med"];
+/* 의예과 — Lv MED_OPEN_LV 이상 간호학과 대원이 있고, 어느 게이트든 MED_OPEN_DAY 일차 전투를 이긴 적이 있을 때.
+   한 번 차면 G.medOpen 이 서서(render 첫머리) 대원이 죽거나 떠나도 다시 잠기지 않습니다 */
+const MED_OPEN_LV=4, MED_OPEN_DAY=4;
+const medReady=g=>(g.roster||[]).some(r=>hasMaj(r,"nurse")&&r.lvl>=MED_OPEN_LV)
+                &&Object.values(g.gateDay||{}).some(d=>d>=MED_OPEN_DAY);
+const medOpen=g=>!!g.medOpen||medReady(g);
 const SOLDIER_KILLS=10;   /* 군인 전공 — 총으로 쓰러뜨려야 하는 수 */
 /* 파티에서 가장 높은 레벨 — 학과사무실 해금에 씁니다 */
 const topLvl=g=>Math.max(1,...(g.roster||[]).map(r=>r.lvl));
@@ -606,6 +649,9 @@ const ITEMS={
   tray:{n:"쟁반",slot:"lh",kind:"inst",guard:2,aspdM:1.05,d:"피해 −2, 공속 +5%"},
   signboard:{n:"입간판",slot:"lh",kind:"inst",guard:5,dodge:-4,d:"피해 −5, 회피 −4%"},
   doorpanel:{n:"자동차 문짝",slot:"lh",kind:"inst",guard:8,hp:10,dodge:-9,d:"피해 −8, 체력 +10, 회피 −9%"},
+  /* 의예과가 열리면 매점에 오릅니다. heal — 공격 every 번마다 r 이내 아군 중 체력이 가장 낮은 사람을 hp 만큼 (tick → sprayHeal) */
+  healspray:{n:"회복스프레이",slot:"lh",kind:"perm",price:25,req:MED_MAJORS,heal:{every:3,r:10,hp:10},
+       d:"공격 3번마다 곁(10 이내) 아군 중 체력이 가장 낮은 사람의 체력 +10 · 의학대학 계열 전용"},
   /* ── 머리 ── */
   helmet:{n:"공사장 헬멧",slot:"head",kind:"inst",guard:2,d:"피해 −2"},
   cap:{n:"학과 야구모자",slot:"head",kind:"perm",guard:1,price:10,d:"피해 −1"},
@@ -797,7 +843,7 @@ const baseOf=id=>(ITEMS[id]&&(ITEMS[id].dark||ITEMS[id].base))||id;
 Object.keys(ITEMS).forEach(k=>ITEMS[k].id=k);
 /* 매점 판매대에 오를 수 있는 물건 전부. 조건이 붙은 둘은 shopPool() 이 걸러냅니다.
    한 번에 다 오르지는 않습니다 — 자리 수(shopSlots)만큼 무작위로 뽑습니다. */
-const SHOP=["jacket","pen","book","spray","cap","upants","bow"];
+const SHOP=["jacket","pen","book","spray","cap","upants","bow","healspray"];
 const SHOP_AMMO=["ammoP","ammoS","ammoR","ammoA"];
 /* 판매대 자리 — 처음 3칸. '학생회에 투자' 로 한 칸씩, 6칸까지 늘립니다 */
 const SHOP_SLOT0=3, SHOP_SLOT_MAX=6, INVEST_COST=[40,120,250];
@@ -809,6 +855,7 @@ function shopPool(){
     id==="cap"    ? (G.capFrom!=null&&G.explores>=G.capFrom)   /* 한 번 사 본 뒤 다음 탐색부터 */
   : id==="upants" ? !!G.unionOpen                              /* 명단이 두 명이 된 뒤부터 */
   : id==="bow"    ? !!G.bowOpen                                /* 학생회가 활을 만든 뒤부터 */
+  : id==="healspray" ? medOpen(G)                              /* 의예과가 열린 뒤부터 */
   : true);
 }
 /* 판매대 채우기. 팔린 것도 G.shopStock 에 남겨 두어야 자리 수가 맞습니다. */
@@ -893,7 +940,7 @@ function rollLoot(place,day){
   const fl=foodLv();
   if(fl){
     const eat=place.junk.filter(id=>ITEMS[id].use);
-    if(eat.length&&Math.random()<FOOD_DROP[fl]) out.push(pick(eat));
+    if(eat.length&&Math.random()<FOOD_DROP[fl]*foodRate()) out.push(pick(eat));
   }
   let gn=(Math.random()<0.55?1:0)+(Math.random()<0.25+place.risk*0.1?1:0)+(day>=3&&Math.random()<0.3?1:0);
   for(let i=0;i<gn;i++) out.push(pick(place.gear));
@@ -1147,8 +1194,9 @@ const ENEMIES={
   bee:{n:"벌",lvm:FLY,hp:30,atk:13,aspd:.95,speed:52,range:6,r:2.6,c:"#E8C24A",exp:30,dmg:DMG.PIERCE},
   mantis:{n:"사마귀",lvm:TALL,hp:180,atk:16,aspd:.65,speed:13,range:9,r:5.2,c:"#5FC49A",exp:90,boss:true,dmg:DMG.SLASH},
   /* 거미는 다리가 길어 낮은 지형(식탁·화단)을 넘어 다닙니다. 대신 의자와 벽에는 막힙니다. */
-  /* 1게이트 마지막 보스. 6일차에 섰을 때보다 크게 불렸습니다 */
-  spider:{n:"거미",lvm:L2|L3,hp:540,atk:44,aspd:.8,speed:28,range:16,r:5.8,c:"#8E6BD9",exp:380,boss:true,dmg:DMG.PIERCE},
+  /* 1게이트 마지막 보스. 6일차에 섰을 때보다 크게 불렸습니다.
+     공격력 44 → 32 (2026-09-15) — 44 는 체력 75%로 들어간 Lv6 넷이 호위 둘과 함께 10%만 이겼습니다 */
+  spider:{n:"거미",lvm:L2|L3,hp:540,atk:32,aspd:.8,speed:28,range:16,r:5.8,c:"#8E6BD9",exp:380,boss:true,dmg:DMG.PIERCE},
   /* 1게이트 6일차 보스. 날아다녀서 지형을 거의 다 넘고, 빠르고 자주 찌릅니다. 대신 무릅니다 */
   hornet:{n:"장수말벌",lvm:FLY,hp:240,atk:24,aspd:1.1,speed:58,range:8,r:4,c:"#E0A32F",exp:150,boss:true,dmg:DMG.PIERCE},
   /* 3게이트 보스. 눈알 덩어리. 매우 빠르고 시선이 닿은 자리가 터진다 */
@@ -1179,6 +1227,8 @@ const GATES=[
   /* pool 한 줄이 잡몹 하나입니다. from = 그날부터 나옴(없으면 첫날), w = 뽑힐 무게(없으면 1) */
   {id:"front",n:"정문 게이트",d:"대학가 골목. 게이트 에너지로 부푼 벌레들이 돌아다닌다",
    days:10,need:null,boss:{3:"mantis",6:"hornet",10:"spider"},
+   /* 보스 날 곁에 붙는 잡몹 최대 수 — 보스는 날짜 배율이 없지만 잡몹은 받으므로, 이 수가 보스전 난이도를 정합니다 */
+   bossAdds:{6:2,10:2},
    pool:[{k:"worm",w:55},{k:"hopper",from:2,w:45},{k:"bee",from:4,w:28},{k:"beetle",from:5,w:22},
          {k:"cicada",from:7,w:30}]},
   {id:"back",n:"후문 게이트",d:"상가 지하. 사람이었던 것들이 걸어다닌다",
@@ -1262,103 +1312,148 @@ const INSTANTS=[
   {k:"crit",  n:"급소 노리기",  br:"crit", v:1,             d:"치명타 +6%",  f:u=>u.crit+=6},
   {k:"crit2", n:"급소 노리기+", br:"crit", v:2, up:"crit",  d:"치명타 +11%", f:u=>u.crit+=11},
   /* ── 전공 스킬 ── */
-  {k:"m_soldier",maj:"soldier",n:"정조준",   br:"atk",  v:20, d:"공격력 +20%",              f:u=>u.atk*=1.20},
+  {k:"m_soldier",maj:"soldier",n:"정조준",   br:"atk",  v:20, d:"공격력 +{20}%",              f:u=>u.atk*=1.20},
   /* 정조준+ — 파티 전원. 사거리는 총을 든 대원에게만 (u.gun.range 가 makeFighter 에서 이 값을 받아 갑니다) */
   {k:"m_soldier2",maj:"soldier",up:"m_soldier",n:"정조준+",br:"mix",v:25,
-     d:"공격력 +25%, 공격 속도 +5% · 총을 든 대원은 사거리 +3",
+     d:"공격력 +{25}%, 공격 속도 +{5}% · 총을 든 대원은 사거리 +{3}",
      f:u=>{u.atk*=1.25;u.aspd*=1.05;const rh=rhOf(u);if(rh&&rh.ammo&&!rh.bow)u.range+=3}},
-  {k:"m_police", maj:"police", n:"진압 훈련", br:"guard",v:3,  d:"받는 피해 −3",             f:u=>u.guard+=3},
-  {k:"m_chem",   maj:"chem",   n:"약품 조제", br:"mix",  v:10, d:"공격력·공격 속도 +10%",     f:u=>{u.atk*=1.10;u.aspd*=1.10}},
-  {k:"m_phil",   maj:"phil",   n:"설득",     br:"hp",   v:20, d:"최대 체력 +20",            f:u=>{u.maxHp+=20;u.hp+=20}},
-  {k:"m_pe",     maj:"pe",     n:"기초 체력", br:"hp",   v:25, d:"최대 체력 +25",            f:u=>{u.maxHp+=25;u.hp+=25}},
-  {k:"m_med",    maj:"nurse",  n:"응급 처치", br:"heal", v:25, d:"전투 시작마다 체력 25 회복", f:u=>u.hp=Math.min(u.maxHp,u.hp+25)},
-  {k:"m_cs",     maj:"cs",     n:"조준 보정", br:"rng",  v:3,  d:"공격 사거리 +3",           f:u=>u.range+=3},
-  {k:"m_dance",  maj:"dance",  n:"스텝",     br:"dodge",v:12, d:"이동 +12%, 회피 +9%",      f:u=>{u.vspeed*=1.12;u.dodge+=9}},
+  {k:"m_police", maj:"police", n:"진압 훈련", br:"guard",v:3,  d:"받는 피해 −{3}",             f:u=>u.guard+=3},
+  {k:"m_chem",   maj:"chem",   n:"약품 조제", br:"mix",  v:10, d:"공격력·공격 속도 +{10}%",     f:u=>{u.atk*=1.10;u.aspd*=1.10}},
+  {k:"m_phil",   maj:"phil",   n:"설득",     br:"hp",   v:20, d:"최대 체력 +{20}",            f:u=>{u.maxHp+=20;u.hp+=20}},
+  {k:"m_pe",     maj:"pe",     n:"기초 체력", br:"hp",   v:25, d:"최대 체력 +{25}",            f:u=>{u.maxHp+=25;u.hp+=25}},
+  {k:"m_med",    maj:"nurse",  n:"응급 처치", br:"heal", v:25, d:"전투 시작마다 체력 {25} 회복", f:u=>u.hp=Math.min(u.maxHp,u.hp+25)},
+  {k:"m_cs",     maj:"cs",     n:"조준 보정", br:"rng",  v:3,  d:"공격 사거리 +{3}",           f:u=>u.range+=3},
+  {k:"m_dance",  maj:"dance",  n:"스텝",     br:"dodge",v:12, d:"이동 +{12}%, 회피 +{9}%",      f:u=>{u.vspeed*=1.12;u.dodge+=9}},
   /* 구조 파악 — 전투 몫은 파티 전원. 장소 후보 +1·느린 지형·미리 보기는 archLv() 가 G.instants 를 보고 겁니다 */
-  {k:"m_arch",   maj:"arch",   n:"구조 파악", br:"guard",v:2,  d:"받는 피해 −2, 이동 +3%, 고를 수 있는 장소 +1",    f:u=>{u.guard+=2;u.vspeed*=1.03}},
+  {k:"m_arch",   maj:"arch",   n:"구조 파악", br:"guard",v:2,  d:"받는 피해 −{2}, 이동 +{3}%, 고를 수 있는 장소 +1",    f:u=>{u.guard+=2;u.vspeed*=1.03}},
   {k:"m_arch2",  maj:"arch", up:"m_arch", n:"구조 파악+", br:"guard",v:3,
-     d:"받는 피해 −2, 이동 +3%, 고를 수 있는 장소 +1 · 장소 안의 느린 지형을 무시하고, 아직 얻지 못한 물건도 흐리게 보인다",
+     d:"받는 피해 −{2}, 이동 +{3}%, 고를 수 있는 장소 +1 · 장소 안의 느린 지형을 무시하고, 아직 얻지 못한 물건도 흐리게 보인다",
      f:u=>{u.guard+=2;u.vspeed*=1.03}},
-  {k:"m_lib",    maj:"lib",    n:"약점 기록", br:"atk",  v:14, d:"공격력 +14%",              f:u=>u.atk*=1.14},
+  {k:"m_lib",    maj:"lib",    n:"약점 기록", br:"atk",  v:14, d:"공격력 +{14}%",              f:u=>u.atk*=1.14},
   /* 태권도학과 것만은 파티 전원이 아니라, 양손이 빈 태권도학과 대원에게만 걸립니다.
      무기와 방패를 다 버리는 값이 커서 다른 전공 스킬보다 후하게 잡았습니다. */
   {k:"m_tkd",    maj:"tkd",    n:"적수공권", br:"mix",  v:25,
-     d:"양손이 빈 태권도학과 대원만 · 공격력 +25%, 공격 속도 +10%, 최대 체력 +10, 회피 +5%",
+     d:"양손이 빈 태권도학과 대원만 · 공격력 +{25}%, 공격 속도 +{10}%, 최대 체력 +{10}, 회피 +{5}%",
      f:u=>{if(bareTkd(u)){u.atk*=1.25;u.aspd*=1.10;u.maxHp+=10;u.hp+=10;u.dodge+=5}}},
   {k:"m_tkd2",   maj:"tkd", up:"m_tkd", n:"적수공권+", br:"mix", v:45,
-     d:"양손이 빈 태권도학과 대원만 · 공격력 +45%, 공격 속도 +20%, 최대 체력 +22, 회피 +9%",
+     d:"양손이 빈 태권도학과 대원만 · 공격력 +{45}%, 공격 속도 +{20}%, 최대 체력 +{22}, 회피 +{9}%",
      f:u=>{if(bareTkd(u)){u.atk*=1.45;u.aspd*=1.20;u.maxHp+=22;u.hp+=22;u.dodge+=9}}},
   /* 연타 — 맨손은 찌르기 성질이 없어 뜸을 줄일 길이 없습니다. 그 자리를 메웁니다. */
   {k:"m_tkdc",   maj:"tkd",    n:"연타", br:"mix", v:25,
-     d:`양손이 빈 태권도학과 대원만 · ${TKD_COMBO*100|0}% 확률로 다음 공격 뜸 ${TKD_COMBO_CUT*100|0}% 감소`,
+     d:`양손이 빈 태권도학과 대원만 · {${TKD_COMBO*100|0}}% 확률로 다음 공격 뜸 ${TKD_COMBO_CUT*100|0}% 감소`,
      f:u=>{if(bareTkd(u))u.combo=TKD_COMBO}},
   /* 연타+ — 본인은 그대로, 나머지 아군은 무기를 들었든 말든 조금 받습니다 */
   {k:"m_tkdc2",  maj:"tkd", up:"m_tkdc", n:"연타+", br:"mix", v:40,
-     d:`양손이 빈 태권도학과 대원 ${TKD_COMBO*100|0}%, 나머지 아군 ${TKD_COMBO_ALLY*100|0}% 확률로 다음 공격 뜸 ${TKD_COMBO_CUT*100|0}% 감소`,
+     d:`양손이 빈 태권도학과 대원 {${TKD_COMBO*100|0}}%, 나머지 아군 {${TKD_COMBO_ALLY*100|0}}% 확률로 다음 공격 뜸 ${TKD_COMBO_CUT*100|0}% 감소`,
      f:u=>{u.comboAlly=TKD_COMBO_ALLY;u.combo=bareTkd(u)?TKD_COMBO:TKD_COMBO_ALLY}},
   /* ── 이공대학 계열 ── 태권도와 같이 "조건에 맞는 그 대원만" 걸리는 것이 많습니다 */
   /* 물리학과 — 무기를 든 쪽. 적수공권의 거울상입니다 */
   {k:"m_phys",  maj:"phys", n:"지렛대", br:"mix", v:22,
-     d:"무기를 든 물리학과 대원만 · 공격력 +22%",
+     d:"무기를 든 물리학과 대원만 · 공격력 +{22}%",
      f:u=>{if(armedMaj(u,"phys"))u.atk*=1.22}},
   {k:"m_phys2", maj:"phys", up:"m_phys", n:"작용·반작용", br:"mix", v:35,
-     d:"무기를 든 물리학과 대원만 · 공격력 +35%, 타격으로 미는 거리 2배",
+     d:"무기를 든 물리학과 대원만 · 공격력 +{35}%, 타격으로 미는 거리 {x2}배",
      f:u=>{if(armedMaj(u,"phys")){u.atk*=1.35;u.knockM=2}}},
   /* 기계공학과 — 탄약이 배낭을 차지하게 된 뒤로 값이 큽니다 */
   {k:"m_mech",  maj:"mech", n:"탄창 개조", br:"mix", v:25,
-     d:"아군 파티에서 탄창을 쓰는 모든 공격(총, 활)에서 25% 확률로 탄약이 줄지 않고, 공격 속도 +10%",
+     d:"아군 파티에서 탄창을 쓰는 모든 공격(총, 활)에서 {25}% 확률로 탄약이 줄지 않고, 공격 속도 +{10}%",
      f:u=>{const rh=rhOf(u);if(rh&&rh.ammo){u.ammoSave=0.25;u.aspd*=1.10}}},
   /* 생명공학과 — 전투 중에 계속 아무는 것은 이쪽뿐입니다 */
   {k:"m_bio",   maj:"bio", n:"자가 재생", br:"mix", v:8,
-     d:"생명공학과 대원만 · 전투 중 1초마다 최대 체력의 0.8% 회복",
+     d:"생명공학과 대원만 · 전투 중 1초마다 최대 체력의 {0.8}% 회복",
      f:u=>{if(isMaj(u,"bio"))u.regen=0.008}},
   /* 항체는 후문 게이트(좀비)에서만 열립니다 — 그 밖에서는 쓸 데가 없습니다 */
   {k:"m_bio2",  maj:"bio", gate:"back", n:"항체", br:"mix", v:35,
-     d:"생명공학과 대원만 · 좀비 계열에게 받는 피해 −35%",
+     d:"생명공학과 대원만 · 좀비 계열에게 받는 피해 −{35}%",
      f:u=>{if(isMaj(u,"bio"))u.zombCut=0.35}},
   /* 화학과 — 약품 조제는 파티 전원, 극약 조제는 화학 무기를 든 본인만 */
   {k:"m_chem2", maj:"chem", up:"m_chem", n:"약품 조제+", br:"mix", v:20,
-     d:"공격력·공격 속도 +20%", f:u=>{u.atk*=1.20;u.aspd*=1.20}},
+     d:"공격력·공격 속도 +{20}%", f:u=>{u.atk*=1.20;u.aspd*=1.20}},
   {k:"m_chemx", maj:"chem", n:"극약 조제", br:"mix", v:35,
-     d:"화학 무기를 든 화학과 대원만 · 공격력 +35%, 화학이 쌓이는 정도 +50%",
+     d:"화학 무기를 든 화학과 대원만 · 공격력 +{35}%, 화학이 쌓이는 정도 +{50}%",
      f:u=>{if(chemMaj(u)){u.atk*=1.35;u.chemUp=1.5}}},
   /* 군사학 — 지금까지 유일하게 스킬이 없던 해금 전공 */
   {k:"m_mil",   maj:"mil", n:"제식 사격", br:"mix", v:18,
-     d:"총을 든 군사학 대원만 · 공격력 +18%, 사거리 +3",
+     d:"총을 든 군사학 대원만 · 공격력 +{18}%, 사거리 +{3}",
      f:u=>{if(gunMaj(u,"mil")){u.atk*=1.18;u.range+=3}}},
   /* ── 양궁 ── 전부 '활을 든 양궁 대원'에게만 걸립니다(bowMaj).
      빗나감(u.miss)·폭발(u.boomP)·멀티샷(u.multi)은 tick 의 활 갈래가 봅니다 */
   {k:"m_boom",  maj:"archery", n:"천궁", br:"mix", v:50,
-     d:`활을 든 양궁 대원만 · 50% 확률로 화살이 박힌 자리가 터져 곁의 적도 ${BOOM_RATE*100|0}%를 맞는다`,
+     d:`활을 든 양궁 대원만 · {50}% 확률로 화살이 박힌 자리가 터져 곁의 적도 ${BOOM_RATE*100|0}%를 맞는다`,
      f:u=>{if(bowMaj(u))u.boomP=0.5}},
-  {k:"m_boom2", maj:"archery", up:"m_boom", n:"천궁+", br:"mix", v:100,
+  {k:"m_boom2", maj:"archery", up:"m_boom", n:"천궁+", br:"mix", v:100, fixed:["boomP"],   /* '늘 터진다' 는 배율로 깎지 않습니다 */
      d:`활을 든 양궁 대원만 · 화살이 박힌 자리가 늘 터져 곁의 적도 ${BOOM_RATE*100|0}%를 맞는다`,
      f:u=>{if(bowMaj(u))u.boomP=1}},
   {k:"m_sharp", maj:"archery", n:"명궁", br:"mix", v:2,
-     d:"활을 든 양궁 대원만 · 빗나감 절반, 공격력·사거리 +2",
+     d:"활을 든 양궁 대원만 · 빗나감 절반, 공격력·사거리 +{2}",
      f:u=>{if(bowMaj(u)){u.miss*=0.5;u.atk+=2;u.range+=2}}},
   {k:"m_sharp2",maj:"archery", up:"m_sharp", n:"명궁+", br:"mix", v:4,
-     d:"활을 든 양궁 대원만 · 빗나가지 않고, 공격력·사거리 +4",
+     d:"활을 든 양궁 대원만 · 빗나가지 않고, 공격력·사거리 +{4}",
      f:u=>{if(bowMaj(u)){u.miss=0;u.atk+=4;u.range+=4}}},
   /* 멀티샷은 명궁과 천궁을 둘 다 가졌을 때만 나옵니다 (needAll — skillPool 이 봅니다) */
   {k:"m_msh",   maj:"archery", n:"멀티샷", br:"mix", v:20,
      needAll:[["m_sharp","m_sharp2"],["m_boom","m_boom2"]],
-     d:"활을 든 양궁 대원만 · 공격 속도 −20%, 한 번에 두 적을 쏘고 화살은 한 발만 쓴다",
+     d:"활을 든 양궁 대원만 · 공격 속도 −{!20}%, 한 번에 두 적을 쏘고 화살은 한 발만 쓴다",
      f:u=>{if(bowMaj(u)){u.aspd*=0.80;u.multi=1}}},
   {k:"m_msh2",  maj:"archery", up:"m_msh", n:"멀티샷+", br:"mix", v:40,
      d:"활을 든 양궁 대원만 · 한 번에 두 적을 쏘고 화살은 한 발만 쓴다 · 적이 하나면 두 번 쏜다",
      f:u=>{if(bowMaj(u))u.multi=2}},
   /* ── 식품공학과 ── 응급 키트에는 걸리지 않습니다(kit) */
   {k:"m_food",  maj:"food", n:"맛있는 불량식품", br:"mix", v:30,
-     d:"체력을 채우는 먹을 것이 더 자주 나오고, 회복량 +30%",f:u=>{}},
+     d:"체력을 채우는 먹을 것이 더 자주 나오고, 회복량 +{30}%",f:u=>{}},
   {k:"m_food2", maj:"food", up:"m_food", n:"맛있는 불량식품+", br:"mix", v:50,
-     d:"더 자주 나오고 회복량 +50% · 먹으면 다른 파티원의 체력도 5% 회복",f:u=>{}},
+     d:"더 자주 나오고 회복량 +{50}% · 먹으면 다른 파티원의 체력도 {5}% 회복",f:u=>{}},
 ];
 /* 식품공학과 — 파티가 지금 가진 단계(0·1·2). 회복량과 등장 확률이 여기서 갈립니다 */
 const FOOD_HEAL=[1,1.30,1.50], FOOD_DROP=[0,0.30,0.50], FOOD_SHARE=0.05;
 const foodLv=()=>{const s=(G&&G.instants)||[];
   return s.some(x=>x.k==="m_food2")?2:s.some(x=>x.k==="m_food")?1:0};
 const skillOf=k=>INSTANTS.find(s=>s.k===k);
+/* ═══════════ 전공 스킬의 전공활용 보정 ═══════════
+   전공 스킬(maj 가 있는 것)만 보정합니다. 공용 스킬은 그대로입니다.
+   그 전공 대원 본인은 제 전공활용으로, 나머지 파티원은 파티에서 그 전공을 가진 사람 중
+   가장 높은 전공활용으로 받습니다. 배율은 패시브와 같은 passiveRate 입니다.
+   스킬의 f 는 고치지 않습니다 — f 가 몸(u)을 바꾼 만큼(변화량)에 배율을 곱합니다.
+   늘어난 칸은 ×배율, 줄어든 칸은 벌칙으로 보고 ×(2−배율)입니다.
+   설명(d)의 {n} 은 보정되는 수치, {!n} 은 벌칙, {xn} 은 배수 — 화면에는 n(±차이) 로 나옵니다. */
+const SKILL_FIXED=["multi","miss","drunkMiss"];   /* 개수·빗나감은 배율을 먹이지 않습니다. 스킬마다 fixed 로 더 뺄 수 있습니다 */
+const SKILL_BASE={knockM:1,chemUp:1};             /* f 가 처음 만드는 칸의 기준값 (없으면 0) */
+const SKILL_CAP={combo:0.95,comboAlly:0.95,ammoSave:0.9,zombCut:0.9};
+function bestMajRate(maj){
+  const who=((G.mode==="tutorial"?[G.player]:party())||[]).filter(p=>p&&hasMaj(p,maj));
+  return who.length?Math.max(...who.map(passiveRate)):1;
+}
+const skillRate=(s,u)=>!s.maj?1:(u&&u.ref&&hasMaj(u.ref,s.maj))?passiveRate(u.ref):bestMajRate(s.maj);
+function applySkill(s,u){
+  const rate=skillRate(s,u);
+  if(rate===1){s.f(u);return}
+  const mx=u.maxHp, before={};
+  u.maxHp=1e9;                   /* 회복이 최대 체력에 막히면 변화량을 못 재므로 잠시 풀어 둡니다 */
+  for(const k in u)if(typeof u[k]==="number")before[k]=u[k];
+  s.f(u);
+  for(const k in u){
+    if(typeof u[k]!=="number"||SKILL_FIXED.includes(k)||(s.fixed&&s.fixed.includes(k)))continue;
+    const b=k in before?before[k]:(k in SKILL_BASE?SKILL_BASE[k]:0), d=u[k]-b;
+    if(!d)continue;
+    u[k]=b+d*(d>0?rate:Math.max(0,2-rate));
+    if(k in SKILL_CAP)u[k]=Math.min(SKILL_CAP[k],u[k]);
+  }
+  u.maxHp=Math.round(mx+(u.maxHp-1e9));
+  u.hp=Math.min(u.maxHp,u.hp);
+}
+/* 설명 글 — rate 가 1 이거나 없으면 표시만 걷어 냅니다 */
+function scaleTxt(d,rate){
+  return String(d||"").replace(/\{([!x]?)([\d.]+)\}/g,(m,kind,num)=>{
+    if(!rate||rate===1)return num;
+    const n=+num, dec=Math.max((num.split(".")[1]||"").length,kind==="x"?1:0), p=Math.pow(10,dec);
+    const sc=kind==="!"?n*Math.max(0,2-rate):kind==="x"?1+(n-1)*rate:n*rate;
+    const dl=Math.round(Math.round(sc*p)-n*p)/p;
+    return dl?`${num}(${dl>0?"+":"−"}${Math.abs(dl)})`:num;
+  });
+}
+const skillText=s=>scaleTxt(s.d,s.maj?bestMajRate(s.maj):1);
+/* 맛있는 불량식품 — 스킬 f 가 비어 있고 효과는 전리품·먹기에서 걸리므로 배율도 거기서 겁니다 */
+const foodRate=()=>bestMajRate("food");
 /* 지금까지 쌓인 갈래별 수치. 상위 스킬이 선행을 대체하므로 겹쳐 세지 않습니다 */
 function branchSum(){
   const t={};
@@ -1409,6 +1504,16 @@ function derive(p){
     dodge+=it.dodge||0;critAdd+=it.crit||0;
     aspdM*=it.aspdM||1;spdM*=it.spdM||1;
   }
+  /* 전공 패시브 — 더하는 몫을 먼저, 공격력 %는 합친 공격력에 겁니다 */
+  const bareHands=!p.gear.rh&&!p.gear.lh;
+  let atkPM=1;
+  for(const v of passivesOf(p)){
+    for(const o of [v,bareHands&&v.bare].filter(Boolean)){
+      hpAdd+=o.hp||0;atk+=o.atk||0;guard+=o.guard||0;dodge+=o.dodge||0;
+      spdM*=1+(o.spd||0)/100;atkPM*=1+(o.atkP||0)/100;
+    }
+  }
+  atk*=atkPM;
   const rh=ITEMS[p.gear.rh];
   return{maxHp:Math.round(20+s.vit*6+hpAdd),atk:+atk.toFixed(1),
     aspd:+((0.50+s.agi*0.05)*aspdM).toFixed(2),
@@ -1504,9 +1609,10 @@ const FACILITIES=[
    msg:"학생회관이 정리됐습니다.<br><br>학생회장이 부탁할 것이 있다며 사람을 찾고 있습니다."},
   /* 실습동은 이공대학 안에 있습니다. 이공계 전공 대원이 있어야 돌아가므로,
      학과사무실보다 반드시 뒤에 열립니다 — 건물이 먼저 밝아질 일이 없습니다.
-     골드는 '지금 가진 것'을 봅니다. 쓰고 나면 다시 잠깁니다. */
+     골드는 '지금 가진 것'을 봅니다. 한 번 열리면(해금 안내를 본 뒤) 골드가 줄거나
+     이공계 대원이 없어져도 다시 잠기지 않습니다. */
   {id:"work",ic:"🔧",n:"실습동",d:"골드를 들여 반출 장비를 손봅니다",
-   cond:g=>hasSciMajor(g)&&g.gold>=WORK_OPEN,
+   cond:g=>(g.announced||[]).includes("work")||(hasSciMajor(g)&&g.gold>=WORK_OPEN),
    prog:g=>!hasSciMajor(g)?"이공계 전공 대원이 있어야 돌아갑니다"
                           :`운영비 ${Math.min(g.gold,WORK_OPEN)} / ${WORK_OPEN} 골드`,
    msg:"실습동에 전기가 들어왔습니다.<br><br>선반과 바이스는 멀쩡합니다. 가지고 나올 수 있는 장비라면 여기서 손볼 수 있습니다."},
@@ -1536,7 +1642,9 @@ const FACILITIES=[
    majors:g=>["tkd"].concat((g.bowKills||0)>=BOW_MAJOR?["archery"]:[],g.danceHome?["dance"]:[]),
    cond:g=>topLvl(g)>=MAJOR_LV,prog:g=>`Lv ${MAJOR_LV} 대원이 나오면 열림 (현재 최고 Lv ${topLvl(g)})`,
    msg:"예체능대학 학과사무실이 문을 열었습니다.<br><br>도장은 비었지만 매트는 남아 있습니다. 태권도학과 전공을 정할 수 있습니다."},
-  {id:"deptMed",ic:"💉",n:"학과사무실",d:"간호학과 전공 배정",major:"nurse",
+  /* 의학대학 — 간호학과가 기본이고, 의예과는 medOpen 이 서면 붙습니다 */
+  {id:"deptMed",ic:"💉",n:"학과사무실",d:"의학 계열 전공 배정",
+   majors:g=>["nurse"].concat(medOpen(g)?["med"]:[]),
    cond:g=>topLvl(g)>=MAJOR_LV,prog:g=>`Lv ${MAJOR_LV} 대원이 나오면 열림 (현재 최고 Lv ${topLvl(g)})`,
    msg:"의학대학 학과사무실이 문을 열었습니다.<br><br>실습실 옆방입니다. 간호학과 전공을 정할 수 있습니다."},
   /* ROTC — 군사학이 기본이고, 총으로 적을 SOLDIER_KILLS 체 쓰러뜨린 뒤에 군인이 붙습니다 */
@@ -1922,6 +2030,7 @@ const ITEM_ART={        /* 아이템 아이콘 — 만든 것부터 한 줄씩 �
   soju:"item/soju.png",
   medkit:"item/medkit.png",
   medkitD:"item/medkitD.png",
+  healspray:"item/healspray.png",
   oldbook:"item/oldbook.png",
   balm:"item/balm.png",
   tcard:"item/tcard.png",
@@ -2250,6 +2359,7 @@ function newGame(slot){
      placesSeen:[],                              /* 건축학과 — 게이트 안에서 들어가 본 장소(방 id) */
      gate:"front",cleared:[],gateClear:false,gateDay:{},bossKilled:{},
      bowKills:0,bowOpen:false,bowBought:false,   /* 학생회 제작 활 */
+     medOpen:false,                              /* 의예과 · 회복스프레이 */
      bedUsed:false,kitFrom:null,questDone:[],restOpen:null,chipSel:null,
      store:{},loot:{},ground:[],memorial:[],sel:null,invSel:null,rowSel:null,facesUsed:[],gunSeen:{pistol:false,shotgun:false,rifle:false,arrow:false},itemSeen:{},arcadeBest:0,starBest:0,huntBest:0,
      tips:{},shopDay:-1,shopSold:[],capFrom:null,shopStock:null,invest:0,unionOpen:false,
@@ -2574,7 +2684,7 @@ function makeFighter(p,i,n){
     miss:d.miss,bow:d.bow,boomP:0,multi:0,
     wearing:SLOTS.map(s=>({slot:s.k,it:ITEMS[p.gear[s.k]]})).filter(w=>w.it),
     hasW:!!p.gear.rh,hasS:!!p.gear.lh,sid:p.gear.lh};
-  for(const s of G.instants)s.f(u);
+  for(const s of G.instants)applySkill(s,u);   /* 전공 스킬은 전공활용으로 보정 */
   /* 소주 — 이번 전투 한 번만. 빗나감은 무기 성질(u.miss)과 따로 들고 다닙니다 */
   if(p.drunk){p.drunk=false;u.atk+=SOJU.atk;u.aspd*=SOJU.aspdM;u.drunkMiss=SOJU.miss;u.miss=(u.miss||0)+SOJU.miss}
   u.dodge=Math.min(60,u.dodge||0);      // 아무리 쌓아도 다 피하지는 못한다
@@ -2656,11 +2766,13 @@ function drawShield(u){
   say(`${u.name}이(가) 왼손에 ${sh.n}을(를) 들었다.`);
   return true;
 }
+const MOB_HP_GROW=1.10, MOB_ATK_GROW=1.08;
 function makeEnemy(key,i,day){
   const E=ENEMIES[key];
   /* 보스는 등장 일차에 맞춰 이미 세게 잡혀 있으므로 날짜 배율을 태우지 않습니다 */
-  /* 하루마다 체력 ×1.15, 공격력 ×1.08 (복리). 예전 ×1.30/×1.20 은 4일차부터 잡몹이 너무 셌습니다 */
-  const hs=(E.boss||E.noScale)?1:Math.pow(1.15,day-1), as=(E.boss||E.noScale)?1:Math.pow(1.08,day-1);
+  /* 하루마다 체력 ×MOB_HP_GROW, 공격력 ×MOB_ATK_GROW (복리).
+     예전 ×1.30/×1.20 은 4일차부터, ×1.15 는 8일차부터 누적 피해로 전멸이 쏟아졌습니다(2026-09-15 시뮬레이션) */
+  const hs=(E.boss||E.noScale)?1:Math.pow(MOB_HP_GROW,day-1), as=(E.boss||E.noScale)?1:Math.pow(MOB_ATK_GROW,day-1);
   const spots=spawnAt().e, s=spots[i%spots.length];
   /* 튜토리얼에서는 한 대가 1만큼 덜 아픕니다 */
   const soft=G.mode==="tutorial"?1:0;
@@ -2698,9 +2810,16 @@ function makeZombieOf(a){
 }
 /* 다음 날로 넘어갑니다. 마지막 날 보스를 잡았으면 게이트를 나가고,
    아직 못 잡았으면 날짜가 더 가지 않고 그 날에 머뭅니다 — 더 갈 데가 없습니다. */
+const DAY_HEAL=0.15;   /* 게이트 안에서 새 일차가 밝을 때 파티 전원이 회복하는 최대 체력 비율 */
 function nextDay(){
   if(G.gateClear){G.scene="retreat";render();return}
-  if(G.day<gateOf().days)G.day++;
+  if(G.day<gateOf().days){
+    G.day++;
+    /* 밤사이 조금 아뭅니다 — 게이트 안에는 달리 체력이 차는 길이 드물어, 없으면 뒷날에 누적 피해로 무너집니다 */
+    let healed=0;
+    for(const p of party()){const m=derive(p).maxHp,h=Math.min(m,p.hp+Math.round(m*DAY_HEAL));healed+=h-p.hp;p.hp=h}
+    if(healed>0)toast(`밤사이 상처가 조금 아물었습니다 (최대 체력의 ${Math.round(DAY_HEAL*100)}%)`);
+  }
   /* 새 일차는 아직 시작하지 않았습니다 — 여기서 나가면 이 날은 세지 않습니다 */
   G.dayOn=false;
   G.offer=null;G.skillOffer=null;G.scene="instant";render();
@@ -2732,7 +2851,11 @@ function rollEncounter(day,risk,party,noBoss){
     out.push(boss);
     const esc=BOSS_ADDS[boss];
     if(esc){for(let i=0;i<esc.count;i++)out.push(esc.key)}
-    else for(let i=1;i<Math.max(2,n-1);i++)out.push(mob());
+    else{
+      /* 게이트의 bossAdds 가 그날 호위 수를 막습니다 (없으면 인원·위험도대로) */
+      const cap=(gt.bossAdds||{})[day], k=Math.max(2,n-1)-1;
+      for(let i=0;i<(cap===undefined?k:Math.min(cap,k));i++)out.push(mob());
+    }
   }else for(let i=0;i<n;i++)out.push(mob());
   return out;
 }
@@ -2823,6 +2946,22 @@ function hurt(t,amt,c,type,src){
   /* 무엇으로 끝냈는지를 세어 둡니다 — 어떤 학과사무실은 이 기록을 보고 열립니다 */
   if(was>0&&t.hp<=0&&t.side==="e"&&type===DMG.CHEM)G.chemKills=(G.chemKills||0)+1;
   B.fx.push({x:t.x,y:t.y,t:Math.round(amt),c,life:.85,off:0});
+}
+/* 왼손 회복 장비(회복스프레이) — 공격을 시작할 때마다 세고, every 번째에
+   r 이내(중심 거리, 본인 포함) 살아 있는 아군 중 체력이 가장 낮은 사람을 채웁니다. 다 찬 사람뿐이면 쉽니다 */
+function sprayHeal(u,lifeA){
+  const h=u.hasS&&ITEMS[u.sid]&&ITEMS[u.sid].heal;
+  if(!h)return;
+  u.healN=(u.healN||0)+1;
+  if(u.healN<h.every)return;
+  u.healN=0;
+  const near=lifeA.filter(o=>o.hp>0&&o.hp<o.maxHp&&D(u,o)<=h.r);
+  if(!near.length)return;
+  const t=near.reduce((b,o)=>o.hp<b.hp?o:b);
+  const add=Math.min(h.hp,t.maxHp-t.hp);
+  t.hp+=add;
+  B.fx.push({x:t.x,y:t.y-3,t:"+"+Math.round(add),c:"#6BD98F",life:.9,off:0});
+  say(`${u.name}의 ${ITEMS[u.sid].n}이(가) ${t===u?"자신":t.name}의 체력을 ${Math.round(add)} 채웠다.`);
 }
 function tick(dt){
   const live=B.foes.filter(f=>f.hp>0),lifeA=B.allies.filter(a=>a.hp>0);
@@ -2927,6 +3066,7 @@ function tick(dt){
         /* 제 배낭에서 한 발 소모 — 탄창 개조(기계공학과)는 가끔 그마저 아낍니다 */
         if(u.gun&&u.style==="gun"&&!(u.ammoSave&&Math.random()<u.ammoSave))u.ammoN--;
         u.cool=1;u.anim={t:0,hit:false,tgt:t};
+        sprayHeal(u,lifeA);
         if(u.dmgType===DMG.THRUST&&Math.random()<THRUST_AGAIN)u.cool=1-THRUST_AGAIN_CUT;
         /* 연타 — 맨손 태권도. 찌르기와 같은 자리에서 다음 주먹을 당깁니다 */
         if(u.combo&&Math.random()<u.combo)u.cool=Math.min(u.cool,1-TKD_COMBO_CUT);
@@ -3636,6 +3776,11 @@ function finishBattle(){
       const it=ITEMS[a.ref.gear[slot]];
       if(it){broke.push(`${a.ref.name}의 ${it.n}`);logAdd(a.ref,`${it.n} 파손`);a.ref.gear[slot]=null}
     }
+    /* 전공 패시브의 전투 뒤 회복(식품공학과) — 게이트 안에서만. 부서진 장비를 뺀 최대 체력까지 */
+    if(G.mode==="run"){
+      const add=passivesOf(a.ref).reduce((s,v)=>s+(v.after||0),0);
+      if(add)a.ref.hp=Math.min(derive(a.ref).maxHp,a.ref.hp+add);
+    }
   }
   /* 유품 — 사망자의 장비와 배낭이 바닥에 남는다 */
   const relic=[];
@@ -3938,7 +4083,7 @@ function useItem(p,bi){
   const m=derive(p).maxHp;
   if(p.hp>=m&&!it.use.drunk)return;          /* 술은 체력이 가득해도 마실 수 있습니다 */
   const amt=it.use.pct?Math.round(m*it.use.pct)
-                      :Math.round(it.use.hp*(it.kit?1:FOOD_HEAL[foodLv()]));
+                      :Math.round(it.use.hp*(it.kit?1:1+(FOOD_HEAL[foodLv()]-1)*foodRate()));
   p.hp=Math.min(m,p.hp+amt);
   p.bag.splice(bi,1);
   /* 소주 — 다음 전투에 취기를 남기고, 철학과 해금 기록을 남깁니다 */
@@ -3948,7 +4093,7 @@ function useItem(p,bi){
     if(G.mode==="run")G.foodHeal=true;
     /* 맛있는 불량식품+ — 나눠 먹은 나머지도 조금 낫습니다 */
     if(foodLv()>=2)for(const o of party())if(o!==p){
-      const mm=derive(o).maxHp;o.hp=Math.min(mm,o.hp+Math.round(mm*FOOD_SHARE))}
+      const mm=derive(o).maxHp;o.hp=Math.min(mm,o.hp+Math.round(mm*FOOD_SHARE*foodRate()))}
   }
 }
 function unequip(p,slot){
@@ -4762,7 +4907,7 @@ function bindStrip(){
     r.inParty=!r.inParty;render()});
 }
 const chips=()=>G.instants.length?`<div class="chips">${G.instants.map((s,i)=>
-  `<button class="chip${G.chipSel===i?" on":""}" data-chip="${i}">${s.n}<span class="tip">${s.d}</span></button>`
+  `<button class="chip${G.chipSel===i?" on":""}" data-chip="${i}">${s.n}<span class="tip">${skillText(s)}</span></button>`
   ).join("")}</div>`:"";
 function bindChips(){
   el.querySelectorAll("[data-chip]").forEach(b=>b.onclick=()=>{
@@ -4806,6 +4951,11 @@ function campusNotes(){
   if(humOpen(G).includes("phil")&&!G.tips.majPhil){
     G.tips.majPhil=true;
     popup("인문사회대학","인문대학에 철학과 전공이 해금되었습니다.");
+    return;
+  }
+  if(medOpen(G)&&!G.tips.majMed){
+    G.tips.majMed=true;
+    popup("의학대학","의학대학에서 의예과 전공을 고를 수 있게 되었습니다.<br><br>매점에 회복스프레이가 들어오기 시작합니다.");
   }
 }
 /* 활을 처음 산 날 — 총무가 화살 한 통을 얹어 줍니다 */
@@ -4864,6 +5014,8 @@ function render(){
   /* 명단이 처음 두 명이 된 순간 학생회 인증 바지가 풀립니다. 뒤에 줄어도 도로 잠기지 않습니다.
      bootGame 은 G={scene:"title"} 로 시작하므로 roster 가 있는지 먼저 봅니다 — 안 보면 제목 화면이 깨집니다 */
   if(G.roster&&G.roster.length>=2)G.unionOpen=true;
+  /* 의예과도 같은 자리에서 한 번 서면 도로 잠기지 않습니다 */
+  if(G.roster&&!G.medOpen&&medReady(G))G.medOpen=true;
   let S=G.scene;
   if(S!=="spidergame"&&S!=="stargame"&&S!=="huntgame")arcadeStop();
   if(S!=="title")titleStop();
@@ -4986,7 +5138,7 @@ function render(){
       ${G.extraNow?`<p>어젯밤 불 곁에서 되짚은 것이 하나의 힘으로 잡힙니다.</p>`:""}</div>
       ${G.skillOffer.length?G.skillOffer.map((s,i)=>`<button class="skl" data-s="${i}">
         <b>${s.n}${s.maj?` <span class="kd perm">${majorOf(s.maj).n}</span>`:s.up?` <span class="kd inst">상위</span>`:""}</b>
-        <span>${s.d}${s.up?` · ${skillOf(s.up).n} 자리를 대신합니다`:""}</span></button>`).join("")
+        <span>${skillText(s)}${s.up?` · ${skillOf(s.up).n} 자리를 대신합니다`:""}</span></button>`).join("")
         :`<div class="card"><h2>더 열리는 것이 없습니다</h2><p>이 게이트에서 고를 수 있는 힘을 전부 익혔습니다.</p></div>`}
       ${chips()}
       <div class="bar">
@@ -5875,7 +6027,7 @@ function render(){
   }
   if(S==="dept"){
     /* 학과사무실 — 그 사무실이 맡은 전공 하나만 고를 수 있습니다 */
-    const fac=facOf(G.soonName)||FACILITIES.find(f=>f.major);
+    const fac=facOf(G.soonName)||FACILITIES.find(f=>f.major||f.majors);
     /* majors 가 있는 사무실(이공대학)은 그때까지 열린 전공을 전부 내놓습니다 */
     const pool=(fac.majors?fac.majors(G):fac.major?[fac.major]:[]).map(majorOf).filter(Boolean);
     el.innerHTML=logo+`
@@ -5889,10 +6041,14 @@ function render(){
         :`총을 다루려면 적합한 전공이 필요합니다.`}</p>
       <div class="derived" style="margin-top:8px">${pool.map(m=>
         `${m.n} <b>${majorCount(m.id)} / ${majorCap(m.id)}</b>`).join(" · ")}</div>${
-        capNext()?`<div class="tag" style="margin-top:6px">${capNext()} 전공마다 한 자리씩 더 열립니다.</div>`:""}</div>
+        capNext()?`<div class="tag" style="margin-top:6px">${capNext()} 전공마다 한 자리씩 더 열립니다.</div>`:""}
+      ${pool.filter(m=>PASSIVES[m.id]).map(m=>
+        `<div class="tag" style="margin-top:6px">${m.n} 패시브 · ${passiveText(PASSIVES[m.id])}</div>`).join("")}${
+        pool.some(m=>PASSIVES[m.id])?`<div class="tag" style="margin-top:6px">패시브는 전공활용 10 기준 · ${MAJ_STEP} 많을 때마다 +${MAJ_STEP_RATE*100|0}%, ${MAJ_STEP} 모자랄 때마다 −${MAJ_STEP_RATE*100|0}%</div>`:""}</div>
       ${G.roster.map((r,i)=>`<div class="app">
         ${faceTag(r)}<div class="hd"><b>${r.name}</b><span>${r.major?majorName(r):`Lv ${r.lvl}`}</span></div>
-        ${r.major?`<div class="tag">${majorOf(r.major).d}</div>`
+        ${r.major?`<div class="tag">${majorOf(r.major).d}</div>${majorsOf(r).filter(m=>PASSIVES[m]).map(m=>
+            `<div class="tag">패시브(전공활용 ${r.stats.maj}) · ${passiveText(PASSIVES[m],passiveRate(r))}</div>`).join("")}`
           :r.lvl<MAJOR_LV?`<div class="tag">Lv ${MAJOR_LV}이 되어야 전공을 정할 수 있습니다 (현재 Lv ${r.lvl})</div>`
           :`<div class="chips" style="margin-top:6px">${pool.map(m=>
             `<button class="pickb" data-maj="${i}|${m.id}" ${majorRoom(m.id)>0?"":"disabled"}>${m.n

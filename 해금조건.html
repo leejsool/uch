@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>해금 조건 — 건물·시설·전공·판매</title>
+<style>
+  :root{ --bg:#1b1a22; --panel:#26242f; --line:#3a3848; --ink:#eae6f2; --dim:#a79fbb;
+         --cy:#7fd7c4; --mark:#d8477e; --on:#6bd98f; --off:#8a84a0; --gold:#e0c060; --hid:#c79bf2; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.5 system-ui,"Segoe UI",sans-serif}
+  header{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);
+         padding:10px 14px;display:flex;flex-wrap:wrap;gap:9px 16px;align-items:center}
+  header h1{font-size:14px;margin:0 6px 0 0;font-weight:800}
+  label.f{display:flex;gap:6px;align-items:center;color:var(--dim)}
+  select,button,input{font:inherit;background:var(--panel);color:var(--ink);
+    border:1px solid var(--line);border-radius:6px;padding:4px 8px}
+  button{cursor:pointer} button:hover{border-color:var(--dim)}
+  button.go{border-color:var(--cy);color:var(--cy)}
+  input[type=search]{min-width:150px}
+  input[type=number]{width:70px}
+  .chips{display:flex;gap:5px;flex-wrap:wrap}
+  .chip{padding:3px 10px;border-radius:99px;border:1px solid var(--line);background:var(--panel);
+        color:var(--dim);cursor:pointer;font:inherit;font-size:12px}
+  .chip.on{border-color:var(--cy);color:var(--cy)}
+  .chip small{opacity:.75;margin-left:4px}
+  #status{padding:6px 14px;font-size:12px;color:var(--dim);border-bottom:1px solid var(--line)}
+
+  /* 가상 진행 상태 */
+  details#ed{border-bottom:1px solid var(--line);padding:8px 14px}
+  details#ed summary{cursor:pointer;color:var(--dim);font-weight:700}
+  details#ed summary b{color:var(--cy);font-weight:700}
+  .edg{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:4px 18px;margin-top:10px}
+  .edg label{display:flex;justify-content:space-between;align-items:center;gap:8px;color:var(--dim);font-size:12px}
+  .edh{margin:12px 0 4px;font-size:12px;font-weight:700;color:var(--ink)}
+  .ros{border-collapse:collapse;font-size:12px}
+  .ros td{padding:2px 6px 2px 0;border:0;white-space:nowrap}
+  .ros select{max-width:130px}
+
+  .tw{overflow:auto;border-top:1px solid var(--line)}
+  table.main{border-collapse:separate;border-spacing:0;width:100%;font-size:12.5px}
+  table.main th,table.main td{padding:6px 9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  table.main th{background:#221f2b;font-weight:700;color:var(--dim)}
+  tr.sech td{background:#221f2b;color:var(--cy);font-weight:800;font-size:12px;padding:9px}
+  tr.sech td small{color:var(--dim);font-weight:400;margin-left:8px}
+  tbody tr.row:hover{background:#242230}
+  td.st{white-space:nowrap;width:1%}
+  .st-on{color:var(--on);font-weight:700} .st-off{color:var(--off)} .st-err{color:var(--mark)}
+  tr.row.on td.nm b{color:var(--on)}
+  td.nm{min-width:170px}
+  td.nm .ln{display:flex;align-items:center;gap:8px}
+  td.nm small{display:block;color:var(--dim);font-size:11.5px}
+  td.cd{min-width:260px;max-width:520px}
+  td.dc{min-width:240px;max-width:420px}
+  td.pg{min-width:150px;max-width:300px;color:var(--dim)}
+  .ico{width:26px;height:26px;flex:0 0 26px;object-fit:contain;background:#1f1c29;border-radius:5px;padding:2px}
+  .emo{width:26px;flex:0 0 26px;text-align:center;font-size:17px}
+  .tag{display:inline-block;font-size:10.5px;font-weight:700;padding:0 7px;border-radius:99px;margin:2px 4px 0 0;white-space:nowrap}
+  .tag.hid{background:#2c1345;color:var(--hid)} .tag.pop{background:#12384a;color:#7fd8f0}
+  .tag.re{background:#4a2438;color:#f08ab0} .tag.ev{background:#3d3520;color:var(--gold)}
+  .tag.no{background:#333041;color:var(--off)}
+  .mini{display:inline-block;margin:1px 6px 1px 0;white-space:nowrap}
+  .mini.on{color:var(--on)} .mini.off{color:var(--off)}
+  pre{margin:0 0 4px;padding:4px 6px;background:#15141b;border-radius:5px;white-space:pre-wrap;word-break:break-all;
+      font:11.5px/1.45 Consolas,"D2Coding",monospace;color:#cfc8e0}
+  .where{font:11px/1.45 Consolas,monospace;color:var(--dim);margin:2px 0}
+  .where b{color:var(--gold);font-weight:400}
+  .where i{font-style:normal;color:#6f6987}
+  .gold{color:var(--gold)}
+  .none{color:#5d5870}
+  .hint{color:var(--dim);font-size:12px;padding:10px 14px;line-height:1.7}
+</style>
+
+<header>
+  <h1>해금 조건</h1>
+  <div class="chips" id="secs"></div>
+  <label class="f">상태 <select id="mode"></select></label>
+  <label class="f">보기 <select id="only">
+    <option value="">전체</option><option value="on">열린 것</option><option value="off">잠긴 것</option>
+  </select></label>
+  <label class="f"><input type="checkbox" id="showcode"> 코드·기록 위치</label>
+  <input type="search" id="q" placeholder="이름·조건·코드 검색">
+  <button class="go" id="reload">index.html 다시 읽기</button>
+</header>
+
+<div id="status">index.html 읽는 중…</div>
+<details id="ed"><summary>가상 진행 상태 — <b id="edname">새 게임</b> (값을 바꾸면 판정이 바로 바뀝니다)</summary>
+  <div id="edbody"></div>
+</details>
+<div class="tw"><table class="main"><thead><tr id="head"></tr></thead><tbody id="body"></tbody></table></div>
+<div class="hint">
+  조건은 게임과 같은 함수(FACILITIES · SCI_MAJORS · shopPool · gateOpen …)를 그대로 불러 판정합니다. 이 파일에는 조건을 따로 두지 않습니다.<br>
+  '조건' 열의 글만 손으로 적은 설명입니다 — 코드를 고치면 '코드·기록 위치'를 켜서 설명이 맞는지 확인하세요. 설명이 없는 항목은 <span class="tag no">설명 없음</span> 이 붙습니다.<br>
+  시설 조건은 매번 새로 봅니다. 조건이 깨지면(골드를 쓰거나 대원이 죽으면) 다시 잠길 수 있습니다.<br>
+  저장본은 게임과 같은 주소(예: http://localhost:8788)에서 열어야 보입니다.
+</div>
+
+<!-- index 의 render() 가 쓰는 자리. 여기서는 화면을 안 그리므로 숨겨 둡니다 -->
+<div id="app" hidden></div>
+
+<script>
+/* ─────────────────────────────────────────────────────────────────────────
+   index.html 의 <script> 를 통째로 읽어 이 페이지에서 실행한 뒤,
+   FACILITIES · BUILDINGS · MAJORS · SCI/HUM/EDU_MAJORS · SHOP · GATES · QUESTS 를
+   그대로 읽어 표로 폅니다. 판정은 전역 G 를 가상 상태로 바꿔 끼우고 게임 함수를 부릅니다.
+   ───────────────────────────────────────────────────────────────────────── */
+(function(){
+"use strict";
+
+const $=id=>document.getElementById(id);
+const statusEl=$("status");
+function setStatus(t,ok){ statusEl.textContent=t;
+  statusEl.style.color = ok===true?"var(--cy)" : ok===false?"var(--mark)" : "var(--dim)"; }
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ── index.html 읽기: 저장된 파일 핸들 → fetch → 파일 고르기 (아이템목록.html 과 같은 방식) ── */
+const FS_OK=!!window.showOpenFilePicker;
+let idxHandle=null;
+function hdb(){ return new Promise((res,rej)=>{ const r=indexedDB.open("uch-rig-tool",1);
+  r.onupgradeneeded=()=>{ if(!r.result.objectStoreNames.contains("h")) r.result.createObjectStore("h"); };
+  r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+async function hget(){ try{ const d=await hdb(); return await new Promise((res,rej)=>{
+  const t=d.transaction("h").objectStore("h").get("index");
+  t.onsuccess=()=>res(t.result); t.onerror=()=>rej(t.error); }); }catch(e){ return null; } }
+async function hset(v){ try{ const d=await hdb(); await new Promise((res,rej)=>{
+  const t=d.transaction("h","readwrite"); t.objectStore("h").put(v,"index");
+  t.oncomplete=()=>res(); t.onerror=()=>rej(t.error); }); }catch(e){} }
+async function perm(h,mode){
+  if(!h.queryPermission) return true;
+  if(await h.queryPermission({mode})==="granted") return true;
+  return (await h.requestPermission({mode}))==="granted";
+}
+async function readIndexText(allowPick){
+  if(idxHandle && await perm(idxHandle,"read"))
+    return (await idxHandle.getFile()).text();
+  try{
+    const res=await fetch("index.html",{cache:"no-store"});
+    if(res.ok) return res.text();
+    throw new Error("HTTP "+res.status);
+  }catch(err){
+    if(!allowPick || !FS_OK) throw err;
+    const [h]=await window.showOpenFilePicker({types:[{description:"HTML",accept:{"text/html":[".html",".htm"]}}]});
+    idxHandle=h; await hset(h);
+    return (await h.getFile()).text();
+  }
+}
+
+let RAW="", LINES=[], booted=false;
+async function loadIndex(allowPick){
+  RAW=await readIndexText(allowPick);
+  const code=[...RAW.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi)].map(m=>m[1]).join("\n");
+  if(!/const\s+FACILITIES\s*=/.test(code)) throw new Error("index.html 에서 FACILITIES 를 못 찾음");
+  if(booted){ location.reload(); return; }        // 두 번 주입하면 const 재선언으로 깨진다
+  const s=document.createElement("script");
+  s.textContent=code;
+  document.body.appendChild(s);                    // 전역 스코프에서 동기 실행
+  booted=true;
+  if(typeof FACILITIES!=="object") throw new Error("index 스크립트가 실행되지 않음");
+  LINES=RAW.split("\n");
+  /* 게임 화면은 그리지 않습니다 — 제목 화면 연출을 멈추고 render 를 비웁니다 */
+  try{ titleStop(); }catch(e){}
+  try{ render=function(){}; }catch(e){}
+}
+
+/* ═══════════ 가상 상태 ═══════════ */
+let S=null, modeSel="new";
+function newState(){ newGame(0); S=G; }
+function saveState(i){
+  const sv=readSave(i);
+  if(!sv) return false;
+  S=unpackSave(JSON.parse(JSON.stringify(sv))); G=S;
+  return true;
+}
+/* 게임 함수 한 번 부르기 — 전역 G 를 가상 상태로 두고, 터지면 undefined */
+function ev(fn){
+  G=S;
+  try{ return fn(); }catch(e){ return undefined; }
+}
+const evB=fn=>{ const v=ev(fn); return v===undefined?undefined:!!v; };
+
+/* ═══════════ 코드 조각 ═══════════ */
+const src=fn=>typeof fn==="function"?fn.toString():String(fn);
+/* 조건 코드에서 읽는 G 칸 이름 — g.xxx / G.xxx */
+function fieldsOf(codes){
+  const s=new Set();
+  for(const c of codes) for(const m of c.matchAll(/\b[gG]\.(\w+)/g)) s.add(m[1]);
+  s.delete("roster");
+  return [...s];
+}
+/* 그 칸이 index.html 어디서 서는지 — G.xxx= · ++ · += · .push( */
+function whereSet(f){
+  if(f==="itemSeen") return [{ln:null,t:"물건을 손에 넣는 곳마다 markSeen(id)"}];
+  const re=new RegExp(`\\bG\\.${f}\\b(?:\\[[^\\]]*\\]|\\.\\w+)?\\s*(?:=(?!=)|\\+\\+|\\+=|-=|\\.push\\()`);
+  const out=[];
+  LINES.forEach((l,i)=>{ if(re.test(l)){
+    let t=l.trim();
+    if(t.length<32&&i>0) t=LINES[i-1].trim()+" ⏎ "+t;     // 너무 짧으면 윗줄까지
+    out.push({ln:i+1,t:t.length>150?t.slice(0,150)+"…":t});
+  }});
+  return out;
+}
+function whereHtml(fields){
+  return fields.map(f=>{
+    const w=whereSet(f);
+    if(!w.length) return `<div class="where"><b>G.${esc(f)}</b> <i>— 서는 곳을 못 찾음</i></div>`;
+    const more=w.length>3?` <i>외 ${w.length-3}곳</i>`:"";
+    return w.slice(0,3).map((x,k)=>`<div class="where">${k?"":`<b>G.${esc(f)}</b> ← `}${
+      x.ln?`<i>L${x.ln}</i> `:""}${esc(x.t)}${k===Math.min(w.length,3)-1?more:""}</div>`).join("");
+  }).join("");
+}
+
+/* ═══════════ 손으로 적은 설명 ═══════════
+   수치는 되도록 index 의 상수를 그대로 끌어다 씁니다. 여기 없는 id 는 '설명 없음' 으로 뜹니다. */
+const C=(name,def)=>{ try{ return eval(name); }catch(e){ return def; } };   // 상수가 사라져도 안 깨지게
+const FAC_DESC={
+  office:  ()=>"탐색을 1회 다녀오면 (튜토리얼 귀환)",
+  shop:    ()=>"누적 골드 25 이상 (번 돈 기준 — 써도 안 줄어듭니다)",
+  adm:     ()=>"탐색 2회",
+  union:   ()=>"탐색 3회",
+  work:    ()=>`이공계 전공을 정한 대원이 있고, 지금 가진 골드 ${C("WORK_OPEN","?")} 이상 — 한 번 열리면 다시 잠기지 않음`,
+  clinic:  ()=>"체력 절반 이하로 귀환한 대원이 생기면 · 열릴 때 신재혁이 무료로 합류",
+  arcade:  ()=>"탐색 1회",
+  tower:   ()=>"첫 사망자가 나오면",
+  deptArts:()=>`최고 Lv ${C("MAJOR_LV","?")} 대원`,
+  deptMed: ()=>`최고 Lv ${C("MAJOR_LV","?")} 대원`,
+  deptRotc:()=>`총기를 들고 살아 귀환 + 최고 Lv ${C("MAJOR_LV","?")} 대원`,
+  deptSci: ()=>"이공계 전공이 하나라도 열리면 (게임 안에 조건 비공개)",
+  deptHum: ()=>"인문사회 전공이 하나라도 열리면 (게임 안에 조건 비공개)",
+  library: ()=>"인문사회 전공이 하나라도 열리면 — 학과사무실과 같이 켜짐",
+  deptEdu: ()=>"사범 전공이 하나라도 열리면",
+  study:   ()=>"최고 Lv 3 대원 + 전공을 가진 대원 2명 이상",
+};
+const MAJ_DESC={
+  tkd:    ()=>"학과사무실이 열리면 기본",
+  archery:()=>`활로 적 ${C("BOW_MAJOR","?")}체 격파`,
+  dance:  ()=>"체력이 가득한 채로 살아 귀환한 대원이 나오면 (귀환 회복 전 기준)",
+  nurse:  ()=>"학과사무실이 열리면 기본",
+  mil:    ()=>"학과사무실이 열리면 기본",
+  soldier:()=>`총으로 적 ${C("SOLDIER_KILLS","?")}체 격파 (활 제외)`,
+  police: ()=>"전투 중 탄약·화살이 떨어져 근접으로 넘어간 적이 있으면",
+  chem:   ()=>"화학 피해로 적 1체 격파",
+  phys:   ()=>"헌책을 행정실에 2권 판매 (누적)",
+  mech:   ()=>"앞치마·마이크·라이터·커터칼을 모두 한 번씩 손에 넣음 (잃어도 무관)",
+  bio:    ()=>"정문 게이트를 닫으면",
+  food:   ()=>"게이트 안에서 응급 키트가 아닌 것으로 회복",
+  arch:   ()=>`게이트 안에서 서로 다른 장소 ${C("ARCH_PLACES","?")}곳에 들어가 봄 (밤 거리 포함)`,
+  lib:    ()=>"다이어리·볼펜을 모두 한 번씩 손에 넣음",
+  med:    ()=>`Lv ${C("MED_OPEN_LV","?")} 이상 간호학과 대원 + 어느 게이트든 ${C("MED_OPEN_DAY","?")}일차 전투를 이긴 적 — 한 번 열리면 유지`,
+  phil:   ()=>`소주를 마셔 봄 + 최고 Lv ${C("MAJOR_LV","?")} 대원`,
+  elem:   ()=>`사범대학을 뺀 학과사무실들이 내놓는 전공이 ${C("ELEM_MAJORS","?")}개 이상`,
+};
+const MAJ_POPUP={food:1,phil:1,med:1};                    // campusNotes() 가 열린 것을 알려 주는 전공
+const SHOP_DESC={
+  cap:   ()=>"매점에서 처음 물건을 산 다음 탐색부터",
+  upants:()=>"명단이 처음 2명이 된 뒤부터 (줄어도 안 잠김)",
+  healspray:()=>"의예과가 열린 뒤부터 (의예과 조건과 같음) · 간호학과·의예과만 착용",
+  bow:   ()=>`정문 게이트 ${C("BOW_OPEN_DAY","?")}일차를 치르고 탐색 ${C("BOW_OPEN_EXP","?")}회 — 캠퍼스에서 소문 팝업`,
+};
+const noDesc='<span class="tag no">설명 없음</span>';
+const d=(map,id)=>map[id]?esc(map[id]()):noDesc;
+
+/* ═══════════ 줄 만들기 ═══════════ */
+const SECS=[{k:"bld",n:"건물"},{k:"fac",n:"시설"},{k:"maj",n:"전공"},{k:"sys",n:"전공 제도"},
+            {k:"shop",n:"판매"},{k:"gate",n:"게이트·의뢰"}];
+const bldOf=id=>BUILDINGS.find(b=>b.facs&&b.facs.includes(id));
+const facName=f=>{ const b=bldOf(f.id); return f.n==="학과사무실"&&b?`${b.n} 학과사무실`:f.n; };
+const itemImg=id=>{ const r=(typeof ITEM_ART==="object")&&ITEM_ART[id];
+  return r?`<img class="ico" src="${ART+r}" alt="">`:`<span class="emo">·</span>`; };
+const emo=t=>`<span class="emo">${t||"·"}</span>`;
+const tag=(c,t)=>`<span class="tag ${c}">${t}</span>`;
+const mini=(ok,t)=>`<span class="mini ${ok?"on":"off"}">${ok?"✓":"✗"} ${esc(t)}</span>`;
+
+/* 전공을 맡는 학과사무실과, 따로 붙은 open 조건 */
+function ownerOf(id){
+  const tables={sciOpen:"SCI_MAJORS",humOpen:"HUM_MAJORS",eduOpen:"EDU_MAJORS"};
+  for(const f of FACILITIES){
+    if(f.major===id) return {f};
+    if(!f.majors) continue;
+    const s=src(f.majors);
+    if(s.includes(`"${id}"`)) return {f};
+    for(const [fn,tb] of Object.entries(tables)){
+      if(!s.includes(fn)) continue;
+      const m=(C(tb,[])||[]).find(x=>x.id===id);
+      if(m) return {f,open:m};
+    }
+  }
+  return null;
+}
+const facOpen=id=>{ const f=facOf(id); return f?evB(()=>f.cond(G)):undefined; };
+
+function buildRows(){
+  const R=[];
+  const add=(sec,o)=>R.push(Object.assign({sec,tags:[],code:[],fields:null,prog:""},o));
+
+  /* 건물 — 안의 시설 중 하나라도 열리면 지도에 이름이 뜹니다 (bldLit) */
+  for(const b of BUILDINGS){
+    const fs=b.facs===null?null:b.facs.map(facOf).filter(Boolean);
+    add("bld",{icon:emo(b.facs===null?"🚪":"🏫"),name:b.n,sub:b.id,
+      desc:fs===null?"처음부터 열려 있음"
+          :fs.length?"안의 시설 중 하나라도 열리면 지도에 이름이 뜨고 들어갈 수 있음":"배정된 시설 없음",
+      prog:fs?fs.map(f=>mini(facOpen(f.id),`${f.ic} ${facName(f)}`)).join(""):"",
+      st:evB(()=>bldLit(b)), code:[src(bldLit)], fields:[]});
+  }
+
+  /* 시설 */
+  for(const f of FACILITIES){
+    const tags=[];
+    if(/잠겨 있다/.test(src(f.prog))) tags.push(tag("hid","비공개"));
+    if(f.onUnlock) tags.push(tag("ev","해금 이벤트"));
+    if(f.intro) tags.push(tag("ev","대사 연출"));
+    const b=bldOf(f.id);
+    add("fac",{icon:emo(f.ic),name:facName(f),sub:`${b?b.n:"?"} · ${f.id}`,tags,
+      desc:d(FAC_DESC,f.id),
+      prog:(()=>{ const p=ev(()=>f.prog(G)); return p===undefined?"":esc(p); })(),
+      st:evB(()=>f.cond(G)), code:[src(f.cond)]});
+  }
+
+  /* 전공 — 학과사무실 건물 순서로 */
+  const bIdx=m=>{ const o=ownerOf(m.id); if(!o) return 999;
+    const b=bldOf(o.f.id); return b?BUILDINGS.indexOf(b):998; };
+  for(const m of [...MAJORS].sort((a,b)=>bIdx(a)-bIdx(b))){
+    const o=ownerOf(m.id);
+    if(!o){
+      add("maj",{icon:emo("🎓"),name:m.n,sub:m.id,tags:[tag("no","미구현")],
+        desc:"맡는 학과사무실이 없어 고를 수 없음",st:false,code:[]});
+      continue;
+    }
+    const b=bldOf(o.f.id), tags=[];
+    if(/잠겨 있다/.test(src(o.f.prog))) tags.push(tag("hid","비공개"));
+    if(MAJ_POPUP[m.id]) tags.push(tag("pop","팝업 알림"));
+    const code=[src(o.f.cond)];
+    if(o.f.majors) code.push(o.open?src(o.open.open):src(o.f.majors));
+    const dOpen=facOpen(o.f.id);
+    const cap=ev(()=>`정원 ${majorCount(m.id)} / ${majorCap(m.id)}`);
+    add("maj",{icon:emo(o.f.ic),name:m.n,sub:`${b?b.n:"?"} 학과사무실 · ${m.id}`,tags,
+      desc:d(MAJ_DESC,m.id),
+      prog:(o.open?"":mini(dOpen,"학과사무실"))+(cap?`<span class="mini">${cap}</span>`:""),
+      st:evB(()=>o.f.cond(G)&&(o.f.majors?o.f.majors(G):[o.f.major]).includes(m.id)),code});
+  }
+
+  /* 전공 제도 */
+  const TK=C("TRANSFER_KINDS",3);
+  add("sys",{icon:emo("🔁"),name:"전과",sub:"행정실",
+    desc:`명단에 서로 다른 전공이 ${TK}개 모이면 · 값 50골드부터 한 번마다 +50`,
+    prog:(()=>{ const k=ev(()=>majorKinds()); return k===undefined?"":`서로 다른 전공 ${k} / ${TK}`; })(),
+    st:evB(()=>majorKinds()>=TK), code:[`majorKinds()>=TRANSFER_KINDS  // ${TK}`, src(majorKinds)], fields:[]});
+  add("sys",{icon:emo("➕"),name:"복수전공",sub:"행정실",tags:[tag("ev","한 번 켜지면 유지")],
+    desc:`서로 다른 네 전공(${C("DUAL_PARTY","?")}명)이 살아서 ${C("DUAL_DAY","?")}일차를 넘긴 전투가 끝난 순간 · 값 ${C("DUAL_COST","?")}골드`,
+    st:evB(()=>G.dualOpen), code:[], fields:["dualOpen"]});
+  if(Array.isArray(C("MAJOR_CAP_STEP",null)))
+    MAJOR_CAP_STEP.forEach((x,i)=>add("sys",{icon:emo("🪑"),name:`전공 정원 ${i+2}번째 자리`,sub:"모든 전공이 함께",
+      desc:esc(x.d||"")||noDesc, st:evB(()=>x.cond(G)), code:[src(x.cond)]}));
+
+  /* 판매 */
+  const shopOk=facOpen("shop");
+  add("shop",{icon:emo("🧺"),name:`매점 판매대 ${C("SHOP_SLOT0","?")}칸`,sub:"기본",
+    desc:"매점이 열리면",st:shopOk,code:[],fields:[]});
+  (C("INVEST_COST",[])||[]).forEach((c,i)=>add("shop",{icon:emo("🧺"),name:`판매대 ${C("SHOP_SLOT0",3)+i+1}번째 칸`,sub:"학생회에 투자",
+    desc:`학생회에 투자 <span class="gold">${c}골드</span> (앞 칸을 연 뒤)`,
+    st:evB(()=>(G.invest||0)>=i+1), code:[], fields:["invest"]}));
+  const poolSrc=src(shopPool).split("\n");
+  for(const id of SHOP){
+    const it=ITEMS[id]||{n:id}, line=poolSrc.find(l=>l.includes(`"${id}"`));
+    add("shop",{icon:itemImg(id),name:it.n,sub:`매점 · ${id}${it.price?` · ${it.price}골드`:""}`,
+      desc:SHOP_DESC[id]?esc(SHOP_DESC[id]()):"매점이 열리면 늘 후보",
+      prog:"판매대 칸 수만큼 무작위로 오름",
+      st:evB(()=>shopOk&&shopPool().includes(id)), code:line?[line.trim()]:[]});
+  }
+  for(const id of (C("SHOP_AMMO",[])||[])){
+    const it=ITEMS[id]||{n:id}, a=it.ammo;
+    add("shop",{icon:itemImg(id),name:it.n,sub:`매점 · 탄약 · ${id}${it.price?` · ${it.price}골드`:""}`,
+      desc:`${esc((AMMO_KIND||{})[a]||a)} 탄약을 쓰는 물건을 한 번이라도 손에 넣으면 (줍기·사기·보유)`,
+      st:evB(()=>shopOk&&seenGun(a)), code:[`seenGun("${a}")`], fields:["gunSeen"]});
+  }
+  if(ITEMS.medkit){
+    add("shop",{icon:itemImg("medkit"),name:ITEMS.medkit.n,sub:"응급의학 실습실",
+      desc:`침상에 한 번이라도 눕히면 판매 시작 · ${C("KIT_COST","?")}골드 · 사면 탐색 ${C("KIT_WAIT","?")}회 뒤 다시 들어옴 · 창고로 감`,
+      st:evB(()=>facOf("clinic").cond(G)&&G.bedUsed), code:[], fields:["bedUsed","kitFrom"]});
+  }
+  if(typeof WORK_UP==="object"){
+    const ids=Object.keys(WORK_UP);
+    add("shop",{icon:emo("🔧"),name:`실습동 강화 ${ids.length}종`,sub:"실습동",
+      desc:"실습동이 열려 있고 그 반출 장비를 가지고 있으면",
+      prog:ids.map(k=>`<span class="mini">${esc((ITEMS[k]||{n:k}).n)} <span class="gold">${WORK_UP[k].g}</span></span>`).join(""),
+      st:facOpen("work"), code:[], fields:[]});
+  }
+
+  /* 게이트 · 의뢰 */
+  for(const gt of GATES){
+    const need=gt.need&&GATES.find(x=>x.id===gt.need);
+    add("gate",{icon:emo("🌀"),name:gt.n,sub:`${gt.id} · ${gt.days}일`,
+      tags:gt.wip?[tag("no","안쪽 미완성")]:[],
+      desc:need?`${esc(need.n)}을 닫으면`:"처음부터",
+      st:evB(()=>gateOpen(gt)), code:[src(gateOpen)], fields:["cleared"]});
+  }
+  for(const q of (C("QUESTS",[])||[])){
+    const it=ITEMS[q.give]||{n:q.give};
+    add("gate",{icon:itemImg(q.give),name:q.n,sub:"학생회장의 의뢰",
+      desc:`${esc(q.d)}<br>보상 <b>${esc(it.n)}</b> · 학생회관이 열려 있어야 받음`,
+      prog:evB(()=>questGot(q))?"보상 받음":"",
+      st:evB(()=>facOf("union").cond(G)&&q.done(G)), code:[src(q.done)]});
+  }
+
+  /* 기록 위치 — 따로 적지 않은 줄은 코드에서 읽는 칸을 뽑습니다 */
+  for(const r of R) if(r.fields===null) r.fields=fieldsOf(r.code);
+  return R;
+}
+
+/* ═══════════ 가상 상태 편집 ═══════════ */
+const NUMS=[["explores","탐색 횟수"],["gold","지금 골드"],["goldEarned","누적 골드"],["deaths","사망자"],
+  ["day","게이트 일차"],["bowKills","활 격파"],["gunKills","총 격파(활 제외)"],["chemKills","화학 피해 격파"],
+  ["bookSold","헌책 판매"],["invest","매점 투자 횟수"],["capFrom","야구모자 시작 탐색"]];
+const BOOLS=[["woundedReturn","절반 이하로 귀환"],["gunHome","총 들고 귀환"],["danceHome","체력 가득 귀환"],
+  ["ammoOut","탄약 떨어져 근접"],["sojuDrunk","소주 마셔 봄"],["foodHeal","게이트 안 음식 회복"],
+  ["bedUsed","침상 써 봄"],["unionOpen","명단 2명 된 적"],["bowOpen","활 소문 들음"],["dualOpen","복수전공 열림"]];
+/* 조건 코드에 박힌 itemSeen 물건 — ["a","b"].every(k=>!!(g.itemSeen … */
+function seenIds(){
+  const s=new Set();
+  const tabs=["SCI_MAJORS","HUM_MAJORS","EDU_MAJORS"].flatMap(t=>C(t,[])||[]);
+  for(const m of tabs){ const c=src(m.open); if(!c.includes("itemSeen")) continue;
+    for(const a of c.matchAll(/\[([^\]]*)\]\s*\.every/g)) for(const x of a[1].matchAll(/"(\w+)"/g)) s.add(x[1]); }
+  return [...s];
+}
+function drawEditor(){
+  const numIn=(k,n)=>`<label>${n}<input type="number" data-n="${k}" value="${S[k]==null?"":S[k]}"></label>`;
+  const chk=(attr,k,n,on)=>`<label>${n}<input type="checkbox" ${attr}="${k}" ${on?"checked":""}></label>`;
+  const bosses=[...new Set(GATES.flatMap(g=>Object.values(g.boss||{})))];
+  const mopts=v=>`<option value="">—</option>`+MAJORS.map(m=>`<option value="${m.id}" ${v===m.id?"selected":""}>${esc(m.n)}</option>`).join("");
+  $("edbody").innerHTML=`
+    <div class="edg">${NUMS.map(([k,n])=>numIn(k,n)).join("")}
+      <label>들어가 본 장소 수<input type="number" id="places" value="${(S.placesSeen||[]).length}"></label>
+      ${GATES.map(g=>`<label>${esc(g.n)} 치른 일차<input type="number" data-gd="${g.id}" value="${(S.gateDay||{})[g.id]||0}"></label>`).join("")}
+    </div>
+    <div class="edh">기록</div>
+    <div class="edg">${BOOLS.map(([k,n])=>chk("data-b",k,n,S[k])).join("")}</div>
+    <div class="edh">닫은 게이트 · 잡은 보스</div>
+    <div class="edg">${GATES.map(g=>chk("data-cl",g.id,esc(g.n)+" 닫음",(S.cleared||[]).includes(g.id))).join("")}
+      ${bosses.map(k=>chk("data-bk",k,esc((typeof ENEMIES==="object"&&ENEMIES[k]&&ENEMIES[k].n)||k),(S.bossKilled||{})[k])).join("")}</div>
+    <div class="edh">손에 넣어 본 물건 · 탄약</div>
+    <div class="edg">${seenIds().map(k=>chk("data-is",k,esc((ITEMS[k]||{n:k}).n),(S.itemSeen||{})[k])).join("")}
+      ${Object.keys(S.gunSeen||{}).map(k=>chk("data-gs",k,esc((AMMO_KIND||{})[k]||k)+" 탄약",S.gunSeen[k])).join("")}</div>
+    <div class="edh">명단 (최고 Lv · 전공)</div>
+    <table class="ros">${(S.roster||[]).map((r,i)=>`<tr><td>${esc(r.name)}</td>
+      <td>Lv <input type="number" data-lv="${i}" value="${r.lvl}"></td>
+      <td><select data-m1="${i}">${mopts(r.major)}</select></td>
+      <td><select data-m2="${i}">${mopts(r.major2)}</select></td>
+      <td>${i?`<button data-del="${i}">빼기</button>`:""}</td></tr>`).join("")}
+      <tr><td colspan="5"><button id="addr">대원 추가</button></td></tr></table>`;
+  const q=s=>$("edbody").querySelectorAll(s);
+  const changed=()=>{ modeSel="edit"; $("edname").textContent="직접 고침"; syncMode(); draw(); };
+  q("[data-n]").forEach(e=>e.onchange=()=>{ const k=e.dataset.n;
+    S[k]=e.value===""?(k==="capFrom"?null:0):+e.value; changed(); });
+  q("[data-b]").forEach(e=>e.onchange=()=>{ S[e.dataset.b]=e.checked; changed(); });
+  q("[data-gd]").forEach(e=>e.onchange=()=>{ S.gateDay=S.gateDay||{}; S.gateDay[e.dataset.gd]=+e.value; changed(); });
+  q("[data-cl]").forEach(e=>e.onchange=()=>{ const id=e.dataset.cl;
+    S.cleared=(S.cleared||[]).filter(x=>x!==id); if(e.checked)S.cleared.push(id); changed(); });
+  q("[data-bk]").forEach(e=>e.onchange=()=>{ S.bossKilled=S.bossKilled||{}; S.bossKilled[e.dataset.bk]=e.checked; changed(); });
+  q("[data-is]").forEach(e=>e.onchange=()=>{ S.itemSeen=S.itemSeen||{}; S.itemSeen[e.dataset.is]=e.checked; changed(); });
+  q("[data-gs]").forEach(e=>e.onchange=()=>{ S.gunSeen[e.dataset.gs]=e.checked; changed(); });
+  $("places").onchange=e=>{ const n=Math.max(0,+e.target.value);
+    S.placesSeen=Array.from({length:n},(_,i)=>(PLACES[i]&&PLACES[i].room)||("place"+i)); changed(); };
+  q("[data-lv]").forEach(e=>e.onchange=()=>{ S.roster[+e.dataset.lv].lvl=Math.max(1,+e.value); changed(); });
+  q("[data-m1]").forEach(e=>e.onchange=()=>{ S.roster[+e.dataset.m1].major=e.value||null; changed(); });
+  q("[data-m2]").forEach(e=>e.onchange=()=>{ S.roster[+e.dataset.m2].major2=e.value||null; changed(); });
+  q("[data-del]").forEach(e=>e.onclick=()=>{ S.roster.splice(+e.dataset.del,1); drawEditor(); changed(); });
+  $("addr").onclick=()=>{ G=S; try{ S.roster.push(rollStudent()); }catch(err){} drawEditor(); changed(); };
+}
+
+/* ═══════════ 그리기 ═══════════ */
+let secSel="", only="", showCode=false, q="";
+function draw(){
+  const rows=buildRows();
+  const t=q.trim().toLowerCase();
+  const vis=rows.filter(r=>{
+    if(secSel&&r.sec!==secSel) return false;
+    if(only==="on"&&r.st!==true) return false;
+    if(only==="off"&&r.st===true) return false;
+    if(t){ const hay=`${r.name} ${r.sub} ${r.desc} ${r.code.join(" ")}`.toLowerCase(); if(!hay.includes(t)) return false; }
+    return true;
+  });
+  $("secs").innerHTML=[{k:"",n:"전체"},...SECS].map(s=>{
+    const rs=s.k?rows.filter(r=>r.sec===s.k):rows;
+    return `<button class="chip${secSel===s.k?" on":""}" data-s="${s.k}">${s.n}<small>${rs.filter(r=>r.st===true).length}/${rs.length}</small></button>`;
+  }).join("");
+  $("secs").querySelectorAll(".chip").forEach(b=>b.onclick=()=>{ secSel=b.dataset.s; draw(); });
+  const cols=["상태","대상","조건","지금",...(showCode?["코드 · 기록이 서는 곳"]:[])];
+  $("head").innerHTML=cols.map(c=>`<th>${c}</th>`).join("");
+  const stHtml=v=>v===true?'<span class="st-on">✓ 열림</span>':v===false?'<span class="st-off">🔒 잠김</span>':'<span class="st-err">? 판정 불가</span>';
+  let html="";
+  for(const s of SECS){
+    const rs=vis.filter(r=>r.sec===s.k);
+    if(!rs.length) continue;
+    html+=`<tr class="sech"><td colspan="${cols.length}">${s.n}<small>${rs.filter(r=>r.st===true).length} / ${rs.length} 열림</small></td></tr>`;
+    html+=rs.map(r=>`<tr class="row ${r.st===true?"on":""}">
+      <td class="st">${stHtml(r.st)}</td>
+      <td class="nm"><div class="ln">${r.icon}<div><b>${esc(r.name)}</b><small>${esc(r.sub||"")}</small>${r.tags.join("")}</div></div></td>
+      <td class="dc">${r.desc}</td>
+      <td class="pg">${r.prog||""}</td>
+      ${showCode?`<td class="cd">${r.code.map(c=>`<pre>${esc(c)}</pre>`).join("")}${whereHtml(r.fields||[])}</td>`:""}
+    </tr>`).join("");
+  }
+  $("body").innerHTML=html||`<tr><td colspan="${cols.length}" class="none">보이는 줄이 없습니다</td></tr>`;
+}
+
+function syncMode(){
+  let opts=`<option value="new">새 게임</option>`;
+  for(let i=0;i<C("SAVE_SLOTS",3);i++){
+    let sv=null; try{ sv=readSave(i); }catch(e){}
+    opts+=`<option value="save${i}" ${sv?"":"disabled"}>저장 ${i+1}${sv?` — ${esc(saveLabel(sv))}`:" (비어 있음)"}</option>`;
+  }
+  if(modeSel==="edit") opts+=`<option value="edit">직접 고침</option>`;
+  $("mode").innerHTML=opts;
+  $("mode").value=modeSel;
+}
+function applyMode(v){
+  modeSel=v;
+  if(v.startsWith("save")){ if(!saveState(+v.slice(4))){ modeSel="new"; newState(); } }
+  else if(v==="new") newState();
+  $("edname").textContent=$("mode").selectedOptions[0]?$("mode").selectedOptions[0].textContent:"새 게임";
+  syncMode(); drawEditor(); draw();
+}
+
+/* ═══════════ 시작 ═══════════ */
+async function start(allowPick){
+  try{
+    setStatus("index.html 읽는 중…");
+    await loadIndex(allowPick);
+    syncMode(); applyMode("new");
+    setStatus(`index.html 에서 시설 ${FACILITIES.length} · 전공 ${MAJORS.length} · 매점 ${SHOP.length+(C("SHOP_AMMO",[])||[]).length} · 게이트 ${GATES.length}개를 읽었습니다.`,true);
+  }catch(err){
+    setStatus("불러오기 실패: "+err.message
+      +(FS_OK?" — 'index.html 다시 읽기' 를 눌러 파일을 직접 고르세요."
+             :" — 로컬 파일이면 브라우저가 fetch 를 막습니다. 서버로 여세요."),false);
+  }
+}
+$("reload").onclick=()=>start(true);
+$("mode").onchange=e=>applyMode(e.target.value);
+$("only").onchange=e=>{ only=e.target.value; draw(); };
+$("showcode").onchange=e=>{ showCode=e.target.checked; draw(); };
+$("q").oninput=e=>{ q=e.target.value; draw(); };
+(async()=>{ if(FS_OK){ try{ idxHandle=await hget(); }catch(e){} } start(false); })();
+
+})();
+</script>
+</html>
