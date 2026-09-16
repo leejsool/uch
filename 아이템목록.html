@@ -6,7 +6,7 @@
 <style>
   :root{ --bg:#1b1a22; --panel:#26242f; --line:#3a3848; --ink:#eae6f2; --dim:#a79fbb;
          --cy:#7fd7c4; --mark:#d8477e; --perm:#6bd98f; --inst:#f08ab0; --junk:#a79fbb;
-         --ammo:#e0c060; --dark:#c79bf2; --work:#7fd8f0; }
+         --ammo:#e0c060; --appr:#9aa3b5; --dark:#c79bf2; --work:#7fd8f0; }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.5 system-ui,"Segoe UI",sans-serif}
   header{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);
@@ -25,6 +25,7 @@
   .chip.on{border-color:currentColor}
   .chip[data-k=perm].on{color:var(--perm)} .chip[data-k=inst].on{color:var(--inst)}
   .chip[data-k=junk].on{color:var(--junk)} .chip[data-k=ammo].on{color:var(--ammo)}
+  .chip[data-k=appr].on{color:var(--appr)}
   .chip[data-k=all].on{color:var(--cy)}
   #status{padding:6px 14px;font-size:12px;color:var(--dim);border-bottom:1px solid var(--line)}
   #sum{padding:8px 14px;font-size:12px;color:var(--dim)}
@@ -48,6 +49,7 @@
   .kd.inst.dk{background:#2c1345;color:var(--dark)}
   .kd.perm.wk{background:#12384a;color:var(--work)}
   .kd.junk{background:#3a3450;color:var(--junk)} .kd.ammo{background:#3d3520;color:var(--ammo)}
+  .kd.appr{background:#2e3240;color:var(--appr)}
   .nm{display:flex;align-items:center;gap:8px}
   .nm b{font-weight:700}
   .nm .plus{color:var(--dark)} .nm .plus.wk{color:var(--work)}
@@ -88,7 +90,7 @@
 <div id="sum"></div>
 <div class="tw"><table><thead><tr id="head"></tr></thead><tbody id="body"></tbody></table></div>
 <div class="hint">
-  머리글을 누르면 그 열로 정렬합니다(한 번 더 누르면 반대 순서). 분류는 반출 → 현장 → 잡화 → 탄약 순입니다.<br>
+  머리글을 누르면 그 열로 정렬합니다(한 번 더 누르면 반대 순서). 분류는 반출 → 현장 → 잡화 → 탄약 → 감정 결과 전용 순입니다.<br>
   모든 값은 index.html 에서 그때그때 읽어옵니다. 이 파일에는 아이템 자료를 따로 두지 않습니다.
 </div>
 
@@ -157,8 +159,12 @@ async function loadIndex(allowPick){
 }
 
 /* ═══════════ 표 만들기 ═══════════ */
-const KINDS=[{k:"perm",n:"반출"},{k:"inst",n:"현장"},{k:"junk",n:"잡화"},{k:"ammo",n:"탄약"}];
+const KINDS=[{k:"perm",n:"반출"},{k:"inst",n:"현장"},{k:"junk",n:"잡화"},{k:"ammo",n:"탄약"},
+             {k:"appr",n:"감정 결과 전용"}];
 const kindIdx=k=>KINDS.findIndex(x=>x.k===k);
+/* grant 가 붙은 것(실탄 상자)은 손에 들어오지 않는 감정 결과 이름표입니다 —
+   열자마자 안의 것들이 창고로 가고 이 물건 자체는 어디에도 남지 않습니다 */
+const kindOf=it=>it.grant?"appr":it.kind;
 const pct=v=>`${v<0?"−":"+"}${Math.round(Math.abs(v)*100)}%`;
 
 /* 튜토리얼 지급품은 index 소스에서 직접 찾습니다 — tutplace 가 바닥에 깔아 두는
@@ -216,6 +222,7 @@ function memoOf(it){
   if(it.skill)m.push("쓰면 스킬 습득 창이 한 번 열립니다");
   if(it.frail)for(const [t,c] of Object.entries(it.frail))m.push(`${t} ${Math.round(c*100)}% 파손`);
   if(it.mystery)m.push("감정해야 값이 정해집니다");
+  if(it.grant)m.push(`손에 들어오지 않습니다 · 열면 ${it.grant.map(k=>ITEMS[k].n).join("·")} 한 뭉치씩이 창고로`);
   if(it.style)m.push({swing:"휘두르기",thrust:"찌르기",gun:"사격"}[it.style]||it.style);
   return m;
 }
@@ -224,7 +231,7 @@ function memoOf(it){
 let COLS=[];
 function makeCols(){
   COLS=[
-    {id:"kind",  t:"분류",  w:r=>r.kindI,  h:r=>`<span class="kd ${r.it.kind}${r.it.dark?" dk":r.it.base?" wk":""}">${KINDS[r.kindI].n}</span>`},
+    {id:"kind",  t:"분류",  w:r=>r.kindI,  h:r=>`<span class="kd ${kindOf(r.it)}${r.it.dark?" dk":r.it.base?" wk":""}">${KINDS[r.kindI].n}</span>`},
     {id:"slot",  t:"칸",    w:r=>r.slotI,  h:r=>r.slotN?esc(r.slotN):`<span class="none">—</span>`},
     {id:"name",  t:"이름",  w:r=>r.it.n,   h:r=>`<div class="nm">${iconHtml(r.it)}<b>${nameHtml(r.it)}</b></div>`},
     {id:"d",     t:"성능",  w:r=>r.it.d||"", cls:"d", grp:"txt", h:r=>esc(r.it.d||"")},
@@ -271,7 +278,7 @@ function buildRows(){
       else { sell=it.price||0; sellS=it.price||0; }
     }
     return {
-      it, kindI:kindIdx(it.kind),
+      it, kindI:kindIdx(kindOf(it)),
       slotI:it.slot?SLOTS.findIndex(s=>s.k===it.slot):99,
       slotN:sl?sl.n:(it.kind==="ammo"?"탄약":""),
       /* 근접 기본 사거리 7 — 무기만 값을 적습니다 */
@@ -290,7 +297,7 @@ function visible(){
   const t=q.trim().toLowerCase();
   return ROWS.filter(r=>{
     if(!showDk&&upBase(r.it))return false;
-    if(kindSel!=="all"&&r.it.kind!==kindSel)return false;
+    if(kindSel!=="all"&&kindOf(r.it)!==kindSel)return false;
     if(slotSel==="__none"){ if(r.it.slot)return false; }
     else if(slotSel&&r.it.slot!==slotSel)return false;
     if(t){
@@ -321,7 +328,7 @@ function draw(){
   });
   /* 요약 — 강화판은 따로 셉니다 */
   const base=ROWS.filter(r=>!upBase(r.it));
-  const cnt=KINDS.map(k=>`${k.n} <b>${base.filter(r=>r.it.kind===k.k).length}</b>`).join(" · ");
+  const cnt=KINDS.map(k=>`${k.n} <b>${base.filter(r=>kindOf(r.it)===k.k).length}</b>`).join(" · ");
   $("sum").innerHTML=`원본 <b>${base.length}</b>종 · ${cnt}`
     +` · 강화판 <b>${ROWS.length-base.length}</b>종 &nbsp;|&nbsp; 지금 보이는 것 <b>${rows.length}</b>줄`;
 }
