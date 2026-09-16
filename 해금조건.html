@@ -221,7 +221,7 @@ const FAC_DESC={
   arcade:  ()=>"탐색 1회",
   tower:   ()=>"첫 사망자가 나오면",
   deptArts:()=>`최고 Lv ${C("MAJOR_LV","?")} 대원`,
-  deptMed: ()=>`최고 Lv ${C("MAJOR_LV","?")} 대원`,
+  deptMed: ()=>`응급의학 실습실이 열림(체력 절반 이하 귀환자) + 최고 Lv ${C("MAJOR_LV","?")} 대원`,
   deptRotc:()=>`총기를 들고 살아 귀환 + 최고 Lv ${C("MAJOR_LV","?")} 대원`,
   deptSci: ()=>"이공계 전공이 하나라도 열리면 (게임 안에 조건 비공개)",
   deptHum: ()=>"인문사회 전공이 하나라도 열리면 (게임 안에 조건 비공개)",
@@ -256,6 +256,7 @@ const SHOP_DESC={
   cap:   ()=>"매점에서 처음 물건을 산 다음 탐색부터",
   upants:()=>"명단이 처음 2명이 된 뒤부터 (줄어도 안 잠김)",
   healspray:()=>"의예과가 열린 뒤부터 (의예과 조건과 같음) · 간호학과·의예과만 착용",
+  fkiller:()=>`화학과 전공 Lv ${C("FK_OPEN_LV","?")} 대원이 나오면 (한 번 열리면 유지) — 캠퍼스에서 소문 팝업 · 화학과만 착용`,
   bow:   ()=>`정문 게이트 ${C("BOW_OPEN_DAY","?")}일차를 치르고 탐색 ${C("BOW_OPEN_EXP","?")}회 — 캠퍼스에서 소문 팝업`,
 };
 const noDesc='<span class="tag no">설명 없음</span>';

@@ -27,12 +27,18 @@
   button:disabled{opacity:.3;cursor:not-allowed;background:transparent!important;color:var(--dim)!important;border-color:var(--line)!important}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:15px}
   .card.lock{opacity:.45}   /* 아직 못 여는 창구 — 이름만 보인다 */
+  /* 끝난 의뢰 — 회색으로 접혀 제목만. 누르면 펼쳐집니다 */
+  .card.done{cursor:pointer;background:var(--bg);border-color:var(--line)}
+  .card.done h2{color:var(--dim);margin-bottom:0;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .card.done h2 small{font-size:11px;font-weight:400}
+  .card.done.open h2{margin-bottom:7px}
+  .card.done p,.card.done .tag{opacity:.8}
   .card h2{font-size:17px;font-weight:800;margin-bottom:7px}
   /* 제목 오른쪽에 버튼을 붙일 때 */
   .cardhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:7px}
   .cardhead h2{margin-bottom:0}
   .cardhead button{font-size:12.5px;padding:6px 11px;white-space:nowrap}
-  .card p{font-size:13.5px;color:var(--dim);line-height:1.75}
+  .card p,.app p{font-size:13.5px;color:var(--dim);line-height:1.75}
 
   /* 오프닝 — 배경 그림 위에 나레이션이 쌓입니다. 그림은 INTRO_ART에 경로만 넣으면 됩니다 */
   #intro{position:relative;min-height:min(62vh,560px);display:flex;flex-direction:column;justify-content:flex-end;
@@ -536,6 +542,7 @@ const PASSIVES={
   tkd: {hp:10, bare:{atk:5,guard:3,dodge:5}},
   mil: {spd:-15, atkP:5},
   food:{hp:5, after:5},
+  dance:{dodge:5, aspd:10},       /* 무용과 — 몸놀림. aspd 는 공격 속도 % */
   /* 초등교육과 — 이 사람의 몸이 아니라 사범대학 교육장에 걸립니다(eduOff·eduExp 는 derive 가 보지 않습니다).
      교육비를 깎고 수업에서 받는 경험치를 늘립니다. 실제로는 명단에 있는 초등교육과 대원 중
      전공활용이 가장 높은 사람의 값 하나만 쓰입니다(eduTeacher) — 여럿이어도 겹쳐 쌓이지 않습니다. */
@@ -559,7 +566,7 @@ function passiveText(pv,rate){
   const sg=n=>n<0?`−{!${-n}}`:`+{${n}}`;
   const part=o=>[o.hp?`최대 체력 ${sg(o.hp)}`:"",o.atk?`공격력 ${sg(o.atk)}`:"",o.atkP?`공격력 ${sg(o.atkP)}%`:"",
     o.guard?`받는 피해 −{${o.guard}}`:"",o.dodge?`회피 ${sg(o.dodge)}%`:"",
-    o.spd?`이동 속도 ${sg(o.spd)}%`:""].filter(Boolean).join(", ");
+    o.aspd?`공격 속도 ${sg(o.aspd)}%`:"",o.spd?`이동 속도 ${sg(o.spd)}%`:""].filter(Boolean).join(", ");
   return scaleTxt([part(pv),pv.bare?`양손이 비어 있으면 ${part(pv.bare)}`:"",
     pv.after?`게이트 안에서 전투가 끝날 때마다 체력 +{${pv.after}}`:"",
     pv.eduOff?`사범대학 교육장 교육비 −{${pv.eduOff}}%`:"",
@@ -611,6 +618,11 @@ const MED_OPEN_LV=4, MED_OPEN_DAY=4;
 const medReady=g=>(g.roster||[]).some(r=>hasMaj(r,"nurse")&&r.lvl>=MED_OPEN_LV)
                 &&Object.values(g.gateDay||{}).some(d=>d>=MED_OPEN_DAY);
 const medOpen=g=>!!g.medOpen||medReady(g);
+/* 에프킬라 — 화학과 전공 대원이 Lv FK_OPEN_LV 에 닿으면 매점에 오릅니다. 화학과만 듭니다.
+   한 번 차면 G.fkOpen 이 서서(render 첫머리) 그 대원이 없어져도 다시 잠기지 않습니다 */
+const CHEM_MAJORS=["chem"], FK_OPEN_LV=5;
+const fkReady=g=>(g.roster||[]).some(r=>hasMaj(r,"chem")&&r.lvl>=FK_OPEN_LV);
+const fkOpen=g=>!!g.fkOpen||fkReady(g);
 const SOLDIER_KILLS=10;   /* 군인 전공 — 총으로 쓰러뜨려야 하는 수 */
 /* 파티에서 가장 높은 레벨 — 학과사무실 해금에 씁니다 */
 const topLvl=g=>Math.max(1,...(g.roster||[]).map(r=>r.lvl));
@@ -670,9 +682,12 @@ const ITEMS={
   bat:{n:"야구 배트",slot:"rh",kind:"perm",atk:8,aspdM:0.86,dmg:DMG.BLUNT,style:"swing",d:"공격력 +8, 공속 −14% · 타격"},
   bottle:{n:"깨진 소주병",slot:"rh",kind:"inst",atk:7,dmg:DMG.SLASH,style:"swing",d:"공격력 +7 · 베기"},
   cutter:{n:"커터칼",slot:"rh",kind:"inst",atk:6,aspdM:1.40,dmg:DMG.THRUST,style:"thrust",d:"공격력 +6, 공속 +40% · 찌르기"},
-  tongs:{n:"연탄집게",slot:"rh",kind:"inst",atk:8,aspdM:1.10,rng:2,dmg:DMG.THRUST,style:"thrust",d:"공격력 +8, 공속 +10%, 사거리 +2 · 찌르기"},
+  tongs:{n:"연탄집게",slot:"rh",kind:"inst",atk:8,aspdM:1.10,rng:5,dmg:DMG.THRUST,style:"thrust",d:"공격력 +8, 공속 +10%, 사거리 +5 · 찌르기"},
   mic:{n:"마이크",slot:"rh",kind:"inst",atk:4,aspdM:1.15,dmg:DMG.BLUNT,style:"swing",d:"공격력 +4, 공속 +15% · 타격"},
   spray:{n:"헤어스프레이",slot:"rh",kind:"perm",atk:4,aspdM:1.25,rng:2,dmg:DMG.CHEM,style:"thrust",price:8,d:"공격력 +4, 공속 +25%, 사거리 +2 · 화학"},
+  /* 헤어스프레이의 윗급. 화학과 Lv5 대원이 나오면 매점에 오릅니다(fkOpen) */
+  fkiller:{n:"에프킬라",slot:"rh",kind:"perm",atk:7,aspdM:1.30,rng:4,dmg:DMG.CHEM,style:"thrust",price:40,req:CHEM_MAJORS,
+       d:"공격력 +7, 공속 +30%, 사거리 +4 · 화학 · 화학과 전용"},
   /* ── 왼손 ── */
   lid:{n:"냄비뚜껑",slot:"lh",kind:"perm",guard:3,hp:6,price:0,frail:{[DMG.BLAST]:0.5},d:"피해 −3, 체력 +6 · 폭발에 약함"},
   book:{n:"전공책",slot:"lh",kind:"perm",guard:4,hp:8,price:5,frail:{[DMG.SLASH]:0.05,[DMG.BLAST]:1.0},d:"피해 −4, 체력 +8"},
@@ -695,7 +710,8 @@ const ITEMS={
   /* ── 하의 ── */
   jeans:{n:"청바지",slot:"bottom",kind:"perm",guard:1,hp:4,d:"피해 −1, 체력 +4"},
   track:{n:"트레이닝 바지",slot:"bottom",kind:"perm",dodge:5,d:"회피 5%"},
-  workpants:{n:"작업복 바지",slot:"bottom",kind:"inst",guard:2,d:"피해 −2"},
+  /* 두껍고 뻣뻣합니다 — 막는 것은 바지 중 가장 좋지만 발이 무거워집니다 */
+  workpants:{n:"작업복 바지",slot:"bottom",kind:"inst",guard:6,spdM:0.90,d:"피해 −6, 이동 −10%"},
   /* 매점에서만 나옵니다. 명단이 두 명이 된 뒤부터 판매대에 오를 수 있습니다 */
   upants:{n:"학생회 인증 바지",slot:"bottom",kind:"perm",hp:3,dodge:2,price:12,d:"체력 +3, 회피 2%"},
   /* ── 신발 ── */
@@ -736,8 +752,8 @@ const ITEMS={
   /* 사마귀 낫 — 앞발을 넘기고 한 탐색 뒤부터 매점에 오릅니다 */
   scythe:{n:"사마귀 낫",slot:"rh",kind:"perm",atk:6,aspdM:1.15,crit:5,dmg:DMG.SLASH,style:"swing",price:45,
     d:"공격력 +6, 공속 +15%, 치명 +5% · 베기"},
-  unionrod:{n:"학생회장봉",slot:"rh",kind:"perm",atk:7,aspdM:1.15,rng:1,dmg:DMG.BLUNT,style:"swing",
-       d:"공격력 +7, 공속 +15%, 사거리 +1 · 타격"},
+  unionrod:{n:"학생회장봉",slot:"rh",kind:"perm",atk:7,aspdM:1.15,rng:4,dmg:DMG.BLUNT,style:"swing",
+       d:"공격력 +7, 공속 +15%, 사거리 +4 · 타격"},
   /* ── 응급 키트 · 응급의학 실습실에서만 팝니다.
      게이트 안에서 배낭에 이고 다니면 어둠 에너지에 먹힐 수 있습니다(KIT_ROT). ── */
   medkit:{n:"응급 키트",kind:"perm",kit:true,price:20,use:{pct:0.35},
@@ -834,14 +850,14 @@ const ITEMS={
 const DARK_UP={
   bottle:   {atk:12},                        /* 깨진 소주병 — 그냥 아프다 */
   cutter:   {atk:10,aspdM:1.55},             /* 커터칼 */
-  tongs:    {atk:12,aspdM:1.20,rng:3},       /* 연탄집게 */
+  tongs:    {atk:12,aspdM:1.20,rng:6},       /* 연탄집게 */
   mic:      {atk:7,aspdM:1.30},              /* 마이크 */
   tray:     {guard:4,aspdM:1.12},            /* 쟁반 */
   signboard:{guard:9,dodge:-3},              /* 입간판 — 무게가 덜 걸린다 */
   doorpanel:{guard:13,hp:16,dodge:-7},       /* 자동차 문짝 */
   helmet:   {guard:4},                       /* 공사장 헬멧 */
   apron:    {guard:4,hp:10,dodge:8},         /* 앞치마 */
-  workpants:{guard:4},                       /* 작업복 바지 */
+  workpants:{guard:9,spdM:0.95},             /* 작업복 바지 — 더 막고, 덜 무겁다 */
   slippers: {dodge:9,crit:6},                /* 삼선 슬리퍼 */
   medkitD:  {use:{pct:0.75}},                /* 침식된 응급 키트 */
   crystal:  {skill:true},                    /* 어둠 에너지 결정 — 결정으로 키우면 힘이 된다 */
@@ -867,6 +883,7 @@ function darkDesc(it){
     if(it.dodge)p.push(`회피 ${it.dodge<0?"−"+(-it.dodge):it.dodge}%`);
     if(it.crit)p.push(`치명 +${it.crit}%`);
     if(it.aspdM&&it.aspdM!==1)p.push(`공속 ${pc(it.aspdM-1)}`);
+    if(it.spdM&&it.spdM!==1)p.push(`이동 ${pc(it.spdM-1)}`);
   }
   let s=p.join(", ")+(it.dmg?` · ${it.dmg}`:"");
   if(it.frail)s+=` · ${Object.keys(it.frail).join("·")}에 약함`;
@@ -888,6 +905,7 @@ const WORK_UP={
   weight:  {atk:10,g:80},
   bat:     {atk:13,aspdM:0.92,g:110},
   spray:   {atk:7,aspdM:1.35,rng:3,g:90},
+  fkiller: {atk:10,aspdM:1.40,rng:5,g:130},
   baton:   {atk:8,aspdM:1.20,g:70},
   /* ── 왼손 ── 손보면 덜 부서집니다 */
   lid:     {guard:5,hp:10,frail:{[DMG.BLAST]:0.25},g:45},
@@ -914,7 +932,7 @@ const WORK_UP={
   rifle:   {atk:18,rng:35,g:180},                /* 21→42 */
   /* 활 — 손을 보면 헛나가는 일이 절반으로 줍니다 */
   bow:     {atk:9,rng:23,miss:0.05,g:120},       /* 15→30 */
-  unionrod:{atk:11,aspdM:1.25,rng:2,g:120},
+  unionrod:{atk:11,aspdM:1.25,rng:5,g:120},
   /* 사마귀 낫+ — 곁에 선 것에게도 **그대로** 베기가 들어갑니다(splash 1.0, 휘두르기 기본은 0.5) */
   scythe:  {atk:9,aspdM:1.25,crit:10,splash:1.0,g:140,
             d:"공격력 +9, 공속 +25%, 치명 +10% · 베기 · 곁의 적도 같은 피해로 휩쓴다"},
@@ -932,7 +950,7 @@ const baseOf=id=>(ITEMS[id]&&(ITEMS[id].dark||ITEMS[id].base))||id;
 Object.keys(ITEMS).forEach(k=>ITEMS[k].id=k);
 /* 매점 판매대에 오를 수 있는 물건 전부. 조건이 붙은 둘은 shopPool() 이 걸러냅니다.
    한 번에 다 오르지는 않습니다 — 자리 수(shopSlots)만큼 무작위로 뽑습니다. */
-const SHOP=["jacket","pen","book","spray","cap","upants","bow","healspray","scythe"];
+const SHOP=["jacket","pen","book","spray","cap","upants","bow","healspray","scythe","fkiller"];
 const SHOP_AMMO=["ammoP","ammoS","ammoR","ammoA"];
 /* 판매대 자리 — 처음 3칸. '학생회에 투자' 로 한 칸씩, 6칸까지 늘립니다 */
 const SHOP_SLOT0=3, SHOP_SLOT_MAX=6, INVEST_COST=[40,120,250];
@@ -945,6 +963,7 @@ function shopPool(){
   : id==="upants" ? !!G.unionOpen                              /* 명단이 두 명이 된 뒤부터 */
   : id==="bow"    ? !!G.bowOpen                                /* 학생회가 활을 만든 뒤부터 */
   : id==="healspray" ? medOpen(G)                              /* 의예과가 열린 뒤부터 */
+  : id==="fkiller" ? fkOpen(G)                                 /* 화학과 Lv5 대원이 나온 뒤부터 */
   : id==="scythe" ? scytheOnSale()                             /* 앞발을 넘기고 한 탐색 뒤부터, 한 자루만 */
   : true);
 }
@@ -1271,8 +1290,8 @@ const spawnAt=()=>(ROOM&&ROOM.spawn)||SPAWN_DEF;
 const ENEMIES={
   worm:{n:"애벌레",lvm:CRAWL,hp:44,atk:8,aspd:.6,speed:20,range:6,r:2.8,c:"#9BC24A",exp:14,dmg:DMG.BITE},
   hopper:{n:"메뚜기",lvm:HOP,hp:36,atk:12,aspd:.8,speed:42,range:6,r:2.9,c:"#D9B84A",exp:22,dmg:DMG.BITE},
-  /* 1게이트 7일차부터. 붙지 않고 멀리서 울어 댑니다. 대신 한 대만 맞아도 크게 상합니다 */
-  cicada:{n:"매미",lvm:HOP,hp:26,atk:11,aspd:.5,speed:24,range:22,r:3,c:"#B9A46A",exp:28,
+  /* 1게이트 7일차부터. 붙지 않고 멀리서 울어 댑니다. 사거리는 활(7+21)과 같은 28. 대신 한 대만 맞아도 크게 상합니다 */
+  cicada:{n:"매미",lvm:HOP,hp:26,atk:11,aspd:.5,speed:24,range:28,r:3,c:"#B9A46A",exp:28,
           dmg:DMG.SONIC,wave:true},
   /* 1게이트 5일차부터, 한 판에 한 마리만(cap). 느리고 아프지 않지만 아주 단단합니다.
      들이받으면 대원이 뒤로 밀리고 한동안 다리가 무거워집니다. */
@@ -1289,7 +1308,7 @@ const ENEMIES={
      공격력 44 → 32 (2026-09-15) — 44 는 체력 75%로 들어간 Lv6 넷이 호위 둘과 함께 10%만 이겼습니다 */
   spider:{n:"거미",lvm:L2|L3,hp:540,atk:32,aspd:.8,speed:28,range:16,r:5.8,c:"#8E6BD9",exp:380,boss:true,dmg:DMG.PIERCE},
   /* 1게이트 6일차 보스. 날아다녀서 지형을 거의 다 넘고, 빠르고 자주 찌릅니다. 대신 무릅니다 */
-  hornet:{n:"장수말벌",lvm:FLY,hp:240,atk:24,aspd:1.1,speed:58,range:8,r:4,c:"#E0A32F",exp:150,boss:true,dmg:DMG.PIERCE},
+  hornet:{n:"장수말벌",lvm:FLY,hp:240,atk:22,aspd:1.1,speed:58,range:8,r:4,c:"#E0A32F",exp:150,boss:true,dmg:DMG.PIERCE},
   /* 3게이트 보스. 눈알 덩어리. 매우 빠르고 시선이 닿은 자리가 터진다 */
   bloodeyes:{n:"Blood Eyes",lvm:TALL,hp:560,atk:50,aspd:2.857,speed:46,range:11,r:6.6,
              c:"#8E1F2E",exp:400,boss:true,dmg:DMG.BLAST},
@@ -1634,7 +1653,7 @@ function derive(p){
   for(const v of passivesOf(p)){
     for(const o of [v,bareHands&&v.bare].filter(Boolean)){
       hpAdd+=o.hp||0;atk+=o.atk||0;guard+=o.guard||0;dodge+=o.dodge||0;
-      spdM*=1+(o.spd||0)/100;atkPM*=1+(o.atkP||0)/100;
+      spdM*=1+(o.spd||0)/100;aspdM*=1+(o.aspd||0)/100;atkPM*=1+(o.atkP||0)/100;
     }
   }
   atk*=atkPM;
@@ -1780,10 +1799,13 @@ const FACILITIES=[
    majors:g=>["tkd"].concat((g.bowKills||0)>=BOW_MAJOR?["archery"]:[],g.danceHome?["dance"]:[]),
    cond:g=>topLvl(g)>=MAJOR_LV,prog:g=>`Lv ${MAJOR_LV} 대원이 나오면 열림 (현재 최고 Lv ${topLvl(g)})`,
    msg:"예체능대학 학과사무실이 문을 열었습니다.<br><br>도장은 비었지만 매트는 남아 있습니다. 태권도학과 전공을 정할 수 있습니다."},
-  /* 의학대학 — 간호학과가 기본이고, 의예과는 medOpen 이 서면 붙습니다 */
+  /* 의학대학 — 간호학과가 기본이고, 의예과는 medOpen 이 서면 붙습니다.
+     예체능대학과 같은 때(Lv2)에 몰리지 않도록, 응급의학 실습실이 열린 뒤(다친 채 귀환한 사람이 생긴 뒤)에 엽니다 */
   {id:"deptMed",ic:"💉",n:"학과사무실",d:"의학 계열 전공 배정",
    majors:g=>["nurse"].concat(medOpen(g)?["med"]:[]),
-   cond:g=>topLvl(g)>=MAJOR_LV,prog:g=>`Lv ${MAJOR_LV} 대원이 나오면 열림 (현재 최고 Lv ${topLvl(g)})`,
+   cond:g=>!!g.woundedReturn&&topLvl(g)>=MAJOR_LV,
+   prog:g=>!g.woundedReturn?"응급의학 실습실이 열리면 열림"
+                           :`Lv ${MAJOR_LV} 대원이 나오면 열림 (현재 최고 Lv ${topLvl(g)})`,
    msg:"의학대학 학과사무실이 문을 열었습니다.<br><br>실습실 옆방입니다. 간호학과 전공을 정할 수 있습니다."},
   /* ROTC — 군사학이 기본이고, 총으로 적을 SOLDIER_KILLS 체 쓰러뜨린 뒤에 군인이 붙습니다 */
   {id:"deptRotc",ic:"🎖",n:"학과사무실",d:"군사학 전공 배정",
@@ -2195,6 +2217,7 @@ const ITEM_ART={        /* 아이템 아이콘 — 만든 것부터 한 줄씩 �
   medkit:"item/medkit.png",
   medkitD:"item/medkitD.png",
   healspray:"item/healspray.png",
+  fkiller:"item/spray.webp",   /* 에프킬라 — 전용 그림이 생길 때까지 헤어스프레이 그림 */
   oldbook:"item/oldbook.png",
   balm:"item/balm.png",
   tcard:"item/tcard.png",
@@ -2218,6 +2241,30 @@ const ITEM_ART={        /* 아이템 아이콘 — 만든 것부터 한 줄씩 �
   /* 결정·캠프파이어 키트 (2026-09-11 추가) */
   crystal:"item/crystal.png",
   campkit:"item/campkit.png",
+  /* 식품·잡동사니·경찰 물건 (2026-09-16 추가) */
+  black0:"item/black0.png",
+  piggy:"item/piggy.png",
+  piggy0:"item/piggy0.png",
+  piggy1:"item/piggy1.png",
+  piggy2:"item/piggy2.png",
+  parcel0:"item/parcel0.png",
+  evidence:"item/evidence.png",
+  evid0:"item/evid0.png",
+  evid1:"item/evid1.png",
+  onigiri:"item/onigiri.png",
+  energy:"item/energy.png",
+  ion:"item/ion.png",
+  ration:"item/ration.png",
+  canx:"item/canx.png",
+  ramen:"item/ramen.png",
+  parcel:"item/parcel.png",
+  parcel3:"item/parcel3.png",
+  blackbox:"item/blackbox.png",
+  black1:"item/black1.png",
+  black2:"item/black2.png",
+  hockey:"item/hockey.png",
+  mantisarm:"item/mantisarm.png",
+  scythe:"item/scythe.png",
 };
 const artUrl=v=>v?ART+v:"";
 /* 그림이 아직 없는 아이템도 같은 크기의 빈 자리를 남깁니다.
@@ -2594,6 +2641,8 @@ const BATTLE_RIG = {
 };
 /* 압수 권총은 권총과 같은 자리에 쥡니다 — 전투장비배치.html 이 다루는 표 밖에 따로 둡니다 */
 BATTLE_RIG.seized=BATTLE_RIG.pistol;
+/* 에프킬라는 헤어스프레이와 같은 자리에 쥡니다 */
+BATTLE_RIG.fkiller=BATTLE_RIG.spray;
 /* BATTLE_RIG 에 없는 아이템·방향이 나오면 기대는 기본값 */
 const RIG_FB={
   rh:{ ne:{x:.30,y:-1.50,rot:.5,scale:1,behind:true}, nw:{x:.30,y:-1.50,rot:.5,scale:1,behind:true},
@@ -2983,16 +3032,11 @@ function makeZombieOf(a){
 }
 /* 다음 날로 넘어갑니다. 마지막 날 보스를 잡았으면 게이트를 나가고,
    아직 못 잡았으면 날짜가 더 가지 않고 그 날에 머뭅니다 — 더 갈 데가 없습니다. */
-const DAY_HEAL=0.15;   /* 게이트 안에서 새 일차가 밝을 때 파티 전원이 회복하는 최대 체력 비율 */
+/* 날이 바뀌어도 체력은 저절로 차지 않습니다(밤사이 회복은 2026-09-16 에 없앴습니다).
+   게이트 안에서 체력을 채우는 길은 캠프파이어 휴식 · 음식 · 응급 키트 · 스킬뿐입니다. */
 function nextDay(){
   if(G.gateClear){G.scene="retreat";render();return}
-  if(G.day<gateOf().days){
-    G.day++;
-    /* 밤사이 조금 아뭅니다 — 게이트 안에는 달리 체력이 차는 길이 드물어, 없으면 뒷날에 누적 피해로 무너집니다 */
-    let healed=0;
-    for(const p of party()){const m=derive(p).maxHp,h=Math.min(m,p.hp+Math.round(m*DAY_HEAL));healed+=h-p.hp;p.hp=h}
-    if(healed>0)toast(`밤사이 상처가 조금 아물었습니다 (최대 체력의 ${Math.round(DAY_HEAL*100)}%)`);
-  }
+  if(G.day<gateOf().days)G.day++;
   /* 새 일차는 아직 시작하지 않았습니다 — 여기서 나가면 이 날은 세지 않습니다 */
   G.dayOn=false;
   G.offer=null;G.skillOffer=null;G.scene="instant";render();
@@ -3520,6 +3564,7 @@ function faceFoe(g,ang,extra){
   g.scale(flip?-1:1,1);
   g.rotate(a+(flip?-(extra||0):(extra||0)));
 }
+const NO_NAME=new Set(["beetle","cicada"]);   /* 전투에서 이름을 밑에 달지 않는 잡몹 */
 function drawFoe(f){
   const x=f.x*SX,y=f.y*SY,r=f.r*Math.min(SX,SY);
   const bx=Math.cos(f.face),by=Math.sin(f.face);
@@ -3740,10 +3785,10 @@ function drawFoe(f){
       ctx.restore();
     }
     /* 이 갈래는 원래 사마귀 하나뿐이라 BOSS 를 그냥 찍었습니다.
-       매미처럼 보스가 아닌 것도 들어오므로 이름과 갈라 줍니다. */
+       보스가 아닌 것도 들어오므로 이름과 갈라 줍니다. 그림이 있는 매미·장수풍뎅이는 이름을 달지 않습니다(NO_NAME). */
     if(f.boss){ctx.fillStyle="rgba(242,215,78,.9)";ctx.font="800 9px system-ui";
       ctx.textAlign="center";ctx.fillText("BOSS",x,y-r-12)}
-    else{ctx.fillStyle="rgba(140,220,120,.85)";ctx.font="600 8.5px system-ui";
+    else if(!NO_NAME.has(f.key)){ctx.fillStyle="rgba(140,220,120,.85)";ctx.font="600 8.5px system-ui";
       ctx.textAlign="center";ctx.fillText(f.name,x,y+r+11)}
   }
   const lift=(f.key==="hopper"&&f.air>0)?Math.sin((1-f.air/HOP_AIR)*Math.PI)*r*1.6:0;
@@ -4894,7 +4939,7 @@ function compareLine(p,id){
   const it=ITEMS[id];
   if(!it.slot)return "";
   if(it.req&&!majorsOf(p).some(m=>it.req.indexOf(m)>=0))
-    return `<div class="cmp"><span class="dd">${p.name}은(는) 다룰 수 없습니다</span> · ${it.req.join(" / ")} 전용</div>`;
+    return `<div class="cmp"><span class="dd">${p.name}은(는) 다룰 수 없습니다</span> · ${it.req.map(m=>(majorOf(m)||{n:m}).n).join(" / ")} 전용</div>`;
   const cur=ITEMS[p.gear[it.slot]];
   if(cur&&cur.id===id)return `<div class="cmp">${p.name}이(가) 이미 끼고 있습니다</div>`;
   const ghost={stats:p.stats,gear:{...p.gear}};
@@ -4978,17 +5023,18 @@ function invPanel(p,pi,mode,group){
         ${mates.map(o=>`<button class="mini" data-gmv="${pi}|${pickS.k}|${G.roster.indexOf(o)}" ${(canWearNow(o,gid)||canTake(o,gid))?"":"disabled"}>${o.name} ▸</button>`).join("")}
       </div>`:""}
     </div>`:""}`;
-  const bag=p.bag.map((id,bi)=>{
+  /* 배낭도 장비처럼 한 줄 칸으로 늘어놓습니다. 칸을 누르면 칸들 아래에 설명과 버튼이 펼쳐집니다.
+     bagC: [{k, id, top(칸 위 글), icon, detail(펼친 줄)}] — 물건 다음에 탄약 뭉치 */
+  const act=mode==="manage", full=p.hp>=derive(p).maxHp;
+  const bagC=p.bag.map((id,bi)=>{
     const it=ITEMS[id];
-    /* 어둠 에너지 결정으로 강화할 수 있는 것 — 줄마다 따로 셉니다(자기 자신은 뺍니다) */
-    const dkt=it.crystal?darkTargets(p,bi):[];
-    const canWear=!!it.slot, k=`${pi}|bag|${bi}`, act=mode==="manage";
-    const full=p.hp>=derive(p).maxHp;
-    return `<div class="slot has ${act?"tap":""} ${on(k)?"open":""}" ${act?`data-sel="${k}"`:""}>
-      <span class="sn">${it.slot?SLOTS.find(s=>s.k===it.slot).n:"잡화"}</span>
+    /* 어둠 에너지 결정으로 강화할 수 있는 것 — 칸마다 따로 셉니다(자기 자신은 뺍니다) */
+    const dkt=it.crystal&&on(`${pi}|bag|${bi}`)?darkTargets(p,bi):[];
+    const canWear=!!it.slot, k=`${pi}|bag|${bi}`, top=it.slot?SLOTS.find(s=>s.k===it.slot).n:"잡화";
+    return {k,id,top,icon:itemIcon(id),detail:()=>`<div class="slot has open">
+      <span class="sn">${top}</span>
       <span class="si">${itemIcon(id)}${it.n} ${kindTag(it)}<small>${it.d}</small></span>
-      ${act?`<span class="caret">${on(k)?"▴":"▾"}</span>`:""}
-      ${act&&on(k)?`<div class="acts">
+      ${act?`<div class="acts">
         ${canWear?`<button class="mini" data-eq="${pi}|${bi}">착용</button>`:""}
         ${it.use?`<button class="mini" data-use="${pi}|${bi}" ${full&&!useAnytime(it)?"disabled":""}>${it.kit?"쓴다":it.use.drink?"마신다":"먹는다"}</button>`:""}
         ${it.skill?`<button class="mini dk" data-sc="${pi}|${bi}" ${atBase?"disabled":""}>쓴다</button>`:""}
@@ -5000,25 +5046,31 @@ function invPanel(p,pi,mode,group){
         <button class="mini bad" data-dr="${pi}|bag|${bi}">버림</button>
         ${mates.map(o=>`<button class="mini" data-mv="${pi}|${bi}|${G.roster.indexOf(o)}" ${(bagRoom(o)>0||canWearNow(o,id))?"":"disabled"}>${o.name} ▸</button>`).join("")}
       </div>`:""}
-    </div>`}).join("");
-  /* 탄약은 뭉치마다 한 줄씩, 남은 발수를 그림 오른쪽 위에 붙여 보여줍니다.
-     뭉치는 배낭 칸을 차지하지만 p.bag 에는 들어 있지 않아 여기서 따로 그립니다. */
-  const ammo=Object.keys(AMMO_ID).map(t=>ammoStacks(p,t).map((n,si)=>{
-    const id=AMMO_ID[t],it=ITEMS[id],k=`${pi}|ammo|${t}|${si}`,act=mode==="manage";
-    return `<div class="slot has ${act?"tap":""} ${on(k)?"open":""}" ${act?`data-sel="${k}"`:""}>
+    </div>`}});
+  /* 탄약은 뭉치마다 한 칸씩, 남은 발수를 그림 오른쪽 위에 붙여 보여줍니다.
+     뭉치는 배낭 칸을 차지하지만 p.bag 에는 들어 있지 않아 여기서 따로 셉니다. */
+  for(const t of Object.keys(AMMO_ID))ammoStacks(p,t).forEach((n,si)=>{
+    const id=AMMO_ID[t],it=ITEMS[id],k=`${pi}|ammo|${t}|${si}`;
+    bagC.push({k,id,top:"탄약",icon:itemIconN(id,n),detail:()=>`<div class="slot has open">
       <span class="sn">탄약</span>
       <span class="si">${itemIconN(id,n)}${it.n} <small>${n} / ${ammoQty(t)}발</small></span>
-      ${act?`<span class="caret">${on(k)?"▴":"▾"}</span>`:""}
-      ${act&&on(k)?`<div class="acts">
+      ${act?`<div class="acts">
         ${atBase&&n===ammoQty(t)?`<button class="mini" data-ast="${pi}|${t}|${n}">창고</button>`:""}
         <button class="mini bad" data-adr="${pi}|${t}|${n}">버림</button>
         ${mates.map(o=>`<button class="mini" data-amv="${pi}|${t}|${n}|${G.roster.indexOf(o)}" ${ammoFits(o,t,n)?"":"disabled"}>${o.name} ▸</button>`).join("")}
       </div>`:""}
-    </div>`}).join("")).join("");
+    </div>`});
+  });
+  const bagPick=bagC.find(c=>on(c.k));
+  const bagCells=bagC.map(c=>{const it=ITEMS[c.id];
+    return `<div class="gc has tap kind-${it.kind} ${on(c.k)?"open":""}" data-sel="${c.k}" title="${itemTip(it)}">
+      <span class="sn">${c.top}</span>${c.icon}<span class="nm">${it.n}</span></div>`}).join("")
+    +'<div class="gc"><span class="sn">&nbsp;</span><span class="ico empty"></span><span class="nm">—</span></div>'
+      .repeat(Math.max(0,BAG_MAX-bagC.length));
   const used=p.bag.length+ammoSlots(p);
   return `<div class="inv"><div class="invh">장비</div>${slots}
     <div class="invh">배낭 ${used} / ${BAG_MAX}</div>
-    ${bag+ammo||'<div class="slot"><span class="si" style="color:var(--dim)">비어 있음</span></div>'}</div>${warn}`;
+    <div class="gear6">${bagCells}</div>${bagPick?bagPick.detail():""}</div>${warn}`;
 }
 /* 판매대·창고·감정 줄도 장비칸과 같습니다. 눌러야 버튼이 나옵니다. */
 function bindRows(){
@@ -5098,10 +5150,17 @@ function bindInv(){
     if(!giveAmmo(to,t,+n))return;
     from.ammo[t]=Math.max(0,roundsOf(from,t)-(+n));render()});
 }
+/* 장비 6칸 — 보기만. 칸에 마우스를 올리면 능력치가 뜹니다(invPanel 과 같은 모양, 누르는 기능은 없음) */
+const gearCellsView=p=>`<div class="gear6">${SLOTS.map(s=>{const id=p.gear[s.k],it=ITEMS[id];
+  return `<div class="gc ${it?`has kind-${it.kind}`:""}" ${it?`title="${itemTip(it)}"`:""}>
+    <span class="sn">${s.n}</span>${it?itemIcon(id):'<span class="ico empty"></span>'}
+    <span class="nm">${it?it.n:"—"}</span></div>`}).join("")}</div>`;
 function allocScreen(p,title,note,after){
   const d=derive(p);
   el.innerHTML=logo+`
-    <div class="card"><h2>${title}</h2><p>${note}</p></div>
+    <div class="app">${faceTag(p)}<div class="hd"><b>${title}</b><span>${majorName(p)}</span></div>
+      <p>${note}</p>
+      <div class="inv"><div class="invh">장비</div>${gearCellsView(p)}</div></div>
     <div>${STATS.map(s=>{
       const v=p.stats[s.k],on=openAt(s,p.lvl),sp=p.spent&&p.spent[s.k];
       return `<div class="stat ${on?"":"locked"}">
@@ -5221,6 +5280,11 @@ function campusNotes(){
   if(medOpen(G)&&!G.tips.majMed){
     G.tips.majMed=true;
     popup("의학대학","의학대학에서 의예과 전공을 고를 수 있게 되었습니다.<br><br>매점에 회복스프레이가 들어오기 시작합니다.");
+    return;
+  }
+  if(fkOpen(G)&&!G.tips.fkShop){
+    G.tips.fkShop=true;
+    popup("소문","화학과 학생이 헤어스프레이를 보더니 혀를 찼다고 합니다. 학생회가 더 독한 것을 구해 왔다는 소문이 들립니다.<br><br>매점에 에프킬라가 들어오기 시작합니다. 화학과만 다룰 수 있습니다.");
   }
 }
 /* ── 경찰 본부 의뢰 (행정실장) ──
@@ -5380,6 +5444,7 @@ function render(){
   if(G.roster&&G.roster.length>=2)G.unionOpen=true;
   /* 의예과도 같은 자리에서 한 번 서면 도로 잠기지 않습니다 */
   if(G.roster&&!G.medOpen&&medReady(G))G.medOpen=true;
+  if(G.roster&&!G.fkOpen&&fkReady(G))G.fkOpen=true;
   let S=G.scene;
   if(S!=="spidergame"&&S!=="stargame"&&S!=="huntgame")arcadeStop();
   if(S!=="title")titleStop();
@@ -5467,7 +5532,7 @@ function render(){
     return;
   }
   if(S==="stats"){
-    allocScreen(p,"이경호 · 새내기 Lv 1",
+    allocScreen(p,"이경호 · Lv 1",
       `능력 점수 1점을 배분하세요.`,
       ()=>{G.scene="enter";render()});
     return;
@@ -5993,7 +6058,8 @@ function render(){
         <div class="tag">${ITEMS[id].price*n} 골드</div></div>`).join("")
         :`<div class="tag" style="margin-top:10px">팔 것이 없습니다.</div>`}
       <div class="bar" style="margin-top:12px"><span class="tag">받을 금액 <b>${lootTotal()}</b> 골드</span>
-      <button id="sell" ${rows.length?"":"disabled"}>전부 판다</button></div></div>
+      <span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button class="ghost" id="sellx" ${rows.some(([id])=>ITEMS[id].use)?"":"disabled"}>소모품 제외 판매</button>
+      <button id="sell" ${rows.length?"":"disabled"}>전부 판다</button></span></div></div>
       <div class="card"><h2>정원</h2>
       ${dorm>=DORM_MAX?`<p>${DORM_MAX}명이 한계입니다. 학적부에 더 낼 자리가 없습니다.</p>`
        :`<p>학적부에 자리를 한 칸 더 냅니다.</p>
@@ -6039,13 +6105,22 @@ function render(){
         G.appraisal=`${ITEMS[id].n} · 열어보니 <b>${ri.n}</b>. ${ri.price} 골드짜리입니다.`;
       }
       render()});
-    document.getElementById("sell").onclick=()=>{
+    /* 매입 — keepUse 면 먹고 마실 것(use 가 있는 잡화)은 팔지 않고 창고로 옮깁니다.
+       창고에서 대원 배낭에 넣어 다음 게이트에 들고 갈 수 있습니다 */
+    const sellLoot=keepUse=>{
+      const moved=[];
+      if(keepUse)for(const [id,n] of Object.entries(G.loot))if(ITEMS[id].use&&!ITEMS[id].mystery){
+        G.store[id]=(G.store[id]||0)+n;markSeen(id);moved.push(`${ITEMS[id].n} ${n}`);delete G.loot[id]}
       const a=lootTotal();G.gold+=a;G.goldEarned+=a;
       /* 무엇을 몇 개나 넘겼는지도 세어 둡니다 — 어떤 학과사무실은 이 장부를 봅니다 */
       G.bookSold=(G.bookSold||0)+(G.loot.oldbook||0);
       const keep={};                                   // 감정 전 물건은 팔지 않고 남긴다
       for(const e of Object.entries(G.loot))if(ITEMS[e[0]].mystery)keep[e[0]]=e[1];
-      G.loot=keep;render()};
+      G.loot=keep;
+      if(moved.length)G.appraisal=`${a} 골드를 받았습니다. 소모품(${moved.join(" · ")})은 창고로 옮겼습니다.`;
+      render()};
+    document.getElementById("sell").onclick=()=>sellLoot(false);
+    document.getElementById("sellx").onclick=()=>sellLoot(true);
     document.getElementById("bk").onclick=()=>{G.appraisal=null;G.scene="campus";render()};
     return;
   }
@@ -6207,26 +6282,35 @@ function render(){
     return;
   }
   /* ── 학생회관 · 학생회장의 의뢰 ──
-     파티 편성은 게이트 화면으로 옮겼습니다. 여기는 부탁과 보상만 다룹니다. */
+     파티 편성은 게이트 화면으로 옮겼습니다. 여기는 부탁과 보상만 다룹니다.
+     끝난 의뢰(done)는 회색으로 접어 제목만 보이고, 누르면(G.questOpen) 설명과 사례가 펼쳐집니다. */
+  const questCard=(k,shown,done,title,desc,reward,state,style)=>{
+    if(!shown)return "";
+    const open=G.questOpen===k;
+    if(done)return `<div class="card done${open?" open":""}" data-qd="${k}"><h2>${title}<small>${open?"▴":"완료 ▾"}</small></h2>
+      ${open?`<p>${desc}</p><div class="bar" style="margin-top:11px"><span class="tag">${reward}</span>${state}</div>`:""}</div>`;
+    return `<div class="card"${style?` style="${style}"`:""}><h2>${title}</h2><p>${desc}</p>
+      <div class="bar" style="margin-top:11px"><span class="tag">${reward}</span>${state}</div></div>`;
+  };
   if(S==="union"){
     unionNotes();
     el.innerHTML=logo+`
       <div class="bar"><span class="tag">학생회관</span><span class="tag">골드 <b>${G.gold}</b></span></div>
       ${npcBar("union")}
       <div class="card"><h2>부탁해 둔 것</h2></div>
-      ${G.armQ===1?`<div class="card" style="border-color:var(--mark)"><h2>사마귀 앞발</h2>
-      <p>사마귀를 상대하게 되면 날카로운 앞발을 챙겨 오기로 했습니다. 가져오면 무기로 만들어 준다고 합니다.</p>
-      <div class="bar" style="margin-top:11px"><span class="tag">사례 · <b>${ITEMS[SCYTHE].n}</b>을(를) 매점에</span>
-      <span class="tag">${hasArm()?"가져왔습니다":"아직입니다"}</span></div></div>`:""}
+      ${questCard("arm",G.armQ>=1,G.armQ>=2,"사마귀 앞발",
+        "사마귀를 상대하게 되면 날카로운 앞발을 챙겨 오기로 했습니다. 가져오면 무기로 만들어 준다고 합니다.",
+        `사례 · <b>${ITEMS[SCYTHE].n}</b>을(를) 매점에`,
+        G.armQ>=2?`<span class="tag" style="color:var(--ok)">넘겼습니다</span>`
+                 :`<span class="tag">${hasArm()?"가져왔습니다":"아직입니다"}</span>`,"border-color:var(--mark)")}
       ${QUESTS.map((q,i)=>{const ok=q.done(G),got=questGot(q);
-        return `<div class="card"${got?"":ok?' style="border-color:var(--mark)"':""}>
-          <h2>${q.n}</h2><p>${q.d}</p>
-          <div class="bar" style="margin-top:11px">
-          <span class="tag">사례 · <b>${ITEMS[q.give].n}</b></span>
-          ${got?`<span class="tag" style="color:var(--ok)">받았습니다</span>`
+        return questCard("q:"+q.id,true,got,q.n,q.d,`사례 · <b>${ITEMS[q.give].n}</b>`,
+          got?`<span class="tag" style="color:var(--ok)">받았습니다</span>`
             :ok?`<button data-q="${i}">사례를 받는다</button>`
-               :`<span class="tag">아직입니다</span>`}</div></div>`}).join("")}
+               :`<span class="tag">아직입니다</span>`,ok?"border-color:var(--mark)":"")}).join("")}
       <div class="bar"><span class="tag"></span><button class="ghost" id="bk">캠퍼스로</button></div>`;
+    el.querySelectorAll("[data-qd]").forEach(c=>c.onclick=()=>{
+      const k=c.dataset.qd;G.questOpen=(G.questOpen===k?null:k);render()});
     el.querySelectorAll("[data-q]").forEach(b=>b.onclick=()=>{
       const q=QUESTS[+b.dataset.q];
       if(!q.done(G)||questGot(q))return;
