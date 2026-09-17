@@ -411,8 +411,6 @@
 /* ═════════════════════════════════════════════════════
    ▼▼▼ 개발용 스위치 — 정식 배포 전에 false로 바꾸세요 ▼▼▼ */
 const DEV_SHOW_UNLOCK=false;
-/* 임시 보너스 (2026-09-17) — 전투 경험치, 행정실 판매 금액, 게임장 상금 배율. 롤백할 때 둘 다 1 로 */
-const BOOST_EXP=2, BOOST_GOLD=1.5;
 /* ▲▲▲ 여기까지 ▲▲▲ */
 
 const L1=1,L2=2,L3=4;
@@ -1041,6 +1039,7 @@ const gotShopOk=id=>{const it=ITEMS[id];
   return !!(it&&it.kind==="perm"&&it.slot&&!(it.ammo&&!it.bow)&&!it.base&&!it.dark&&it.price>0)};
 const gotShopIds=()=>Object.keys(G.gotN||{}).filter(id=>G.gotN[id]>=GOT_SHOP&&!SHOP.includes(id)&&gotShopOk(id));
 function noteGot(id){
+  if(id==="cuffs")G.cuffsGot=true;     /* 경찰대학생 해금 — 게이트에서 수갑을 주워 본 적이 있나 */
   if(!gotShopOk(id))return;
   G.gotN=G.gotN||{};
   G.gotN[id]=(G.gotN[id]||0)+1;
@@ -1347,41 +1346,41 @@ const ROOMS={
       {x:23,y:19,w:18,h:67,l:"책상",lv:L1},
       {x:59,y:19,w:18,h:67,l:"책상",lv:L1}]},
   villa:{id:"villa",
-      spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
-             e:[[52,25],[36,22],[20,26],[66,30],[28,34],[66,20],[12,22],[60,16],[76,34],[40,36]]},
+      spawn:{a:[[55.5,87.5],[68.5,90],[80.5,89],[92.5,83.5]],
+             e:[[44,28],[58.5,22],[71,16.5],[13.5,29],[25,10],[10,15],[30,14],[37,52],[65,56],[74.5,77.5]]},
       obs:[
-      {x:3,y:3,w:56,h:23,l:"주방",lv:TALL},
-      {x:72.5,y:3,w:23.5,h:21.5,l:"냉장고",lv:TALL},
-      {x:21,y:30,w:13.5,h:33,l:"식탁",lv:L1},
-      {x:15,y:36,w:7,h:7.5,lv:L2},
-      {x:35,y:36,w:6.5,h:9,lv:L2},
-      {x:15,y:52,w:6,h:7,lv:L2},
-      {x:35,y:52,w:6.5,h:7.5,lv:L2},
-      {x:59,y:38,w:14,h:32.5,l:"식탁",lv:L1},
-      {x:52.5,y:44,w:7.5,h:8,lv:L2},
-      {x:73,y:44,w:7,h:7.5,lv:L2},
-      {x:52.5,y:60,w:7.5,h:7,lv:L2},
-      {x:73,y:59.5,w:6.5,h:6.5,lv:L2},
-      {x:2,y:88,w:12,h:9,lv:L1|L2},
-      {x:85,y:88,w:12,h:9,lv:L1|L2}]},
+      {x:55.5,y:0,w:12,h:8.5,l:"상가",lv:TALL},
+      {x:81.5,y:0,w:18.5,h:52.5,l:"빌라",lv:TALL},
+      {x:66,y:31.5,w:14,h:7.5,l:"화단",lv:L1|L2},
+      {x:0,y:82.5,w:28.5,h:17.5,l:"건물",lv:TALL},
+      {x:27,y:83,w:9,h:17,lv:L1|L2},
+      {x:36,y:94,w:20,h:6,lv:L1|L2},
+      {x:29,y:24.5,w:10.5,h:8,lv:L1|L2,mul:0.5},
+      {x:17,y:30.5,w:13,h:9,lv:L1|L2,mul:0.5},
+      {x:0,y:39,w:12,h:10.5,lv:L1|L2,mul:0.5},
+      {x:72,y:35.5,w:12,h:9.5,lv:L1|L2},
+      {x:74,y:23.5,w:12,h:12,lv:L1|L2},
+      {x:9,y:75.5,w:15.5,h:12,lv:TALL},
+      {x:3.5,y:69,w:14.5,h:12,lv:TALL},
+      {x:0,y:65,w:12.5,h:21.5,lv:TALL},
+      {x:0,y:59.5,w:8.5,h:10.5,lv:TALL},
+      {x:86.5,y:45.5,w:15.5,h:13,lv:TALL},
+      {x:92.5,y:54.5,w:7.5,h:10.5,lv:TALL}]},
   cosmetics:{id:"cosmetics",
-      spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
-             e:[[52,25],[36,22],[20,26],[66,30],[28,34],[66,20],[12,22],[60,16],[76,34],[40,36]]},
+      spawn:{a:[[35,85.5],[45.5,90],[54.5,90],[66,85]],
+             e:[[49.5,20],[37.5,8],[27,28.5],[60.5,42],[49,33.5],[66,20],[41.5,28],[56.5,15.5],[76,34],[34,40.5]]},
       obs:[
-      {x:3,y:3,w:56,h:23,l:"주방",lv:TALL},
-      {x:72.5,y:3,w:23.5,h:21.5,l:"냉장고",lv:TALL},
-      {x:21,y:30,w:13.5,h:33,l:"식탁",lv:L1},
-      {x:15,y:36,w:7,h:7.5,lv:L2},
-      {x:35,y:36,w:6.5,h:9,lv:L2},
-      {x:15,y:52,w:6,h:7,lv:L2},
-      {x:35,y:52,w:6.5,h:7.5,lv:L2},
-      {x:59,y:38,w:14,h:32.5,l:"식탁",lv:L1},
-      {x:52.5,y:44,w:7.5,h:8,lv:L2},
-      {x:73,y:44,w:7,h:7.5,lv:L2},
-      {x:52.5,y:60,w:7.5,h:7,lv:L2},
-      {x:73,y:59.5,w:6.5,h:6.5,lv:L2},
-      {x:2,y:88,w:12,h:9,lv:L1|L2},
-      {x:85,y:88,w:12,h:9,lv:L1|L2}]},
+      {x:0,y:0,w:24,h:12,l:"주방",lv:TALL},
+      {x:74,y:0,w:26,h:11,l:"냉장고",lv:TALL},
+      {x:0,y:83.5,w:22,h:18,lv:TALL},
+      {x:74.5,y:83,w:25,h:17,lv:TALL},
+      {x:79.5,y:7,w:20.5,h:11.5,lv:TALL},
+      {x:84,y:16,w:19,h:12,lv:TALL},
+      {x:88,y:24.5,w:12,h:12,lv:TALL},
+      {x:94.5,y:35.5,w:5.5,h:12,lv:TALL},
+      {x:-2,y:11.5,w:18,h:12,lv:TALL},
+      {x:0,y:21,w:10.5,h:12,lv:TALL},
+      {x:0,y:32,w:6,h:12,lv:TALL}]},
   police:{id:"police",
       spawn:{a:[[38.5,89],[45,93.5],[79,92.5],[89.5,88.5]],
              e:[[34,26],[20,30],[78,55],[88,62],[58,52],[42,72],[68,78],[18,62],[64,55],[50,70]]},
@@ -1463,7 +1462,7 @@ const ROOMS={
 ]},
 };
 let ROOM=ROOMS[PLACES[0].room];
-const DOOR={x:84,y:95,w:14,h:4};
+const DOOR={x:78,y:96,w:14,h:4};
 /* 방에 spawn 이 없거나(옛 저장본) 방 밖에서 싸울 때 쓰는 기본 자리. a 는 대원 4자리로,
    인원이 적으면 가운데부터 채운다. e 는 적 자리이고 적이 더 많으면 앞에서부터 다시 쓴다. */
 const SPAWN_DEF={a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
@@ -1474,7 +1473,7 @@ const ENEMIES={
   worm:{n:"애벌레",lvm:CRAWL,hp:44,atk:8,aspd:.6,speed:20,range:6,r:2.8,c:"#9BC24A",exp:14,dmg:DMG.BITE},
   hopper:{n:"메뚜기",lvm:HOP,hp:36,atk:12,aspd:.8,speed:42,range:6,r:2.9,c:"#D9B84A",exp:22,dmg:DMG.BITE},
   /* 1게이트 7일차부터. 붙지 않고 멀리서 울어 댑니다. 사거리는 활(7+21)과 같은 28. 대신 한 대만 맞아도 크게 상합니다 */
-  cicada:{n:"매미",lvm:HOP,hp:26,atk:11,aspd:.5,speed:24,range:28,r:3,c:"#B9A46A",exp:28,
+  cicada:{n:"매미",lvm:HOP,hp:26,atk:11,aspd:.5,speed:24,range:28,r:2.6,c:"#B9A46A",exp:28,
           dmg:DMG.SONIC,wave:true},
   /* 1게이트 5일차부터, 한 판에 한 마리만(cap). 느리고 아프지 않지만 아주 단단합니다.
      들이받으면 대원이 뒤로 밀리고 한동안 다리가 무거워집니다. */
@@ -1504,10 +1503,12 @@ const ENEMIES={
   /* 2게이트 10일차 보스. 다리가 부러져 거의 못 걷는 대신 팔이 길고 한 대가 무겁다 */
   crawlzomb:{n:"다리가 부러진 좀비",lvm:HUMAN,hp:760,atk:66,aspd:.55,speed:8,range:14,r:5.6,
              c:"#3E6B47",exp:330,boss:true,dmg:DMG.SLASH},
-  /* 25일차 보스. 절뚝거리며 다가오고, 이것에게 죽은 사람은 일어나 적이 된다 */
-  zombie:{n:"좀비",lvm:TALL,hp:900,atk:50,aspd:100,speed:15,range:8,r:6.2,
+  /* 2게이트 15일차 보스. 쿵쿵 걸어와 두 팔을 들고, 힘을 모아 내려찍는다(zbossStep · ZBOSS_SLAM).
+     한 번 내려찍는 데 약 2.4초라 aspd 는 쓰지 않습니다(시뮬레이션 표기용 값).
+     이것에게 죽은 사람은 일어나 적이 된다. */
+  zombie:{n:"좀비",lvm:TALL,hp:900,atk:65,aspd:.42,speed:7,range:8,r:6.2,
           c:"#4E9E43",exp:900,boss:true,dmg:DMG.BITE},
-  zomb:{n:"좀비",lvm:HUMAN,hp:170,atk:22,aspd:.5,speed:17,range:6,r:3.4,
+  zomb:{n:"좀비",lvm:HUMAN,hp:170,atk:22,aspd:.5,speed:6,range:6,r:3.4,   /* 기어 오므로 느립니다(17 → 6) */
         c:"#5BB04A",exp:60,dmg:DMG.BITE,noScale:true},
 };
 /* 게이트 — 저마다 며칠짜리이고 무엇이 나오는지를 따로 가집니다.
@@ -1533,6 +1534,167 @@ const gateOf=()=>GATES.find(g=>g.id===G.gate)||GATES[0];
 const gateOpen=g=>!g.need||(G.cleared||[]).includes(g.need);
 /* 좀비 계열 갈래. 걸음(절뚝)과 그림을 같이 쓰는 것들 — 강아지 좀비는 네 발이라 뺍니다. */
 const ZOMB_WALK=new Set(["zombie","zomb","crawlzomb"]);
+/* 좀비 그림(320 기준)에서 잘라 낼 팔다리. px,py 는 돌리는 축(어깨·엉덩이),
+   rot 은 흔드는 각도, dx 는 앞뒤로 뻗는 거리, ph 는 박자 — 대각선 팔다리가 함께 움직입니다 */
+const ZOMB_BASE=320;
+/* 좀비 걸음 박자(초당 위상). 이동 속도가 아니라 절뚝임·팔다리가 도는 빠르기입니다 — 2.3 에서 1/3 로 늦춤 */
+const ZOMB_PACE=0.77;
+const ZOMB_LIMBS=[
+  {poly:[[168,50],[320,50],[320,142],[270,142],[216,106],[196,100],[168,82]],px:186,py:78,rot:.28,dx:12,ph:0,
+   root:[[168,50],[214,50],[214,105],[196,100],[168,82]]},
+  {poly:[[190,216],[205,200],[250,188],[320,188],[320,278],[190,278]],px:202,py:228,rot:-.28,dx:12,ph:Math.PI,
+   root:[[190,216],[205,200],[222,195],[222,278],[190,278]]},
+  {poly:[[0,55],[70,55],[70,148],[0,148]],px:68,py:104,rot:-.18,dx:8,ph:Math.PI,under:true,
+   root:[[48,55],[70,55],[70,148],[48,148]]},
+  {poly:[[48,182],[80,182],[100,204],[142,217],[142,252],[48,252]],px:112,py:212,rot:.18,dx:8,ph:0,under:true,
+   root:[[80,182],[100,204],[142,217],[142,252],[88,252],[88,190]]},
+];
+/* 그림이 읽힌 뒤 한 번만 자릅니다 — 몸통(팔다리를 뺀 것)과 팔다리 조각.
+   root 는 몸통에 남겨 두는 팔다리 뿌리입니다. 조각이 밀려나도 이음매가 비지 않습니다 */
+const zombParts=img=>cutParts(img,ZOMB_LIMBS,ZOMB_BASE);
+/* 그림 한 장을 몸통과 팔다리 조각으로 자릅니다. limbs 표마다 한 번만 자르고 그림에 붙여 둡니다 */
+function cutParts(img,LIMBS,BASE){
+  img._cut=img._cut||new Map();
+  if(img._cut.has(LIMBS))return img._cut.get(LIMBS);
+  const w=img.naturalWidth,h=img.naturalHeight,k=w/BASE;
+  const mk=()=>{const c=document.createElement("canvas");c.width=w;c.height=h;return c};
+  const path=(x,poly)=>{x.beginPath();poly.forEach(([a,b],i)=>i?x.lineTo(a*k,b*k):x.moveTo(a*k,b*k));x.closePath()};
+  try{
+    const body=mk(),bx=body.getContext("2d");
+    bx.drawImage(img,0,0);bx.globalCompositeOperation="destination-out";
+    const limbs=LIMBS.map(L=>{
+      path(bx,L.poly);bx.fill();
+      bx.save();bx.globalCompositeOperation="source-over";path(bx,L.root);bx.clip();bx.drawImage(img,0,0);bx.restore();
+      bx.globalCompositeOperation="destination-out";
+      const c=mk(),x=c.getContext("2d");path(x,L.poly);x.clip();x.drawImage(img,0,0);return c;
+    });
+    img._cut.set(LIMBS,{body,limbs});
+  }catch(e){img._cut.set(LIMBS,null)}
+  return img._cut.get(LIMBS);
+}
+/* ── 좀비 보스 ──
+   천천히 쿵쿵 걸어옵니다(반 바퀴마다 한 걸음, 발이 닿을 때 화면이 울립니다).
+   붙으면 두 팔을 들고(lift) → 부들부들 힘을 모으고(charge) → 내려찍고(drop) → 숨을 고릅니다(rec).
+   내려찍는 자리는 힘을 모으기 시작할 때 그 대원이 서 있던 곳으로 정해지고 바닥에 붉은 원이 차오릅니다.
+   원 안에 있는 대원은 모두 맞고, 저마다 회피 판정을 받습니다. */
+const ZBOSS_SLAM={lift:.55,charge:1.05,drop:.11,rec:.7,rest:.45,rad:9};
+/* 내려찍기는 크게 휘두르는 만큼 몸을 틀 틈이 조금 넓습니다 — 회피율 ×1.2 (최대 75%) */
+const ZBOSS_DODGE_MUL=1.2, ZBOSS_DODGE_MAX=75;
+/* 내려찍기에 맞으면 잠시 기절 — 이 동안은 움직이지도 때리지도 못하고 머리 위로 별이 돕니다 */
+const ZBOSS_STUN=0.7;
+const ZBOSS_STEP=2.2;      /* 걸음 박자(초당 위상) */
+const ZBOSS_RAISE=2.3;     /* 팔을 드는 각도(라디안) — 머리 위로 치켜든 모양 */
+const ZBOSS_BASE=384;
+/* 보스 그림(384 기준)의 두 팔. dir 은 드는 방향 — 왼팔은 시계방향, 오른팔은 반시계방향으로 들립니다 */
+const ZBOSS_LIMBS=[
+  {poly:[[0,50],[70,30],[105,70],[110,120],[96,160],[100,285],[0,285]],px:82,py:80,dir:1,
+   root:[[55,35],[105,70],[110,120],[96,160],[62,120]]},
+  {poly:[[286,105],[384,92],[384,384],[262,384],[262,300],[286,292]],px:322,py:150,dir:-1,
+   root:[[286,105],[322,100],[322,205],[286,205]]},
+];
+/* 지금 자세 — arm 은 팔을 든 정도(1 이 다 든 것, 음수는 내려찍어 안쪽으로 꺾인 것) */
+function zbossPose(f){
+  const S=f.slam, Z=ZBOSS_SLAM;
+  if(!S)return{arm:0,lift:0,shake:0,squash:0};
+  const u=S.t;
+  if(S.ph==="lift"){const e=Math.min(1,u/Z.lift);const k=1-(1-e)*(1-e);return{arm:k,lift:k,shake:0,squash:0}}
+  if(S.ph==="charge")return{arm:1,lift:1,shake:.35+.65*Math.min(1,u/Z.charge),squash:0};
+  if(S.ph==="drop"){const e=Math.min(1,u/Z.drop);return{arm:1-1.35*e,lift:1-e,shake:0,squash:e}}
+  const e=Math.min(1,u/Z.rec);
+  return{arm:-.35*(1-e),lift:0,shake:0,squash:1-e};
+}
+/* 한 틱의 행동. 이 보스는 늘 여기서 끝나므로 true 를 돌려줍니다 */
+function zbossStep(f,lifeA,dt){
+  const Z=ZBOSS_SLAM;
+  let S=f.slam;
+  if(!S){
+    const t=lifeA.reduce((b,o)=>D(f,o)<D(f,b)?o:b);
+    f.face=Math.atan2(t.y-f.y,t.x-f.x);
+    if(D(f,t)>f.range+t.r){
+      /* 발을 들고 있을 때만 나아갑니다. 반 바퀴가 넘어갈 때 발이 땅에 닿습니다 */
+      const c0=f.cp||0;
+      f.cp=c0+dt*ZBOSS_STEP;
+      if(Math.floor(f.cp/Math.PI)!==Math.floor(c0/Math.PI))B.shake=Math.max(B.shake||0,.12);
+      const base=f.vspeed;
+      f.vspeed=base*2*Math.abs(Math.sin(f.cp));
+      moveTo(f,t.x,t.y,dt);
+      f.vspeed=base;
+      return true;
+    }
+    f.cool-=dt;
+    if(f.cool>0)return true;
+    f.slam={ph:"lift",t:0,tgt:t};
+    say(`${f.name}이(가) 두 팔을 높이 치켜든다.`);
+    return true;
+  }
+  S.t+=dt;
+  if(S.ph==="lift"&&S.t>=Z.lift){
+    const t=S.tgt.hp>0?S.tgt:lifeA.reduce((b,o)=>D(f,o)<D(f,b)?o:b);
+    S.ph="charge";S.t=0;S.x=t.x;S.y=t.y;
+    f.face=Math.atan2(S.y-f.y,S.x-f.x);
+    say(`${f.name}이(가) 부들부들 떨며 힘을 모은다…`);
+  }else if(S.ph==="charge"&&S.t>=Z.charge){S.ph="drop";S.t=0}
+  else if(S.ph==="drop"&&S.t>=Z.drop){
+    S.ph="rec";S.t=0;
+    B.shake=.4;
+    let hitN=0;
+    for(const a of lifeA){
+      if(a.hp<=0||Math.hypot(a.x-S.x,a.y-S.y)>Z.rad+a.r)continue;
+      if(Math.random()*100<Math.min(ZBOSS_DODGE_MAX,(a.dodge||0)*ZBOSS_DODGE_MUL)){
+        B.fx.push({x:a.x,y:a.y-5,t:"간발의 차!",c:"#F2D74E",life:1.3,off:0});
+        say(`${a.name}이(가) 내려찍기를 간발의 차로 피했다!`);
+        continue;
+      }
+      /* 회피는 위에서 이미 굴렸으므로 hurt 안에서는 다시 굴리지 않습니다 */
+      const dg=a.dodge;a.dodge=0;
+      hurt(a,f.atk,"#F25C5C",f.dmgType,f);
+      a.dodge=dg;hitN++;
+      if(a.hp>0){a.stunT=Math.max(a.stunT||0,ZBOSS_STUN);a.anim=null}
+    }
+    say(hitN?`${f.name}이(가) 땅을 내려찍었다. 바닥이 갈라진다.`:`${f.name}의 주먹이 빈 바닥을 내려찍었다.`);
+  }else if(S.ph==="rec"&&S.t>=Z.rec){f.slam=null;f.cool=Z.rest}
+  return true;
+}
+/* 바닥의 경고 원과 내려찍은 뒤의 충격파 */
+function drawSlamMark(f){
+  const S=f.slam, Z=ZBOSS_SLAM;
+  if(!S||S.x===undefined)return;
+  const x=S.x*SX,y=S.y*SY,rx=Z.rad*SX,ry=Z.rad*SY;
+  ctx.save();
+  if(S.ph==="charge"||S.ph==="drop"){
+    const p=S.ph==="drop"?1:Math.min(1,S.t/Z.charge);
+    ctx.fillStyle=`rgba(242,60,60,${.10+.12*p})`;
+    ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,7);ctx.fill();
+    ctx.fillStyle=`rgba(242,60,60,${.18+.2*p})`;
+    ctx.beginPath();ctx.ellipse(x,y,rx*p,ry*p,0,0,7);ctx.fill();
+    ctx.strokeStyle=`rgba(255,90,90,${.55+.4*Math.abs(Math.sin(S.t*14))})`;ctx.lineWidth=2;
+    ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,7);ctx.stroke();
+  }else if(S.ph==="rec"){
+    const e=Math.min(1,S.t/Z.rec);
+    ctx.globalAlpha=1-e;
+    ctx.strokeStyle="#F2E2C4";ctx.lineWidth=4*(1-e)+1;
+    ctx.beginPath();ctx.ellipse(x,y,rx*(.8+e*.9),ry*(.8+e*.9),0,0,7);ctx.stroke();
+    ctx.fillStyle="rgba(60,40,30,.35)";
+    ctx.beginPath();ctx.ellipse(x,y,rx*.7,ry*.7,0,0,7);ctx.fill();
+  }
+  ctx.restore();
+}
+/* 좀비 그림을 원점에 S 크기로 그립니다. c 는 기는 박자 — 전투와 좀비 헌터가 같이 씁니다 */
+function zombDraw(g,img,S,c){
+  const zp=zombParts(img);
+  if(!zp){g.drawImage(img,-S/2,-S/2,S,S);return}
+  const k=S/ZOMB_BASE;
+  const limb=(L,cv)=>{
+    const ph=Math.sin(c+L.ph);
+    g.save();
+    g.translate((L.px+L.dx*ph)*k-S/2,L.py*k-S/2);g.rotate(L.rot*ph);
+    g.drawImage(cv,-L.px*k,-L.py*k,S,S);
+    g.restore();
+  };
+  ZOMB_LIMBS.forEach((L,i)=>{if(L.under)limb(L,zp.limbs[i])});
+  g.drawImage(zp.body,-S/2,-S/2,S,S);
+  ZOMB_LIMBS.forEach((L,i)=>{if(!L.under)limb(L,zp.limbs[i])});
+}
 /* 물어 죽이는 것들. 여기에 당한 대원은 그 자리에서 일어나 적이 됩니다.
    다리가 부러진 좀비는 물지 않고 찢으므로(SLASH) 빠집니다. */
 const ZOMB_BITE=new Set(["zombie","zomb","dogzomb"]);
@@ -1930,8 +2092,6 @@ const WING="cwing", POUCH="bagpouch";
    장수풍뎅이를 쓰러뜨리고 돌아오면 받고(G.hornQ=1), 투구뿔을 가진 채 학생회관에 들어서면 넘깁니다(G.hornQ=2).
    넘긴 뒤부터 매점에 뿔 방패·풍뎅이 투구가 오릅니다. */
 const HORN="horn";
-/* 행정실에서 받는 값 — 임시 보너스(BOOST_GOLD)를 얹습니다 */
-const sellPrice=id=>Math.round(ITEMS[id].price*BOOST_GOLD);
 /* 창고와 대원 배낭에 있는 재료 수 */
 const matCount=id=>((G.store||{})[id]||0)+(G.roster||[]).reduce((n,r)=>n+r.bag.filter(x=>x===id).length,0);
 /* 행정실에서 팔 수 있는 재료 — 그 재료를 쓰는 의뢰를 마친 뒤부터 */
@@ -2015,7 +2175,7 @@ const FACILITIES=[
    msg:"의학대학 학과사무실이 문을 열었습니다.<br><br>실습실 옆방입니다. 간호학과 전공을 정할 수 있습니다."},
   /* ROTC — 군사학이 기본이고, 총으로 적을 SOLDIER_KILLS 체 쓰러뜨린 뒤에 군인이 붙습니다 */
   {id:"deptRotc",ic:"🎖",n:"학과사무실",d:"군사학 전공 배정",
-   majors:g=>["mil"].concat((g.gunKills||0)>=SOLDIER_KILLS?["soldier"]:[],g.ammoOut?["police"]:[]),
+   majors:g=>["mil"].concat((g.gunKills||0)>=SOLDIER_KILLS?["soldier"]:[],g.ammoOut&&g.cuffsGot?["police"]:[]),
    cond:g=>!!g.gunHome&&topLvl(g)>=MAJOR_LV,
    prog:g=>!g.gunHome?"게이트에서 총기를 가지고 살아 돌아오면 열림"
                      :`Lv ${MAJOR_LV} 대원이 나오면 열림 (현재 최고 Lv ${topLvl(g)})`,
@@ -2307,7 +2467,7 @@ const faceTag=p=>p&&p.face
 const FOE_ART={worm:"foe/worm.webp",hopper:"foe/hopper.webp",mantis:"foe/mantis.webp",spider:"foe/spider.webp",
                cicada:"foe/cicada.webp",beetle:"foe/beetle.webp",hornet:"foe/hornet.webp",
                bee:"foe/bee.webp",
-               bloodeyes:"",dogzomb:"foe/dogzomb.webp",zombie:"foe/zomb.webp",zomb:"foe/zomb.webp",crawlzomb:"foe/zomb.webp"};
+               bloodeyes:"",dogzomb:"foe/dogzomb.webp",zombie:"foe/zombBoss.webp",zomb:"foe/zomb.webp",crawlzomb:"foe/zomb.webp"};
 /* "○○Fly"는 그 몬스터가 날아오를 때 쓰는 그림입니다.
    메뚜기 두 장은 눈을 한가운데 두고 같은 배율로 맞춰 두었으므로,
    같은 자리에 같은 크기로 그리면 몸은 그대로 있고 날개만 펴집니다. */
@@ -2354,8 +2514,7 @@ const preloadAllies=list=>{for(const u of list){const g=(u.sex||"m");allySprite(
 /* ═══════════ 전투 배경 그림 ═══════════
    방 종류(ROOM.id)별로 한 장. 있으면 격자·도형·입구 표시를 빼고 이 그림을 깐다.
    그림은 전투 화면 비율(가로:세로 = 100:92)로 미리 눌러 두면 왜곡이 없다. */
-/* 장소 slug 별 전투 배경. 준비되는 대로 한 줄씩 채운다 → art/battle/<slug>.(webp|jpg)
-   미정: alley villa cosmetics */
+/* 장소 slug 별 전투 배경. 준비되는 대로 한 줄씩 채운다 → art/battle/<slug>.(webp|jpg) */
 const BG_ART={
   diner:"battle/restaurant.jpg",
   pub:"battle/pub.webp",
@@ -2370,6 +2529,8 @@ const BG_ART={
   karaoke:"battle/karaoke.webp",
   subway:"battle/subway.webp",
   tent:"battle/tent.webp",
+  villa:"battle/villa.webp",
+  cosmetics:"battle/cosmetics.webp",
 };
 /* 캠프파이어 씬 배경 — 전투 배경과 달리 세로로 긴 한 장입니다 */
 const CAMPFIRE_ART="scene/campfire.webp";
@@ -2701,6 +2862,9 @@ function unpackSave(sv){
     if(d.facesUsed)d.facesUsed=d.facesUsed.filter(f=>!FACE_GONE.includes(f));
   }
   if(!d.tips)d.tips={};                  /* 안내창 기록이 없던 저장본 */
+  /* 수갑 기록이 없던 저장본 — 이미 들고 온 수갑이 있으면 주운 것으로 칩니다 */
+  if(d.cuffsGot===undefined)d.cuffsGot=!!((d.itemSeen||{}).cuffs||(d.loot||{}).cuffs||(d.store||{}).cuffs
+    ||(d.roster||[]).some(r=>r&&(r.bag||[]).includes("cuffs")));
   if(!d.shopSold)d.shopSold=[];          /* 매점 재고 기록이 없던 저장본 */
   if(d.shopDay===undefined)d.shopDay=-1;
   if(!d.cleared)d.cleared=[];            /* 게이트 클리어 기록이 없던 저장본 */
@@ -2797,7 +2961,7 @@ function newGame(slot){
      danceHome:false,                            /* 무용과 — 체력이 가득한 채로 귀환한 적이 있나 */
      sojuDrunk:false,                            /* 철학과 — 소주를 마셔 본 적이 있나 */
      gunKills:0,                                 /* 군인 — 총으로 쓰러뜨린 수 */
-     ammoOut:false,                              /* 경찰대학생 — 탄약이 떨어져 근접으로 넘어간 적이 있나 */
+     ammoOut:false,cuffsGot:false,               /* 경찰대학생 — 탄약이 떨어져 근접으로 넘어간 적이 있나 · 수갑을 주운 적이 있나 */
      placesSeen:[],                              /* 건축학과 — 게이트 안에서 들어가 본 장소(방 id) */
      gate:"front",cleared:[],gateClear:false,gateDay:{},bossKilled:{},
      bowKills:0,bowOpen:false,bowBought:false,   /* 학생회 제작 활 */
@@ -3424,6 +3588,8 @@ function tick(dt){
   for(const u of lifeA){
     /* 자가 재생(생명공학과) — 싸우는 내내 조금씩 아뭅니다 */
     if(u.regen)u.hp=Math.min(u.maxHp,u.hp+u.maxHp*u.regen*dt);
+    /* 기절 — 풀릴 때까지 아무것도 하지 않습니다 */
+    if(u.stunT>0){u.stunT-=dt;continue}
     if(u.gun){                            // 남은 탄약에 따라 총/배낭 무기/맨손을 오간다
       if((u.ammoN||0)>0){u.style="gun";u.range=u.gun.range;u.atk=u.atkFull;u.dmgType=u.gun.dmg;u.hasW=true;u.bow=u.gun.bow}
       else{
@@ -3550,6 +3716,7 @@ function tick(dt){
       if(f.hp>=f.maxHp*FL.to){f.flee=null;say(`${f.name}이(가) 다시 달려든다.`)}
       continue;
     }
+    if(f.key==="zombie"&&zbossStep(f,lifeA,dt))continue;
     const t=lifeA.reduce((b,o)=>D(f,o)<D(f,b)?o:b);
     // 서로 밀어내는 거리(반지름 합)보다 사거리가 짧으면 영영 못 때린다. 상대 덩치를 더해준다.
     const reach=f.range+t.r;
@@ -3561,7 +3728,7 @@ function tick(dt){
           if(f.hopCd<=0){f.air=HOP_AIR;f.hopCd=HOP_AIR+.5+Math.random()*.35}}
       }else if(ZOMB_WALK.has(f.key)){
         // 성한 다리로 밀 때만 앞으로 나가고, 절뚝이는 쪽에서는 거의 멈춘다
-        f.cp=(f.cp||0)+dt*2.3;
+        f.cp=(f.cp||0)+dt*ZOMB_PACE;
         f.limp=Math.sin(f.cp);
         const base=f.vspeed;
         f.vspeed=base*(f.limp>0?1.75:0.30);
@@ -3601,6 +3768,7 @@ function tick(dt){
   for(const u of [...B.allies,...B.foes]){if(u.flash>0)u.flash-=dt;if(u.strike>0)u.strike-=dt;
     if(u.slowT>0)u.slowT-=dt}
   B.fx=B.fx.filter(p=>{p.life-=dt;p.off+=26*dt;return p.life>0});
+  if(B.shake>0)B.shake=Math.max(0,B.shake-dt);
   if(B.shots)B.shots=B.shots.filter(w=>{w.life-=dt;return w.life>0});
   if(!B.over){
     if(!lifeA.length){B.over=1;stopLoop();setTimeout(()=>{G.scene="fail";render()},600)}
@@ -3610,7 +3778,16 @@ function tick(dt){
 
 /* ═══════════ 그리기 ═══════════ */
 let SX=4,SY=4;
+/* 화면 흔들림(B.shake, 초) — 좀비 보스의 걸음과 내려찍기 */
 function paint(){
+  const sh=B&&B.shake>0?Math.min(1,B.shake*2.5):0;
+  if(!sh){paintScene();return}
+  ctx.clearRect(0,0,W,H);
+  ctx.save();ctx.translate((Math.random()-.5)*sh*9,(Math.random()-.5)*sh*9);
+  paintScene();
+  ctx.restore();
+}
+function paintScene(){
   ctx.clearRect(0,0,W,H);SX=W/100;SY=H/100;
   const px=v=>v*SX,py=v=>v*SY;
   const bg=ROOM&&bgSprite(ROOM.id);
@@ -3648,6 +3825,7 @@ function paint(){
         ctx.fillText(o.l,px(o.x+o.w/2),py(o.y+o.h/2)+3.5)}
     }
   }
+  for(const f of B.foes)if(f.hp>0&&f.slam)drawSlamMark(f);
   for(const f of B.foes)if(f.hp>0)drawFoe(f);
   for(const a of B.allies)if(a.hp>0)drawAlly(a);
   if(B.shots)for(const w of B.shots)drawWeb(w);
@@ -3790,8 +3968,26 @@ function drawAlly(u){
   ctx.restore();          // translate 해제
   const topY=img?r*3.0:r+7, botY=img?r*1.2:r+10;
   bar(u,x,y-topY,"#6BD98F",r);
+  if(u.stunT>0)drawStunStars(x,y-topY-r*.9,r);
   ctx.fillStyle="rgba(234,230,242,.7)";ctx.font="600 8.5px system-ui";ctx.textAlign="center";
   ctx.fillText(u.name,x,y+botY);
+}
+/* 기절 표시 — 머리 위에서 별 셋이 납작한 원을 그리며 돕니다. 뒤로 가는 별은 작고 흐립니다 */
+function drawStunStars(cx,cy,r){
+  const t=performance.now()/1000*5.5, rx=r*1.35, ry=r*.42;
+  for(let i=0;i<3;i++){
+    const a=t+i*Math.PI*2/3, z=Math.sin(a);
+    const x=cx+Math.cos(a)*rx, y=cy+z*ry, s=r*(.58+.16*z);
+    ctx.save();ctx.translate(x,y);ctx.rotate(t*1.4+i);
+    ctx.globalAlpha=.65+.35*z;
+    ctx.beginPath();
+    for(let k=0;k<10;k++){const rr=k%2?s*.45:s, q=k*Math.PI/5-Math.PI/2;
+      k?ctx.lineTo(Math.cos(q)*rr,Math.sin(q)*rr):ctx.moveTo(Math.cos(q)*rr,Math.sin(q)*rr)}
+    ctx.closePath();
+    ctx.fillStyle="#F7D84A";ctx.fill();
+    ctx.strokeStyle="rgba(90,60,0,.8)";ctx.lineWidth=.8;ctx.stroke();
+    ctx.restore();
+  }
 }
 /* 몬스터 그림·도형은 옆모습(머리가 오른쪽)이다. face 를 그대로 rotate 하면
    왼쪽이나 아래를 향할 때 배가 하늘로 가서 뒤집힌 꼴이 된다.
@@ -3803,7 +3999,8 @@ function faceFoe(g,ang,extra){
   g.scale(flip?-1:1,1);
   g.rotate(a+(flip?-(extra||0):(extra||0)));
 }
-const NO_NAME=new Set(["beetle","cicada"]);   /* 전투에서 이름을 밑에 달지 않는 잡몹 */
+const ZBOSS_SIZE=4.6;                            /* 좀비 보스 그림 크기(판정 반지름 배수) */
+const KEEP_RATIO=new Set(["cicada"]);            /* 그림 비율대로 그리는 몬스터 */
 function drawFoe(f){
   const x=f.x*SX,y=f.y*SY,r=f.r*Math.min(SX,SY);
   const bx=Math.cos(f.face),by=Math.sin(f.face);
@@ -3929,16 +4126,46 @@ function drawFoe(f){
     ctx.restore();
     ctx.fillStyle="rgba(242,215,78,.9)";ctx.font="800 9px system-ui";ctx.textAlign="center";
     ctx.fillText("BOSS",x,y-r-12);
+  }else if(f.key==="zombie"&&sprite("zombie")){
+    /* 좀비 보스 — 정면을 보는 그림이라 돌리지 않고 좌우만 뒤집습니다.
+       걸음마다 몸이 들렸다 쿵 내려앉고, 어깨가 좌우로 기웁니다. 발이 판정 원의 아래쪽에 닿습니다 */
+    const c=f.cp||0, step=f.slam?0:Math.abs(Math.sin(c)), po=zbossPose(f);
+    const S=r*ZBOSS_SIZE, img=sprite("zombie"), zp=cutParts(img,ZBOSS_LIMBS,ZBOSS_BASE);
+    ctx.save();ctx.translate(x,y+r);
+    if(Math.cos(f.face)<0)ctx.scale(-1,1);
+    if(po.shake)ctx.translate((Math.random()-.5)*r*.35*po.shake,(Math.random()-.5)*r*.12*po.shake);
+    ctx.rotate(f.slam?0:Math.sin(c)*0.07);
+    ctx.translate(0,-step*r*0.22-po.lift*r*.18);
+    ctx.scale(1+(1-step)*0.04*(f.slam?0:1)+po.squash*.12-po.lift*.02,
+              1-(1-step)*0.04*(f.slam?0:1)-po.squash*.12+po.lift*.06);
+    if(f.flash>0)ctx.filter="brightness(0) invert(1)";
+    else if(po.shake)ctx.filter=`brightness(${1+po.shake*.15}) saturate(${1+po.shake*.4})`;
+    if(!zp)ctx.drawImage(img,-S/2,-S,S,S);
+    else{
+      const k=S/ZBOSS_BASE;
+      ctx.drawImage(zp.body,-S/2,-S,S,S);
+      ZBOSS_LIMBS.forEach((L,i)=>{
+        const jit=po.shake?(Math.random()-.5)*.08*po.shake:0;
+        ctx.save();
+        ctx.translate(L.px*k-S/2,L.py*k-S);ctx.rotate(L.dir*(po.arm*ZBOSS_RAISE+jit));
+        ctx.drawImage(zp.limbs[i],-L.px*k,-L.py*k,S,S);
+        ctx.restore();
+      });
+    }
+    ctx.restore();
+    if(f.boss){ctx.fillStyle="rgba(242,215,78,.9)";ctx.font="800 9px system-ui";
+      ctx.textAlign="center";ctx.fillText("BOSS",x,y+r-S-8)}
   }else if(ZOMB_WALK.has(f.key)){
     const lp=f.limp||0, tilt=lp*0.20;
     ctx.save();ctx.translate(x,y);faceFoe(ctx,f.face,tilt);
     const zsp=sprite(f.key);
     if(zsp){
-      /* 기어 오는 그림 한 장 — 절뚝일 때마다 앞뒤로 조금 밀리고 늘어납니다 */
+      /* 기어 오는 그림 한 장 — 절뚝일 때마다 앞뒤로 조금 밀리고 늘어납니다.
+         팔다리는 잘라 둔 조각을 어깨·엉덩이를 축으로 흔듭니다(ZOMB_LIMBS) */
       const S=r*3.6;
       ctx.translate(lp*r*0.12,0);ctx.scale(1+lp*0.05,1-lp*0.03);
       if(f.flash>0)ctx.filter="brightness(0) invert(1)";
-      ctx.drawImage(zsp,-S/2,-S/2,S,S);
+      zombDraw(ctx,zsp,S,f.cp||0);
     }else{
     // 끌리는 다리
     ctx.strokeStyle="#2F6B2A";ctx.lineWidth=r*0.30;ctx.lineCap="round";
@@ -3965,8 +4192,6 @@ function drawFoe(f){
     ctx.restore();
     if(f.boss){ctx.fillStyle="rgba(242,215,78,.9)";ctx.font="800 9px system-ui";
       ctx.textAlign="center";ctx.fillText("BOSS",x,y-r-12)}
-    else{ctx.fillStyle="rgba(140,220,120,.85)";ctx.font="600 8.5px system-ui";
-      ctx.textAlign="center";ctx.fillText(f.name,x,y+r+11)}
   }else if(f.key==="bloodeyes"){
     // 빠르게 움직이므로 잔상을 깐다
     ctx.globalAlpha=.22;ctx.fillStyle=f.color;
@@ -4013,13 +4238,15 @@ function drawFoe(f){
       const st=f.strike>0?Math.sin((1-Math.max(0,f.strike)/.24)*Math.PI):0;
       const sway=Math.sin((f.wig||0)*0.9)*0.05*(1-st);
       const S=r*4.6;
+      /* 매미는 그림 비율(가로로 긴 몸)을 지킵니다 — 정사각형에 넣으면 몸통이 두 배로 뚱뚱해집니다 */
+      const SH=KEEP_RATIO.has(f.key)?S*sp.naturalHeight/sp.naturalWidth:S;
       ctx.save();
       ctx.translate(x,y);
       faceFoe(ctx,f.face,sway);
       ctx.translate(st*r*0.55,0);            // 찌를 때 앞으로
       ctx.scale(1+st*0.10,1-st*0.06);
       if(f.flash>0)ctx.filter="brightness(0) invert(1)";
-      ctx.drawImage(sp,-S/2,-S/2,S,S);
+      ctx.drawImage(sp,-S/2,-SH/2,S,SH);
       ctx.restore();
     }else{
       ctx.save();ctx.translate(x,y);faceFoe(ctx,f.face);
@@ -4032,14 +4259,12 @@ function drawFoe(f){
       ctx.beginPath();ctx.arc(r*.75,0,r*.42,0,7);ctx.fillStyle=f.flash>0?"#fff":"#8FE0BC";ctx.fill();
       ctx.restore();
     }
-    /* 이 갈래는 원래 사마귀 하나뿐이라 BOSS 를 그냥 찍었습니다.
-       보스가 아닌 것도 들어오므로 이름과 갈라 줍니다. 그림이 있는 매미·장수풍뎅이는 이름을 달지 않습니다(NO_NAME). */
+    /* 적에게는 이름표를 달지 않습니다 — 보스만 BOSS */
     if(f.boss){ctx.fillStyle="rgba(242,215,78,.9)";ctx.font="800 9px system-ui";
       ctx.textAlign="center";ctx.fillText("BOSS",x,y-r-12)}
-    else if(!NO_NAME.has(f.key)){ctx.fillStyle="rgba(140,220,120,.85)";ctx.font="600 8.5px system-ui";
-      ctx.textAlign="center";ctx.fillText(f.name,x,y+r+11)}
   }
-  const lift=(f.key==="hopper"&&f.air>0)?Math.sin((1-f.air/HOP_AIR)*Math.PI)*r*1.6:0;
+  const lift=(f.key==="hopper"&&f.air>0)?Math.sin((1-f.air/HOP_AIR)*Math.PI)*r*1.6
+    :(f.key==="zombie"&&sprite("zombie"))?r*(ZBOSS_SIZE-2):0;   // 좀비 보스는 서 있는 그림 위로
   bar(f,x,y-r-6-lift,"#F25C5C",r);
 }
 /* 음파 — 우는 쪽에서 대상 쪽으로 고리 세 겹이 벌어지며 나아간다 */
@@ -4363,10 +4588,9 @@ function finishBattle(){
   mergeGroundAmmo();
   const ammoGot=Object.entries(salvSum).map(([id,n])=>`${ITEMS[id].n} ${n}발`);
   G.night=false;
-  const gain=Math.round(exp*BOOST_EXP);         /* 임시 보너스 */
-  const results=grantExp(alive.map(a=>a.ref),gain);
+  const results=grantExp(alive.map(a=>a.ref),exp);
   for(const r of results)r.hp0=hp0.has(r.p)?hp0.get(r.p):r.p.hp;
-  G.lastGain={exp:gain,results,dead,broke,ammoGot,
+  G.lastGain={exp,results,dead,broke,ammoGot,
               boss:(B.foes.find(f=>f.boss)||{}).name||null,found:found.length,relic:relic.length};
   G.scene="reward";render();
 }
@@ -4789,7 +5013,7 @@ function arSpider(s){
 }
 /* 상금은 잡은 만큼. 대신 판마다 요금을 냅니다 */
 const ARCADE_FEE={spider:10,star:10,hunt:20};
-const arcadePrize=sc=>Math.round(sc*3*BOOST_GOLD);
+const arcadePrize=sc=>sc*3;
 
 /* ═══════════ 미니게임 · 별 줍기 ═══════════
    화면을 손가락으로 끌어 좌우로 움직이고, 점프 버튼으로 발판을 오르며 별을 모읍니다. */
@@ -4962,15 +5186,16 @@ function starPaint(){
   actx.fillStyle=AR.t<10?"#F25C5C":"#968CB0";
   actx.fillText(`${AR.t.toFixed(1)}초`,AW-12,24);
 }
-const starPrize=sc=>Math.round(sc*4*BOOST_GOLD);
+const starPrize=sc=>sc*4;
 
 /* ═══════════ 미니게임 · 좀비 헌터 ═══════════
    좌우로 움직이며 위에서 내려오는 좀비를 쏩니다. 총알은 0.95초마다 한 발. 한 방이면 죽습니다. */
 const GUN_COOL=0.11;
 const TANK_EVERY=25;   // 이만큼 잡을 때마다 보라 좀비가 나온다
-const TANK_HP=10;      // 열 방을 맞아야 쓰러진다
+const TANK_HP=10;
+const HUNT_CRAWL=1/3;  // 좀비는 기어 오므로 내려오는 속도를 1/3 로      // 열 방을 맞아야 쓰러진다
 function huntStart(){
-  acv=document.getElementById("acv");actx=acv.getContext("2d");
+  acv=document.getElementById("acv");actx=acv.getContext("2d");sprite("zomb");
   const dpr=window.devicePixelRatio||1;
   AW=acv.clientWidth;AH=Math.round(AW*1.26);
   acv.width=AW*dpr;acv.height=AH*dpr;acv.style.height=AH+"px";
@@ -5012,16 +5237,16 @@ function huntStep(dt){
   if(AR.spawn<=0){
     AR.spawn=Math.max(0.42,1.15-AR.score*0.022);
     AR.z.push({x:26+Math.random()*(AW-52),y:-18,r:14,hp:1,
-      vy:34+AR.score*1.5+Math.random()*18,ph:Math.random()*6});
+      vy:(34+AR.score*1.5+Math.random()*18)*HUNT_CRAWL,ph:Math.random()*6});
   }
   // 25마리마다 보라 좀비
   if(AR.score>=AR.tankAt){
     AR.tankAt+=TANK_EVERY;
     AR.z.push({x:40+Math.random()*(AW-80),y:-30,r:23,hp:TANK_HP,maxHp:TANK_HP,tank:true,
-      vy:26+AR.score*0.5,ph:Math.random()*6});
+      vy:(26+AR.score*0.5)*HUNT_CRAWL,ph:Math.random()*6});
     AR.pops.push({x:AW/2,y:60,life:1.3,t:"보라 좀비 등장",c:"#B79BEA"});
   }
-  for(const z of AR.z){z.ph+=dt*4;z.y+=z.vy*dt;if(z.flash>0)z.flash-=dt}
+  for(const z of AR.z){z.ph+=dt*ZOMB_PACE*1.7;z.y+=z.vy*dt;if(z.flash>0)z.flash-=dt}
   // 명중 — 한 방이면 죽는다
   for(const b of AR.b.slice()){
     for(const z of AR.z.slice()){
@@ -5091,6 +5316,16 @@ function huntPaint(){
 }
 function huntZombie(z){
   const lp=Math.sin(z.ph),r=z.r;
+  const zsp=sprite("zomb");
+  if(zsp){
+    /* 전투와 같은 좀비 그림 — 머리가 아래(방어선)를 봅니다. 보라 좀비는 색만 돌립니다 */
+    const S=r*3.6;
+    actx.save();actx.translate(z.x,z.y);actx.rotate(Math.PI/2+lp*0.18);
+    actx.translate(lp*r*0.12,0);actx.scale(1+lp*0.05,1-lp*0.03);
+    actx.filter=z.flash>0?"brightness(0) invert(1)":z.tank?"hue-rotate(185deg) saturate(1.5)":"none";
+    zombDraw(actx,zsp,S,z.ph);
+    actx.restore();
+  }else{
   const body=z.flash>0?"#fff":(z.tank?"#7B4FC4":"#4E9E43");
   const head=z.flash>0?"#fff":(z.tank?"#B79BEA":"#7FCB6B");
   const limb=z.tank?"#5B3796":"#2F6B2A";
@@ -5113,6 +5348,7 @@ function huntZombie(z){
   actx.beginPath();actx.arc(r*0.82,-r*0.15,r*0.09,0,7);actx.fill();
   actx.beginPath();actx.arc(r*0.82,r*0.15,r*0.09,0,7);actx.fill();
   actx.restore();
+  }
   if(z.tank){                       // 남은 타격 수
     const w=r*1.8;
     actx.fillStyle="rgba(0,0,0,.55)";actx.fillRect(z.x-w/2,z.y-r-11,w,5);
@@ -5121,7 +5357,7 @@ function huntZombie(z){
     actx.fillText(z.hp,z.x,z.y-r-15);
   }
 }
-const huntPrize=sc=>Math.round(sc*3*BOOST_GOLD);
+const huntPrize=sc=>sc*3;
 
 
 
@@ -5500,7 +5736,13 @@ function bindChips(){
   el.querySelectorAll("[data-chip]").forEach(b=>b.onclick=()=>{
     const i=+b.dataset.chip;G.chipSel=(G.chipSel===i?null:i);render()});
 }
-function pendingUnlock(){return FACILITIES.find(f=>f.cond(G)&&!G.announced.includes(f.id))}
+/* ── 대화 이벤트는 캠퍼스에 한 번 올 때마다 하나만 ──
+   조건이 여럿 겹쳐도 줄지어 대화가 이어지지 않게 합니다(앞뒤 대화가 이어진 이야기로 읽히기도 합니다).
+   G.visit 은 게이트에서 돌아올 때마다 하나씩 늘고, 대화를 띄우면 G.talkAt 에 그 값을 적습니다.
+   남은 대화는 다음에 돌아왔을 때 뜹니다. 플레이어가 직접 한 일에 바로 붙는 대화(활 첫 구매)는 세지 않습니다. */
+const talkFree=()=>G.talkAt!==(G.visit||0);
+const talkUse=()=>{G.talkAt=G.visit||0};
+function pendingUnlock(){return FACILITIES.find(f=>f.cond(G)&&!G.announced.includes(f.id)&&(!f.intro||talkFree()))}
 /* ── 해금 안내 ──
    화면을 통째로 가로채지 않고 팝업으로 띄웁니다. 본진 화면에 닿는 순간에만 도므로
    게이트 안에서 조건이 차도 캠퍼스로 돌아온 뒤에야 뜹니다(입학처·응급의학 실습실). */
@@ -5515,7 +5757,7 @@ function showUnlock(){
     if(f.introTo){G.hallId=f.introTo;G.scene="hall"}
     render();
   };
-  if(f.intro)popupTalk(f.intro,done);          /* 대사로 연출하는 시설 */
+  if(f.intro){talkUse();popupTalk(f.intro,done)}          /* 대사로 연출하는 시설 */
   else popup(`${f.ic} ${f.n}`,f.msg,"확인",done,true);
   return true;
 }
@@ -5534,9 +5776,9 @@ function campusNotes(){
     popup("소문",`${ids.map(id=>ITEMS[id].n).join(", ")}을(를) 자주 주워 온다는 소문이 돌았습니다.<br><br>매점에서도 팔기 시작합니다.`);
     return;
   }
-  if(!G.wingQ&&(G.cicadaKills||0)>=1&&facOf("union").cond(G)){wingQuest();return}
-  if(!G.hornQ&&(G.beetleKills||0)>=1&&facOf("union").cond(G)){
-    G.hornQ=1;markSeen(HORN);
+  if(talkFree()&&!G.wingQ&&(G.cicadaKills||0)>=1&&facOf("union").cond(G)){wingQuest();return}
+  if(talkFree()&&!G.hornQ&&(G.beetleKills||0)>=1&&facOf("union").cond(G)){
+    G.hornQ=1;markSeen(HORN);talkUse();
     popupTalk([
       ["union","곤충 중 최강곤충이 뭔지 아니?"],
       ["pc","갑자기 무슨 소리야 뜬금없이."],
@@ -5552,8 +5794,8 @@ function campusNotes(){
     return;
   }
   /* 경찰 본부 의뢰 — 행정실이 열려 있어야 행정실장이 있습니다 */
-  if(facOf("office").cond(G)&&G.policeSeen&&!G.policeQ){policeQuest();return}
-  if(G.policeQ===1&&policeBeen()){policeQuestPay();return}
+  if(talkFree()&&facOf("office").cond(G)&&G.policeSeen&&!G.policeQ){policeQuest();return}
+  if(talkFree()&&G.policeQ===1&&policeBeen()){policeQuestPay();return}
   G.tips=G.tips||{};
   if(G.foodHeal&&!G.tips.majFood){
     G.tips.majFood=true;
@@ -5607,16 +5849,16 @@ function policeQuest(){
     ["office","경찰 본부를 탐색하고 오게. 기왕이면 총을 구해오면 더 좋고."],
   ];
   if(been)lines.push(["pc","일단 다녀오긴 했는데요."],...POLICE_PAY_LINES);
-  G.policeQ=1;                       /* 대사가 끝나기 전에 세워 둡니다 — 다시 그려도 또 뜨지 않게 */
+  G.policeQ=1;talkUse();             /* 대사가 끝나기 전에 세워 둡니다 — 다시 그려도 또 뜨지 않게 */
   popupTalk(lines,()=>{if(been)policePay();render()});
 }
 /* 의뢰를 받고 다녀온 뒤 — 보상만 나갑니다 */
 function policeQuestPay(){
-  G.policeQ=2;
+  G.policeQ=2;talkUse();
   popupTalk(POLICE_PAY_LINES,()=>{policePay();render()});
 }
 function wingQuest(){
-  G.wingQ=1;                         /* 대사가 끝나기 전에 세워 둡니다 — 다시 그려도 또 뜨지 않게 */
+  G.wingQ=1;talkUse();               /* 대사가 끝나기 전에 세워 둡니다 — 다시 그려도 또 뜨지 않게 */
   popupTalk([
     ["union","이번에 매미 몬스터를 처치했다며?"],
     ["pc","역시 학생회장. 모르는 게 없네."],
@@ -5647,10 +5889,10 @@ function wingHandIn(){
 /* ── 학생회관에 들어섰을 때 도는 두 번째 의뢰 ──
    받기 · 넘기기 · 다시 받기 세 갈래뿐입니다. 팝업이 떠 있으면 다음 그리기에서 봅니다. */
 function unionNotes(){
-  if(document.querySelector(".pop"))return;
-  if(G.wingQ===1&&hasItem(WING)){wingHandIn();return}
+  if(document.querySelector(".pop")||!talkFree())return;
+  if(G.wingQ===1&&hasItem(WING)){talkUse();wingHandIn();return}
   if(G.hornQ===1&&hasItem(HORN)){
-    G.hornQ=2;takeItem(HORN);
+    G.hornQ=2;takeItem(HORN);talkUse();
     markSeen("hshield");markSeen("bhelm");
     popupTalk([
       ["union","가져왔나? 가져왔어?? 가져왔냐구!!"],
@@ -5670,7 +5912,7 @@ function unionNotes(){
   }
   /* 앞발을 가져왔다 — 넘기고 낫을 맡깁니다 */
   if(G.armQ===1&&hasArm()){
-    G.armQ=2;
+    G.armQ=2;talkUse();
     popupTalk([
       ["union","고생했어. 이걸 가공하면 좋은 무기가 될 거야."],
       ["pc","좋은 무기로 만들어 줘."],
@@ -5687,7 +5929,7 @@ function unionNotes(){
   }
   /* 첫 의뢰를 받아 간 뒤에 한 번 */
   if(!G.armQ&&questGot(QUESTS[0])){
-    G.armQ=1;
+    G.armQ=1;talkUse();
     popupTalk([
       ["union","보스 사마귀가 있다니 끔찍한 일이야."],
       ["pc","진짜 무서웠어. 거대한 앞발이 어찌나 날카롭던지."],
@@ -5701,7 +5943,7 @@ function unionNotes(){
   }
   /* 낫을 사 갔는데 지금은 하나도 없다 — 버렸거나 팔았거나 부서졌거나 */
   if(G.armQ===2&&G.scytheBought&&!hasScythe()){
-    G.armQ=1;
+    G.armQ=1;talkUse();
     popupTalk([
       ["union","사마귀 낫은 잘 쓰고 있어? 학생회의 걸작이라고."],
       ["pc","어.. 음.. 그.."],
@@ -5745,7 +5987,7 @@ function bowGift(){
     render();
   });
 }
-const lootTotal=()=>Object.entries(G.loot).reduce((s,[id,n])=>s+sellPrice(id)*n,0);
+const lootTotal=()=>Object.entries(G.loot).reduce((s,[id,n])=>s+ITEMS[id].price*n,0);
 /* 감정 — 가중치대로 하나를 뽑아 확정 물건으로 바꿉니다 */
 function appraise(id){
   const t=ITEMS[id].mystery.into;
@@ -6195,6 +6437,7 @@ function render(){
       <div class="bar"><span class="tag"></span><button id="o">귀환한다</button></div>`;
     document.getElementById("o").onclick=()=>{
       if(G.fought)G.explores++;
+      G.visit=(G.visit||0)+1;            /* 캠퍼스에 돌아온 횟수 — 대화 이벤트는 한 번에 하나 */
       /* 깬 게이트를 적어 둔다 — 다음 게이트는 이걸 보고 열린다 */
       if(cleared&&!G.cleared.includes(gateOf().id))G.cleared.push(gateOf().id);
       G.gateClear=false;
@@ -6353,8 +6596,8 @@ function render(){
       </div>
       <div class="bar"><span class="tag"></span><button class="ghost" id="bk">밖으로</button></div>`;
     /* 응급 키트가 풀린 뒤(침상을 한 번 쓴 뒤) 의학대학에 처음 들어오면 교수가 불러 세웁니다 — 한 번만 */
-    if(b.id==="med"&&G.bedUsed&&!(G.tips&&G.tips.kitTalk)&&!document.querySelector(".pop")){
-      G.tips=G.tips||{};G.tips.kitTalk=true;
+    if(b.id==="med"&&G.bedUsed&&!(G.tips&&G.tips.kitTalk)&&!document.querySelector(".pop")&&talkFree()){
+      G.tips=G.tips||{};G.tips.kitTalk=true;talkUse();
       popupTalk([
         ["clinic","이봐 학생"],
         ["pc","앗 저번의 그 변태!"],
@@ -6382,11 +6625,11 @@ function render(){
       {k:"use",n:"소모품",rows:rows.filter(([id])=>ITEMS[id].use),d:"먹고 마시는 것입니다. 팔지 않고 창고에 넣어 두면 다음 게이트에 들고 갈 수 있습니다."},
       {k:"mat",n:"재료",rows:mats,d:"학생회에 넘기고 남은 재료입니다. 창고와 배낭에 있는 것을 삽니다."},
     ].filter(g=>g.rows.length);
-    const gSum=g=>g.rows.reduce((s,[id,n])=>s+sellPrice(id)*n,0);
+    const gSum=g=>g.rows.reduce((s,[id,n])=>s+ITEMS[id].price*n,0);
     const sellRow=(g,[id,n])=>{const o=G.rowSel==="sell:"+id,it=ITEMS[id];
       return `<div class="buyrow tap ${o?"open":""}" data-row="sell:${id}">
-        <div><b>${itemIcon(id)}${it.n}</b> × ${n}<span class="tag"> · 개당 ${sellPrice(id)} 골드</span></div>
-        <span class="tag">${sellPrice(id)*n} 골드 <span class="caret">${o?"▴":"▾"}</span></span>
+        <div><b>${itemIcon(id)}${it.n}</b> × ${n}<span class="tag"> · 개당 ${it.price} 골드</span></div>
+        <span class="tag">${it.price*n} 골드 <span class="caret">${o?"▴":"▾"}</span></span>
         ${o?`<div class="acts">
           ${g.k==="use"?`<button class="ghost" data-keep="${id}">창고에 넣는다</button>`:""}
           ${n>1?`<button class="ghost" data-s1="${id}">1개 판다</button>`:""}
@@ -6457,7 +6700,7 @@ function render(){
         G.appraisal=`${ITEMS[id].n} · 열어보니 <b>${ri.n}</b>. 창고에 넣었습니다.`;
       }else{
         G.loot[res]=(G.loot[res]||0)+1;
-        G.appraisal=`${ITEMS[id].n} · 열어보니 <b>${ri.n}</b>. ${sellPrice(res)} 골드짜리입니다.`;
+        G.appraisal=`${ITEMS[id].n} · 열어보니 <b>${ri.n}</b>. ${ri.price} 골드짜리입니다.`;
       }
       render()});
     /* 매입 — 한 종류를 n 개까지 팝니다. 재료는 창고·배낭에서, 나머지는 들고 온 것(G.loot)에서 */
@@ -6467,7 +6710,7 @@ function render(){
       else{k=Math.min(n,G.loot[id]||0);G.loot[id]=(G.loot[id]||0)-k;if(G.loot[id]<=0)delete G.loot[id]}
       /* 무엇을 몇 개나 넘겼는지도 세어 둡니다 — 어떤 학과사무실은 이 장부를 봅니다 */
       if(id==="oldbook")G.bookSold=(G.bookSold||0)+k;
-      const a=k*sellPrice(id);G.gold+=a;G.goldEarned+=a;
+      const a=k*it.price;G.gold+=a;G.goldEarned+=a;
       return a;
     };
     const keepId=id=>{const n=G.loot[id]||0;if(!n)return 0;
@@ -6860,11 +7103,11 @@ function render(){
       <p>누군가 게이트 안의 것들을 본떠 만든 기계가 세 대 놓여 있습니다.
       판마다 요금을 넣어야 하고, 상금은 잡은 만큼 나옵니다. 횟수 제한은 없습니다.</p></div>
       <button class="fac" id="g1" ${G.gold<ARCADE_FEE.spider?"disabled":""}><span class="ic">🕷</span>
-        <span class="tx"><b>거미 잡기 · ${ARCADE_FEE.spider}골드</b><span>줄을 타고 내려오는 거미를 눌러 잡습니다 · 마리당 ${3*BOOST_GOLD}골드 · 최고 ${G.arcadeBest}마리</span></span></button>
+        <span class="tx"><b>거미 잡기 · ${ARCADE_FEE.spider}골드</b><span>줄을 타고 내려오는 거미를 눌러 잡습니다 · 마리당 3골드 · 최고 ${G.arcadeBest}마리</span></span></button>
       <button class="fac" id="g2" ${G.gold<ARCADE_FEE.star?"disabled":""}><span class="ic">⭐</span>
-        <span class="tx"><b>별 줍기 · ${ARCADE_FEE.star}골드</b><span>발판을 뛰어다니며 별을 모읍니다 · 개당 ${4*BOOST_GOLD}골드 · 최고 ${G.starBest||0}개</span></span></button>
+        <span class="tx"><b>별 줍기 · ${ARCADE_FEE.star}골드</b><span>발판을 뛰어다니며 별을 모읍니다 · 개당 4골드 · 최고 ${G.starBest||0}개</span></span></button>
       <button class="fac" id="g3" ${G.gold<ARCADE_FEE.hunt?"disabled":""}><span class="ic">🔫</span>
-        <span class="tx"><b>좀비 헌터 · ${ARCADE_FEE.hunt}골드</b><span>내려오는 좀비를 쏘아 막습니다 · 마리당 ${3*BOOST_GOLD}골드 · 최고 ${G.huntBest||0}마리</span></span></button>
+        <span class="tx"><b>좀비 헌터 · ${ARCADE_FEE.hunt}골드</b><span>내려오는 좀비를 쏘아 막습니다 · 마리당 3골드 · 최고 ${G.huntBest||0}마리</span></span></button>
       ${G.gold<ARCADE_FEE.spider?`<div class="tag" style="color:var(--bad)">골드가 모자라 기계를 돌릴 수 없습니다.</div>`:""}
       <div class="bar"><span class="tag"></span><button class="ghost" id="bk">캠퍼스로</button></div>`;
     document.getElementById("g1").onclick=()=>{if(!payFee("spider"))return;AR=null;G.scene="spidergame";render()};

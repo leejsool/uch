@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>모의 전투 — 밸런스 확인</title>
+<style>
+  :root{ --bg:#1b1a22; --panel:#26242f; --line:#3a3848; --ink:#eae6f2; --dim:#a79fbb;
+         --cy:#7fd7c4; --mark:#d8477e; --ok:#6BD98F; --bad:#F25C5C; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.5 system-ui,"Segoe UI",sans-serif}
+  header{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);
+         padding:10px 14px;display:flex;flex-wrap:wrap;gap:9px 16px;align-items:center}
+  header h1{font-size:14px;margin:0 6px 0 0;font-weight:800}
+  label.f{display:flex;gap:6px;align-items:center;color:var(--dim)}
+  select,button,input[type=text],input[type=number]{font:inherit;background:var(--panel);
+    color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:4px 8px}
+  input[type=number]{width:58px} input[type=text]{width:84px}
+  button{cursor:pointer}
+  button.go{border-color:var(--cy);color:var(--cy);font-weight:700}
+  button.sm{padding:1px 7px;font-size:12px}
+  #status{padding:6px 14px;font-size:12px;color:var(--dim);border-bottom:1px solid var(--line)}
+  main{display:flex;gap:14px;padding:14px;align-items:flex-start}
+  #side{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:12px}
+  #game{flex:0 0 440px;position:sticky;top:60px}
+  iframe{width:440px;height:calc(100vh - 80px);border:1px solid var(--line);border-radius:8px;background:#000}
+  @media (max-width:900px){main{flex-direction:column}#game{position:static;flex-basis:auto}iframe{width:100%;height:760px}}
+  .box{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px}
+  .box h2{font-size:13px;margin:0 0 8px;font-weight:800;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  body{overflow-x:hidden}
+  .grid>div{min-width:0}.grid select{min-width:0}
+  #side .box{overflow-x:auto}
+  .row{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+  .chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+  .chip{background:#1f1d27;border:1px solid var(--line);border-radius:12px;padding:1px 8px;font-size:12px}
+  .chip b{color:var(--cy)}
+  .chip button{background:none;border:0;color:var(--dim);padding:0 0 0 4px}
+  .skills{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:2px 10px;max-height:180px;overflow:auto;margin-top:6px}
+  .skills label{color:var(--dim);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .skills input:checked+span{color:var(--ink)}
+  .members{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:10px}
+  .mem{background:#1f1d27;border:1px solid var(--line);border-radius:8px;padding:9px}
+  .mem h3{margin:0 0 6px;font-size:13px}
+  .grid{display:grid;grid-template-columns:auto 1fr;gap:4px 8px;align-items:center}
+  .grid>span{color:var(--dim);font-size:12px}
+  .grid select{width:100%}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:4px 6px;margin:6px 0}
+  .stats label{display:flex;justify-content:space-between;align-items:center;gap:4px;color:var(--dim);font-size:12px}
+  .stats input{width:48px}
+  .derived{font-size:12px;color:var(--dim);margin-top:4px}
+  .derived b{color:var(--ink)}
+  .warn{color:var(--bad)}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{border-bottom:1px solid var(--line);padding:4px 6px;text-align:left;vertical-align:top}
+  th{color:var(--dim);font-weight:600}
+  td.win{color:var(--ok);font-weight:700} td.lose{color:var(--bad);font-weight:700}
+  .hint{color:var(--dim);font-size:12px}
+  .skills label.off{opacity:.35;cursor:not-allowed}
+  .skills small.tier{color:var(--cy)}
+  #skCount{color:var(--cy);font-weight:700;font-size:12px}
+  /* 아이템 아이콘 — 게임의 .ico 와 같은 모양 */
+  .ico{width:22px;height:22px;object-fit:contain;vertical-align:-6px;margin-right:5px;flex:0 0 auto;
+    filter:drop-shadow(0 1px 2px rgba(0,0,0,.55))}
+  .ico.none{display:inline-block;border:1px dashed var(--line);border-radius:3px;filter:none}
+  .ico.crys{display:inline-block;background:radial-gradient(circle at 38% 32%,#C89BFA 0%,#6B2CAE 44%,#170B29 100%);
+    clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+  .ico.dk{filter:brightness(.88) contrast(1.12) saturate(.8) drop-shadow(0 0 2px #000) drop-shadow(0 0 4px rgba(122,44,200,.9))}
+  .ico.wk{filter:brightness(1.06) saturate(1.1) drop-shadow(0 0 2px rgba(0,30,50,.9)) drop-shadow(0 0 4px rgba(60,190,240,.9))}
+  button.pick{width:100%;display:flex;align-items:center;text-align:left;min-height:30px;padding:2px 6px;overflow:hidden;white-space:nowrap}
+  button.pick .nm{overflow:hidden;text-overflow:ellipsis}
+  button.pick.empty{color:var(--dim)}
+  #picker{position:fixed;z-index:50;width:300px;max-height:360px;display:none;flex-direction:column;
+    background:var(--panel);border:1px solid var(--cy);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.6)}
+  #picker.on{display:flex}
+  #picker input{margin:6px;width:auto}
+  #picker .list{overflow:auto;padding:0 4px 6px}
+  #picker .pi{display:flex;align-items:center;gap:2px;padding:3px 6px;border-radius:5px;cursor:pointer}
+  #picker .pi:hover,#picker .pi.cur{background:#34304a}
+  #picker .pi small{color:var(--dim);margin-left:auto;padding-left:6px;white-space:nowrap}
+  .chip .ico{width:18px;height:18px;vertical-align:-4px;margin-right:3px}
+</style>
+
+<header>
+  <h1>모의 전투</h1>
+  <label class="f">게이트 <select id="gate"></select></label>
+  <label class="f">장소 <select id="place"></select></label>
+  <label class="f">일차 <input id="day" type="number" min="1" value="1"></label>
+  <label class="f"><input id="night" type="checkbox"> 야간 (+1일 배율)</label>
+  <label class="f">배속 <select id="spd"><option>1</option><option>2</option><option>4</option><option>8</option></select></label>
+  <button class="go" id="run">▶ 전투 시작</button>
+  <button id="again" title="방금 싸운 적 구성 그대로">↺ 같은 적으로 다시</button>
+  <button id="pause">⏯ 일시정지</button>
+</header>
+<div id="status">게임을 불러오는 중…</div>
+
+<main>
+  <div id="side">
+    <div class="box">
+      <h2>적</h2>
+      <div class="row">
+        <label class="f"><input type="radio" name="emode" value="roll" checked> 게임처럼 뽑기</label>
+        <label class="f"><input type="radio" name="emode" value="pick"> 직접 지정</label>
+        <label class="f"><input id="noboss" type="checkbox"> 보스 빼기</label>
+        <button id="preview" class="sm">뽑아 보기</button>
+        <span id="rolled" class="hint"></span>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <select id="foe"></select>
+        <input id="foeN" type="number" min="1" max="12" value="1">
+        <button id="addFoe" class="sm">추가</button>
+        <button id="clrFoe" class="sm">비우기</button>
+        <span class="hint">직접 지정일 때 이 목록으로 싸웁니다. 보스는 날짜 배율을 받지 않습니다.</span>
+      </div>
+      <div id="foeList" class="chips"></div>
+    </div>
+
+    <div class="box">
+      <h2>파티 <label class="f" style="display:inline-flex;margin-left:10px">인원 <select id="pn"><option>1</option><option>2</option><option>3</option><option selected>4</option></select></label>
+        <button id="eqAll" class="sm" style="margin-left:8px">1번 설정을 모두에게 복사</button></h2>
+      <div id="members" class="members"></div>
+    </div>
+
+    <div class="box">
+      <h2>스킬 (파티 공용) <button id="clrSk" class="sm">모두 해제</button> <span id="skCount"></span></h2>
+      <div class="hint">+ 스킬은 선택 2회, ++ 스킬은 3회로 셉니다. 같은 줄기의 윗단계를 고르면 아랫단계는 빠지고 고를 수 없게 됩니다.</div>
+      <div id="skills" class="skills"></div>
+    </div>
+
+    <div class="box">
+      <h2>결과 <button id="clrLog" class="sm">지우기</button> <button id="copyLog" class="sm">표 복사</button></h2>
+      <table><thead><tr><th>#</th><th>장소 · 일차</th><th>파티</th><th>적</th><th>결과</th><th>시간</th><th>남은 체력</th></tr></thead>
+      <tbody id="log"></tbody></table>
+      <div class="hint" style="margin-top:6px">시간은 게임 안 시간(배속과 무관)입니다. 이 도구는 저장 슬롯에 쓰지 않습니다.</div>
+    </div>
+  </div>
+  <div id="game"><iframe id="fr" src="index.html"></iframe></div>
+</main>
+<div id="picker"><input type="text" placeholder="이름으로 찾기"><div class="list"></div></div>
+
+<script>
+"use strict";
+/* ── 모의 전투 ──
+   index.html 을 그대로 iframe 에 띄우고, 그 안의 함수(newGame · derive · rollEncounter · enterBattle)로
+   판을 차립니다. 전투 코드는 게임 것 그대로라 결과가 게임과 같습니다.
+   게임의 G · B · ROOM 은 let 이라 window 에 없으므로 iframe 의 eval 로 닿습니다.
+   node serve.js 로 띄운 http://localhost:8788/모의전투.html 에서 여세요(file:// 로는 iframe 에 못 닿습니다). */
+const $=id=>document.getElementById(id);
+const fr=$("fr");
+const W=()=>fr.contentWindow;
+const E=s=>W().eval(s);
+const setStatus=t=>$("status").textContent=t;
+const STORE="uch.mock";
+
+let D=null;          // 게임에서 읽어 온 표
+let cfg=null;        // 지금 설정
+let lastKeys=null, runNo=0, cur=null;
+
+const defMember=i=>({name:["가","나","다","라"][i]+"대원",sex:i%2?"f":"m",lvl:1,major:"",major2:"",
+  stats:{vit:10,maj:10,str:10,spd:10,agi:10,luk:10},gear:{rh:"",lh:"",head:"",top:"",bottom:"",shoes:""},
+  bag:[],ammo:{pistol:0,shotgun:0,rifle:0,arrow:0},hpPct:100});
+const defCfg=()=>({gate:"front",place:"diner",day:1,night:false,spd:"1",emode:"roll",noboss:false,
+  foes:[],pn:4,members:[0,1,2,3].map(defMember),skills:[]});
+
+function load(){
+  try{const s=JSON.parse(localStorage.getItem(STORE)||"null");if(s)return Object.assign(defCfg(),s)}catch(e){}
+  return defCfg();
+}
+function save(){try{localStorage.setItem(STORE,JSON.stringify(cfg))}catch(e){}}
+
+/* ── 게임에서 표 읽기 ── */
+fr.addEventListener("load",()=>{
+  try{
+    E("saveGame=()=>true");                    // 모의 전투는 저장 슬롯을 건드리지 않습니다
+    D=JSON.parse(E(`JSON.stringify({
+      gates:GATES.map(g=>({id:g.id,n:g.n,days:g.days,boss:g.boss})),
+      places:PLACES.map(p=>({n:p.n,room:p.room,gate:p.gate||"front",risk:p.risk})),
+      enemies:Object.fromEntries(Object.entries(ENEMIES).map(([k,e])=>[k,{n:e.n,hp:e.hp,atk:e.atk,boss:!!e.boss}])),
+      items:Object.fromEntries(Object.entries(ITEMS).map(([k,it])=>[k,{n:it.n,slot:it.slot||"",kind:it.kind||"",two:typeof twoHand==="function"&&!!twoHand(k),ic:itemIcon(k),d:it.d||""}])),
+      majors:MAJORS.map(m=>({id:m.id,n:m.n})),
+      stats:STATS.map(s=>({k:s.k,n:s.n})),
+      slots:SLOTS.map(s=>({k:s.k,n:s.n})),
+      skills:INSTANTS.map(s=>({k:s.k,n:s.n,d:s.d,maj:s.maj||"",up:s.up||""})),
+      maxLv:MAX_LV})`));
+    E(`if(!window.__tick0){window.__tick0=tick;
+      tick=function(dt){const n=window.__spd||1;for(let i=0;i<n;i++){if(!B||B.over)break;window.__tick0(dt);B._t=(B._t||0)+dt}}}`);
+  }catch(e){setStatus("게임을 읽지 못했습니다 — node serve.js 로 띄운 주소에서 여세요. ("+e.message+")");return}
+  if(!cfg){cfg=load();build()}
+  setStatus("준비됨. 설정을 고르고 ▶ 전투 시작.");
+});
+
+/* ── 화면 ── */
+const opt=(v,t,sel)=>`<option value="${v}"${sel?" selected":""}>${t}</option>`;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const gateOf=()=>D.gates.find(g=>g.id===cfg.gate)||D.gates[0];
+
+function build(){
+  $("gate").innerHTML=D.gates.map(g=>opt(g.id,g.n,g.id===cfg.gate)).join("");
+  $("foe").innerHTML=Object.entries(D.enemies).map(([k,e])=>opt(k,`${e.n}${e.boss?" [보스]":""} (${k})`)).join("");
+  $("skills").innerHTML=D.skills.map(s=>`<label title="${esc(s.d)}"><input type="checkbox" data-sk="${s.k}"> <span>${esc(s.n)}${
+    tier(s.k)>1?` <small class="tier">×${tier(s.k)}</small>`:""}${s.maj?` <small>(${esc((D.majors.find(m=>m.id===s.maj)||{}).n||s.maj)})</small>`:""}</span></label>`).join("");
+  $("skills").onchange=e=>{const k=e.target.dataset.sk;if(!k)return;
+    /* 같은 줄기에서는 하나만 — 고른 것 말고 같은 줄기의 것은 모두 뺍니다 */
+    cfg.skills=cfg.skills.filter(x=>root(x)!==root(k));
+    if(e.target.checked)cfg.skills.push(k);
+    skillView();save()};
+  cfg.skills=cfg.skills.filter(k=>D.skills.some(s=>s.k===k));
+  skillView();
+  $("night").checked=cfg.night;$("spd").value=cfg.spd;$("noboss").checked=cfg.noboss;$("pn").value=cfg.pn;
+  document.querySelector(`input[name=emode][value=${cfg.emode}]`).checked=true;
+  places();foeList();members();
+}
+function places(){
+  let list=D.places.filter(p=>p.gate===cfg.gate);
+  if(!list.length)list=D.places.filter(p=>p.gate==="front");   // 장소가 아직 없는 게이트는 정문 장소를 빌립니다
+  if(!list.some(p=>p.room===cfg.place))cfg.place=list[0].room;
+  $("place").innerHTML=list.map(p=>opt(p.room,`${p.n} (위험 ${p.risk})`,p.room===cfg.place)).join("");
+  const g=gateOf();
+  $("day").max=g.days;cfg.day=Math.min(Math.max(1,cfg.day),g.days);$("day").value=cfg.day;
+  const bd=Object.keys(g.boss||{}).map(d=>`${d}일 ${(D.enemies[g.boss[d]]||{}).n||g.boss[d]}`).join(" · ");
+  $("day").title=`${g.n} ${g.days}일 · 보스 ${bd}`;
+}
+function foeList(){
+  const cnt={};for(const k of cfg.foes)cnt[k]=(cnt[k]||0)+1;
+  $("foeList").innerHTML=Object.entries(cnt).map(([k,n])=>
+    `<span class="chip">${esc(foeName(k))} <b>×${n}</b><button data-rm="${k}">✕</button></span>`).join("")
+    ||`<span class="hint">비어 있음</span>`;
+}
+function members(){
+  const it=D.items;
+  const majOpts=v=>opt("","—",!v)+D.majors.map(m=>opt(m.id,m.n,m.id===v)).join("");
+  $("members").innerHTML=cfg.members.slice(0,cfg.pn).map((m,i)=>`
+    <div class="mem" data-i="${i}">
+      <h3>${i+1}번 <input type="text" data-f="name" value="${esc(m.name)}">
+        <select data-f="sex">${opt("m","남",m.sex==="m")}${opt("f","여",m.sex==="f")}</select></h3>
+      <div class="grid">
+        <span>레벨</span><div><input type="number" data-f="lvl" min="1" max="${D.maxLv}" value="${m.lvl}">
+          시작 체력 <input type="number" data-f="hpPct" min="1" max="100" value="${m.hpPct}">%</div>
+        <span>전공</span><div style="display:flex;gap:4px"><select data-f="major">${majOpts(m.major)}</select><select data-f="major2">${majOpts(m.major2)}</select></div>
+      </div>
+      <div class="stats">${D.stats.map(s=>`<label>${s.n}<input type="number" data-st="${s.k}" min="1" max="99" value="${m.stats[s.k]}"></label>`).join("")}</div>
+      <div class="hint" data-pts></div>
+      <div class="grid" style="margin-top:6px">${D.slots.map(s=>`<span>${s.n}</span>${pickBtn(m.gear[s.k],"—",`g:${s.k}`)}`).join("")}
+        <span>배낭</span>${pickBtn("","배낭에 넣기…","bag")}</div>
+      <div class="chips">${m.bag.map((k,j)=>`<span class="chip">${(it[k]||{}).ic||""}${esc((it[k]||{}).n||k)}<button data-bagrm="${j}">✕</button></span>`).join("")}</div>
+      <div class="stats">${["pistol","shotgun","rifle","arrow"].map(a=>`<label>${{pistol:"권총탄",shotgun:"산탄",rifle:"소총탄",arrow:"화살"}[a]}<input type="number" data-am="${a}" min="0" value="${m.ammo[a]}"></label>`).join("")}</div>
+      <div class="derived" data-der></div>
+    </div>`).join("");
+  document.querySelectorAll(".mem").forEach(el=>derived(+el.dataset.i));
+}
+/* 레벨 포인트와 게임이 계산한 전투 수치를 카드 밑에 적습니다 */
+function derived(i){
+  const el=document.querySelector(`.mem[data-i="${i}"]`);if(!el)return;
+  const m=cfg.members[i];
+  const used=Object.values(m.stats).reduce((a,b)=>a+b,0)-60, have=m.lvl-1;
+  el.querySelector("[data-pts]").innerHTML=`기본 60 기준 추가 포인트 <b>${used}</b> / 레벨로 받는 몫 <b>${have}</b>${used>have?' <span class="warn">(레벨보다 많음)</span>':""}`;
+  let d;
+  try{d=JSON.parse(E(`JSON.stringify(derive(${JSON.stringify(mkPerson(m))}))`))}catch(e){d=null}
+  const two=m.gear.rh&&D.items[m.gear.rh]&&D.items[m.gear.rh].two&&m.gear.lh;
+  el.querySelector("[data-der]").innerHTML=d?`체력 <b>${d.maxHp}</b> · 공격 <b>${d.atk}</b> · 공속 <b>${d.aspd}</b> · 이동 <b>${d.speed}</b> · 방어 <b>${d.guard}</b> · 회피 <b>${d.dodge}%</b> · 치명 <b>${d.crit}%</b>`
+    +(two?` <span class="warn">· 양손 무기라 왼손은 전투에서 배낭으로 갑니다</span>`:""):"";
+}
+function mkPerson(m){
+  const gear={};for(const s of D.slots)gear[s.k]=m.gear[s.k]||null;
+  return{name:m.name,sex:m.sex,face:"",lvl:m.lvl,exp:0,major:m.major||null,major2:m.major2||null,
+    stats:{...m.stats},base:{...m.stats},gear,bag:[...m.bag],ammo:{...m.ammo},points:0,inParty:true,log:[]};
+}
+
+/* ── 스킬 줄기 ──
+   up 을 따라 올라가며 단계(tier)와 뿌리(root)를 셉니다. + 는 2단계, ++ 는 3단계 */
+const skillBy=k=>D.skills.find(s=>s.k===k);
+const tier=k=>{let n=1,s=skillBy(k);while(s&&s.up){n++;s=skillBy(s.up)}return n};
+const root=k=>{let s=skillBy(k);while(s&&s.up)s=skillBy(s.up);return s?s.k:k};
+function skillView(){
+  const best={};                       // 줄기마다 고른 단계
+  for(const k of cfg.skills)best[root(k)]=Math.max(best[root(k)]||0,tier(k));
+  document.querySelectorAll("[data-sk]").forEach(c=>{
+    const k=c.dataset.sk, b=best[root(k)]||0, on=cfg.skills.includes(k), off=!on&&b>tier(k);
+    c.checked=on;c.disabled=off;c.parentElement.classList.toggle("off",off);
+  });
+  const n=cfg.skills.reduce((a,k)=>a+tier(k),0);
+  $("skCount").textContent=n?`선택 ${n}회 → ${n+1}일차 상당`:"";
+}
+
+/* ── 아이템 고르기 — 아이콘이 보이는 목록 ──
+   what: "g:<슬롯>" 이면 그 칸의 장비, "bag" 이면 배낭에 하나 넣기 */
+const pickBtn=(id,empty,what)=>{const x=id&&D.items[id];
+  return `<button class="pick${x?"":" empty"}" data-pick="${what}" title="${x?esc(x.d):""}">${x?x.ic:""}<span class="nm">${x?esc(x.n)+(x.two?" (양손)":""):empty}</span></button>`};
+const PK=$("picker");
+let pkDone=null;
+function openPicker(btn,ids,cur,done){
+  pkDone=done;
+  const inp=PK.querySelector("input"), list=PK.querySelector(".list");
+  const slotN=k=>(D.slots.find(s=>s.k===k)||{}).n||"";
+  const draw=()=>{
+    const q=inp.value.trim();
+    list.innerHTML=(cur!==null?`<div class="pi" data-id="">— 비우기</div>`:"")+
+      ids.filter(k=>!q||D.items[k].n.includes(q)).map(k=>{const x=D.items[k];
+        return `<div class="pi${k===cur?" cur":""}" data-id="${k}" title="${esc(x.d)}">${x.ic}${esc(x.n)}${x.two?" (양손)":""}<small>${cur===null&&x.slot?slotN(x.slot):""}</small></div>`}).join("");
+  };
+  inp.value="";draw();inp.oninput=draw;
+  const r=btn.getBoundingClientRect();
+  PK.classList.add("on");
+  const h=PK.offsetHeight;
+  PK.style.left=Math.max(4,Math.min(innerWidth-304,r.left))+"px";
+  PK.style.top=(r.bottom+h+4<innerHeight?r.bottom+2:Math.max(4,r.top-h-2))+"px";
+  inp.focus();
+}
+const closePicker=()=>{PK.classList.remove("on");pkDone=null};
+PK.addEventListener("click",e=>{const el=e.target.closest(".pi");if(!el||!pkDone)return;const f=pkDone;closePicker();f(el.dataset.id)});
+document.addEventListener("mousedown",e=>{if(PK.classList.contains("on")&&!PK.contains(e.target)&&!e.target.closest("button.pick"))closePicker()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closePicker()});
+
+/* ── 입력 ── */
+$("gate").onchange=e=>{cfg.gate=e.target.value;places();save()};
+$("place").onchange=e=>{cfg.place=e.target.value;save()};
+$("day").onchange=e=>{cfg.day=+e.target.value||1;places();save()};
+$("night").onchange=e=>{cfg.night=e.target.checked;save()};
+$("spd").onchange=e=>{cfg.spd=e.target.value;try{W().__spd=+cfg.spd}catch(_){}save()};
+$("noboss").onchange=e=>{cfg.noboss=e.target.checked;save()};
+document.querySelectorAll("input[name=emode]").forEach(r=>r.onchange=e=>{cfg.emode=e.target.value;save()});
+$("addFoe").onclick=()=>{const n=Math.max(1,+$("foeN").value||1);for(let i=0;i<n;i++)cfg.foes.push($("foe").value);
+  document.querySelector("input[name=emode][value=pick]").checked=true;cfg.emode="pick";foeList();save()};
+$("clrFoe").onclick=()=>{cfg.foes=[];foeList();save()};
+$("foeList").onclick=e=>{const k=e.target.dataset.rm;if(!k)return;
+  const i=cfg.foes.lastIndexOf(k);if(i>=0)cfg.foes.splice(i,1);foeList();save()};
+$("pn").onchange=e=>{cfg.pn=+e.target.value;while(cfg.members.length<cfg.pn)cfg.members.push(defMember(cfg.members.length));members();save()};
+$("eqAll").onclick=()=>{const a=cfg.members[0];
+  for(let i=1;i<cfg.members.length;i++){const b=JSON.parse(JSON.stringify(a));b.name=cfg.members[i].name;b.sex=cfg.members[i].sex;cfg.members[i]=b}
+  members();save()};
+$("clrSk").onclick=()=>{cfg.skills=[];skillView();save()};
+$("members").addEventListener("change",e=>{
+  const card=e.target.closest(".mem");if(!card)return;
+  const i=+card.dataset.i,m=cfg.members[i],t=e.target,ds=t.dataset;
+  if(ds.f){m[ds.f]=t.type==="number"?Math.max(+t.min||0,Math.min(+t.max||999,+t.value||0)):t.value}
+  else if(ds.st)m.stats[ds.st]=+t.value||1;
+  else if(ds.am)m.ammo[ds.am]=Math.max(0,+t.value||0);
+  save();derived(i);
+});
+$("members").addEventListener("click",e=>{
+  const pb=e.target.closest("button.pick");
+  if(pb){
+    const i=+pb.closest(".mem").dataset.i,m=cfg.members[i],w=pb.dataset.pick;
+    if(PK.classList.contains("on")){closePicker();return}
+    if(w==="bag"){
+      const ids=Object.keys(D.items).filter(k=>D.items[k].kind!=="junk");
+      openPicker(pb,ids,null,id=>{if(id){m.bag.push(id);save();members()}});
+    }else{
+      const sl=w.slice(2);
+      const ids=Object.keys(D.items).filter(k=>D.items[k].slot===sl);
+      openPicker(pb,ids,m.gear[sl]||"",id=>{m.gear[sl]=id;save();members()});
+    }
+    return;
+  }
+  const j=e.target.dataset.bagrm;if(j===undefined)return;
+  const i=+e.target.closest(".mem").dataset.i;cfg.members[i].bag.splice(+j,1);save();members();
+});
+
+/* ── 전투 ── */
+/* iframe 안에서 도는 함수입니다. 문자열로 넘겨 그쪽 전역(G·B·ROOM)에서 실행합니다 */
+function setupInGame(c){
+  stopLoop();
+  document.querySelectorAll(".pop").forEach(p=>p.remove());
+  newGame(0);
+  G.slot=-1;G.mode="run";G.scene="battleload";
+  G.gate=c.gate;G.day=c.day;G.night=c.night;G.dayOn=true;
+  G.roster=c.people.map(p=>{p.hp=Math.max(1,Math.round(derive(p).maxHp*p.hpPct/100));delete p.hpPct;return p});
+  G.player=G.roster[0];
+  G.instants=c.skills.map(skillOf).filter(Boolean);
+  G.here=PLACES.find(p=>p.room===c.place)||PLACES[0];
+  ROOM=ROOMS[G.here.room]||ROOM;
+  const keys=c.keys||rollEncounter(battleDay(),G.here.risk||0,G.roster.length,c.noboss);
+  enterBattle(G.roster,keys);
+  B._t=0;
+  return keys;
+}
+const inGame=(fn,arg)=>E(`(${fn.toString()})(${JSON.stringify(arg)})`);
+
+function start(keys){
+  if(!D){setStatus("게임이 아직 준비되지 않았습니다.");return}
+  const people=cfg.members.slice(0,cfg.pn).map(m=>({...mkPerson(m),hpPct:m.hpPct}));
+  let k=keys||null;
+  if(!k&&cfg.emode==="pick"){if(!cfg.foes.length){setStatus("직접 지정인데 적 목록이 비었습니다.");return}k=[...cfg.foes]}
+  try{
+    W().__spd=+cfg.spd;
+    lastKeys=inGame(setupInGame,{gate:cfg.gate,place:cfg.place,day:cfg.day,night:cfg.night,noboss:cfg.noboss,
+      skills:cfg.skills,people,keys:k});
+  }catch(e){setStatus("전투를 차리지 못했습니다: "+e.message);console.error(e);return}
+  runNo++;
+  cur={no:runNo,place:$("place").selectedOptions[0].text.replace(/ \(위험.*$/,""),day:cfg.day+(cfg.night?" 야간":""),
+    party:people.map(p=>`${p.name} Lv${p.lvl}`).join(", "),foes:foeText(lastKeys),done:false};
+  $("rolled").textContent="이번 적: "+cur.foes;
+  setStatus(`#${runNo} 전투 중 · ${cur.foes}`);
+  fr.contentWindow.focus();
+}
+/* 좀비와 좀비 보스처럼 이름이 같은 것이 있어 보스에는 표시를 붙입니다 */
+const foeName=k=>{const e=D.enemies[k];return e?e.n+(e.boss?"(보스)":""):k};
+const foeText=keys=>{const c={};for(const k of keys)c[k]=(c[k]||0)+1;
+  return Object.entries(c).map(([k,n])=>`${foeName(k)}${n>1?"×"+n:""}`).join(", ")};
+
+$("run").onclick=()=>start(null);
+$("again").onclick=()=>{if(!lastKeys){setStatus("아직 싸운 적이 없습니다.");return}start([...lastKeys])};
+$("pause").onclick=()=>{try{E("if(B&&!B.over)B.paused=!B.paused")}catch(e){}};
+$("preview").onclick=()=>{
+  if(!D)return;
+  try{
+    const k=JSON.parse(E(`(()=>{const g0=G;G={...(G||{}),gate:${JSON.stringify(cfg.gate)},night:${cfg.night},day:${cfg.day},mode:"run"};
+      const pl=PLACES.find(p=>p.room===${JSON.stringify(cfg.place)})||PLACES[0];
+      try{return JSON.stringify(rollEncounter(battleDay(),pl.risk||0,${cfg.pn},${cfg.noboss}))}finally{G=g0}})()`));
+    $("rolled").textContent="뽑아 본 적: "+foeText(k)+" (예시 — 전투 때 다시 뽑습니다)";
+  }catch(e){$("rolled").textContent="뽑기 실패: "+e.message}
+};
+
+/* 끝났는지 지켜보다가 한 줄 남깁니다 */
+setInterval(()=>{
+  if(!cur||cur.done||!D)return;
+  let r;
+  try{r=JSON.parse(E(`JSON.stringify(B?{over:!!B.over,t:B._t||0,
+    a:B.allies.map(a=>({n:a.name,hp:Math.max(0,Math.round(a.hp)),mx:a.maxHp})),
+    f:B.foes.filter(f=>f.hp>0).map(f=>({n:f.name,hp:Math.round(f.hp),mx:f.maxHp}))}:null)`))}catch(e){return}
+  if(!r||!r.over)return;
+  cur.done=true;
+  const win=r.a.some(a=>a.hp>0)&&!r.f.length;
+  const tr=document.createElement("tr");
+  tr.innerHTML=`<td>${cur.no}</td><td>${esc(cur.place)} · ${cur.day}일</td><td>${esc(cur.party)}</td><td>${esc(cur.foes)}</td>
+    <td class="${win?"win":"lose"}">${win?"승리":"전멸"}</td><td>${r.t.toFixed(1)}초</td>
+    <td>${r.a.map(a=>`${esc(a.n)} ${a.hp}/${a.mx}`).join("<br>")}${r.f.length?`<br><span class="warn">남은 적: ${r.f.map(f=>`${esc(f.n)} ${f.hp}/${f.mx}`).join(", ")}</span>`:""}</td>`;
+  $("log").prepend(tr);
+  setStatus(`#${cur.no} ${win?"승리":"전멸"} · ${r.t.toFixed(1)}초`);
+},250);
+$("clrLog").onclick=()=>{$("log").innerHTML=""};
+$("copyLog").onclick=()=>{
+  const rows=[...document.querySelectorAll("table tr")].map(tr=>[...tr.children].map(td=>td.innerText.replace(/\n/g," / ")).join("\t"));
+  navigator.clipboard.writeText(rows.join("\n")).then(()=>setStatus("결과 표를 복사했습니다."),()=>setStatus("복사하지 못했습니다."));
+};
+</script>

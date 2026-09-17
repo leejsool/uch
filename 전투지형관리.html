@@ -111,9 +111,11 @@ const ROOM_KEYS=["diner","pub","karaoke","tent","bookstore","stationery","alley"
 const ROOM_NAME={diner:"음식점",pub:"주점",karaoke:"지하 노래방",tent:"포장마차",bookstore:"서점",
   stationery:"문구점",alley:"골목길",avenue:"대로",subway:"지하철역",busstop:"버스 정류장",
   study:"독서실",villa:"원룸빌라",cosmetics:"화장품가게",police:"경찰 본부",nightstreet:"밤 거리",
-  restroom:"[지하상가] 화장실",conv:"[지하상가] 편의점",fountain:"[지하상가] 분수 쉼터",snackbar:"[지하상가] 분식집",
-  pharmacy:"[지하상가] 약국",clothing:"[지하상가] 의류 매장",tarot:"[지하상가] 타로 가게",bakery:"[지하상가] 빵집",
-  electronics:"[지하상가] 전자제품 매장",construct:"[지하상가] 공사중인 가게",range:"[지하상가] 실탄사격장"};
+  restroom:"화장실",conv:"편의점",fountain:"분수 쉼터",snackbar:"분식집",
+  pharmacy:"약국",clothing:"의류 매장",tarot:"타로 가게",bakery:"빵집",
+  electronics:"전자제품 매장",construct:"공사중인 가게",range:"실탄사격장"};
+/* 장소 목록을 게이트별로 묶어 보여 줍니다 — restroom 부터 지하상가 */
+const GATE_OF=k=>ROOM_KEYS.indexOf(k)>=ROOM_KEYS.indexOf("restroom")?"지하상가 게이트":"정문 게이트";
 const HAS_BG={diner:"art/battle/restaurant.jpg"};
 for(const k of ROOM_KEYS) if(!HAS_BG[k]) HAS_BG[k]=`art/battle/${k}.webp`;   // 없으면 격자로 표시
 /* index.html 의 makeFighter·ENEMIES 와 같은 값입니다. 몸집 순으로 늘어놓았습니다.
@@ -124,7 +126,7 @@ const UNITS=[
   {k:"bee",       n:"벌",               r:2.6, lvm:FLY},
   {k:"worm",      n:"애벌레",           r:2.8, lvm:CRAWL},
   {k:"hopper",    n:"메뚜기",           r:2.9, lvm:HOP},
-  {k:"cicada",    n:"매미",             r:3,   lvm:HOP},
+  {k:"cicada",    n:"매미",             r:2.6, lvm:HOP},
   {k:"zomb",      n:"좀비(무리)",       r:3.4, lvm:HUMAN},
   {k:"dogzomb",   n:"강아지 좀비",      r:3.6, lvm:CRAWL},
   {k:"hornet",    n:"장수말벌",         r:4,   lvm:FLY},
@@ -487,7 +489,14 @@ P("del").onclick=()=>{
   if(sel<0)return; cur().splice(sel,1); sel=-1; draw(); };
 
 /* ─── 헤더 ─── */
-for(const k of ROOM_KEYS) P("room").add(new Option(`${ROOM_NAME[k]} (${k})`,k));
+{
+  const groups={};
+  for(const k of ROOM_KEYS){
+    const g=GATE_OF(k);
+    if(!groups[g]){groups[g]=document.createElement("optgroup");groups[g].label=`── ${g} ──`;P("room").appendChild(groups[g]);}
+    groups[g].appendChild(new Option(`${ROOM_NAME[k]} (${k})`,k));
+  }
+}
 P("room").value=curRoom;
 P("room").onchange=e=>{ curRoom=e.target.value; sel=-1; selSp=null; draw(); };
 P("layer").onchange=e=>{ showLayer=+e.target.value; draw(); };

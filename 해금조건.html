@@ -239,7 +239,7 @@ const MAJ_DESC={
   nurse:  ()=>"학과사무실이 열리면 기본",
   mil:    ()=>"학과사무실이 열리면 기본",
   soldier:()=>`총으로 적 ${C("SOLDIER_KILLS","?")}체 격파 (활 제외)`,
-  police: ()=>"전투 중 탄약·화살이 떨어져 근접으로 넘어간 적이 있으면",
+  police: ()=>"전투 중 탄약·화살이 떨어져 근접으로 넘어간 적이 있고, 게이트에서 수갑을 주운 적이 있으면",
   chem:   ()=>"화학 피해로 적 1체 격파",
   phys:   ()=>"헌책을 행정실에 2권 판매 (누적)",
   mech:   ()=>"앞치마·마이크·라이터·커터칼을 모두 한 번씩 손에 넣음 (잃어도 무관)",
@@ -414,7 +414,7 @@ const NUMS=[["explores","탐색 횟수"],["gold","지금 골드"],["goldEarned",
   ["day","게이트 일차"],["bowKills","활 격파"],["gunKills","총 격파(활 제외)"],["chemKills","화학 피해 격파"],
   ["bookSold","헌책 판매"],["invest","매점 투자 횟수"],["capFrom","야구모자 시작 탐색"]];
 const BOOLS=[["woundedReturn","절반 이하로 귀환"],["gunHome","총 들고 귀환"],["danceHome","체력 가득 귀환"],
-  ["ammoOut","탄약 떨어져 근접"],["sojuDrunk","소주 마셔 봄"],["foodHeal","게이트 안 음식 회복"],
+  ["ammoOut","탄약 떨어져 근접"],["cuffsGot","수갑 주워 봄"],["sojuDrunk","소주 마셔 봄"],["foodHeal","게이트 안 음식 회복"],
   ["bedUsed","침상 써 봄"],["unionOpen","명단 2명 된 적"],["bowOpen","활 소문 들음"],["dualOpen","복수전공 열림"]];
 /* 조건 코드에 박힌 itemSeen 물건 — ["a","b"].every(k=>!!(g.itemSeen … */
 function seenIds(){
