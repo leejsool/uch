@@ -103,12 +103,17 @@
    모서리까지 거리<r 이면 이동 불가. 배경 그림이 있으면 게임은 이 사각형을 화면에 안 그린다. */
 const L1=1,L2=2,L3=4,HUMAN=3,CRAWL=1,HOP=3,TALL=7,FLY=4;
 
-/* 탐색 중 들어가는 14개 장소 — 저마다 지형 한 벌. index.html PLACES 의 room slug 와 일치. */
+/* 탐색 중 들어가는 장소 — 저마다 지형 한 벌. index.html PLACES 의 room slug 와 일치.
+   restroom 부터는 지하상가 게이트 장소입니다(아직 빈 방). */
 const ROOM_KEYS=["diner","pub","karaoke","tent","bookstore","stationery","alley",
-  "avenue","subway","busstop","study","villa","cosmetics","police","nightstreet"];
+  "avenue","subway","busstop","study","villa","cosmetics","police","nightstreet",
+  "restroom","conv","fountain","snackbar","pharmacy","clothing","tarot","bakery","electronics","construct","range"];
 const ROOM_NAME={diner:"음식점",pub:"주점",karaoke:"지하 노래방",tent:"포장마차",bookstore:"서점",
   stationery:"문구점",alley:"골목길",avenue:"대로",subway:"지하철역",busstop:"버스 정류장",
-  study:"독서실",villa:"원룸빌라",cosmetics:"화장품가게",police:"경찰 본부",nightstreet:"밤 거리"};
+  study:"독서실",villa:"원룸빌라",cosmetics:"화장품가게",police:"경찰 본부",nightstreet:"밤 거리",
+  restroom:"[지하상가] 화장실",conv:"[지하상가] 편의점",fountain:"[지하상가] 분수 쉼터",snackbar:"[지하상가] 분식집",
+  pharmacy:"[지하상가] 약국",clothing:"[지하상가] 의류 매장",tarot:"[지하상가] 타로 가게",bakery:"[지하상가] 빵집",
+  electronics:"[지하상가] 전자제품 매장",construct:"[지하상가] 공사중인 가게",range:"[지하상가] 실탄사격장"};
 const HAS_BG={diner:"art/battle/restaurant.jpg"};
 for(const k of ROOM_KEYS) if(!HAS_BG[k]) HAS_BG[k]=`art/battle/${k}.webp`;   // 없으면 격자로 표시
 /* index.html 의 makeFighter·ENEMIES 와 같은 값입니다. 몸집 순으로 늘어놓았습니다.
@@ -185,9 +190,10 @@ function save(){ clearTimeout(saveT); saveT=setTimeout(()=>{
   try{ localStorage.setItem(LS,JSON.stringify({rooms,spawns,DOOR,curRoom})); }catch(e){} },200); }
 (function restore(){ try{
   const d=JSON.parse(localStorage.getItem(LS)||"null"); if(!d) return;
-  if(d.rooms&&ROOM_KEYS.every(k=>Array.isArray(d.rooms[k]))){ rooms=d.rooms; hadSaved=true; }
-  if(d.spawns&&ROOM_KEYS.every(k=>d.spawns[k]&&Array.isArray(d.spawns[k].a)&&Array.isArray(d.spawns[k].e)))
-    spawns=d.spawns;                       /* spawns 가 없는 옛 저장본은 기본값 그대로 둔다 */
+  /* 장소가 늘어도 저장본을 버리지 않도록, 있는 방만 저장본으로 덮고 새 방은 기본값으로 둡니다 */
+  if(d.rooms){ for(const k of ROOM_KEYS) if(Array.isArray(d.rooms[k])){ rooms[k]=d.rooms[k]; hadSaved=true; } }
+  if(d.spawns){ for(const k of ROOM_KEYS){ const v=d.spawns[k];
+    if(v&&Array.isArray(v.a)&&Array.isArray(v.e)) spawns[k]=v; } }   /* spawns 가 없는 옛 저장본은 기본값 그대로 둔다 */
   if(d.DOOR&&"x"in d.DOOR) DOOR=d.DOOR;
   if(ROOM_KEYS.includes(d.curRoom)) curRoom=d.curRoom;
 }catch(e){} })();

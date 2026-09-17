@@ -644,6 +644,9 @@ const SLOTS=[
   {k:"top",n:"상의"},{k:"bottom",n:"하의"},{k:"shoes",n:"신발"},
 ];
 const BAG_MAX=5;
+/* 배낭 확장 주머니를 쓴 사람은 한 칸 더 — 이름도 '배낭+' 로 바뀝니다 */
+const bagMax=p=>BAG_MAX+(p&&p.bagPlus?1:0);
+const bagName=p=>p&&p.bagPlus?"배낭+":"배낭";
 const BED_MAX=4;
 const STUDY_COST=20;   /* 학습실 — Lv1 대원을 맡기는 값 */
 /* ── 사범대학 교육장 ──
@@ -678,8 +681,8 @@ const ITEMS={
   /* ── 오른손 ── */
   ladle:{n:"국자",slot:"rh",kind:"perm",atk:4,dmg:DMG.SLASH,style:"swing",price:0,d:"공격력 +4 · 베기"},
   pen:{n:"만년필",slot:"rh",kind:"perm",atk:5,aspdM:1.30,dmg:DMG.THRUST,style:"thrust",price:5,d:"공격력 +5, 공속 +30% · 찌르기"},
-  weight:{n:"벼려진 문진",slot:"rh",kind:"perm",atk:6,dmg:DMG.BLUNT,style:"swing",d:"공격력 +6 · 타격"},
-  bat:{n:"야구 배트",slot:"rh",kind:"perm",atk:8,aspdM:0.86,dmg:DMG.BLUNT,style:"swing",d:"공격력 +8, 공속 −14% · 타격"},
+  weight:{n:"벼려진 문진",slot:"rh",kind:"perm",price:15,atk:6,dmg:DMG.BLUNT,style:"swing",d:"공격력 +6 · 타격"},
+  bat:{n:"야구 배트",slot:"rh",kind:"perm",price:25,atk:8,aspdM:0.86,dmg:DMG.BLUNT,style:"swing",d:"공격력 +8, 공속 −14% · 타격"},
   bottle:{n:"깨진 소주병",slot:"rh",kind:"inst",atk:7,dmg:DMG.SLASH,style:"swing",d:"공격력 +7 · 베기"},
   cutter:{n:"커터칼",slot:"rh",kind:"inst",atk:6,aspdM:1.40,dmg:DMG.THRUST,style:"thrust",d:"공격력 +6, 공속 +40% · 찌르기"},
   tongs:{n:"연탄집게",slot:"rh",kind:"inst",atk:8,aspdM:1.10,rng:5,dmg:DMG.THRUST,style:"thrust",d:"공격력 +8, 공속 +10%, 사거리 +5 · 찌르기"},
@@ -700,23 +703,23 @@ const ITEMS={
   /* ── 머리 ── */
   helmet:{n:"공사장 헬멧",slot:"head",kind:"inst",guard:2,d:"피해 −2"},
   cap:{n:"학과 야구모자",slot:"head",kind:"perm",guard:1,price:10,d:"피해 −1"},
-  hairband:{n:"헤어밴드",slot:"head",kind:"perm",aspdM:1.06,d:"공속 +6%"},
+  hairband:{n:"헤어밴드",slot:"head",kind:"perm",price:15,aspdM:1.06,d:"공속 +6%"},
   /* 하키 헬멧 — 택배 상자에서 나옵니다. 단단한 대신 시야가 좁습니다 */
-  hockey:{n:"하키 헬멧",slot:"head",kind:"perm",guard:4,dodge:-5,d:"피해 −4, 회피 −5%"},
+  hockey:{n:"하키 헬멧",slot:"head",kind:"perm",price:30,guard:4,dodge:-5,d:"피해 −4, 회피 −5%"},
   /* ── 상의 ── */
   apron:{n:"앞치마",slot:"top",kind:"inst",guard:2,hp:4,dodge:5,d:"피해 −2, 체력 +4, 회피 5%"},
-  vest:{n:"역무원 방검조끼",slot:"top",kind:"perm",guard:4,hp:8,d:"피해 −4, 체력 +8"},
-  hoodie:{n:"후드티",slot:"top",kind:"perm",guard:1,hp:6,d:"피해 −1, 체력 +6"},
+  vest:{n:"역무원 방검조끼",slot:"top",kind:"perm",price:35,guard:4,hp:8,d:"피해 −4, 체력 +8"},
+  hoodie:{n:"후드티",slot:"top",kind:"perm",price:12,guard:1,hp:6,d:"피해 −1, 체력 +6"},
   /* ── 하의 ── */
-  jeans:{n:"청바지",slot:"bottom",kind:"perm",guard:1,hp:4,d:"피해 −1, 체력 +4"},
-  track:{n:"트레이닝 바지",slot:"bottom",kind:"perm",dodge:5,d:"회피 5%"},
+  jeans:{n:"청바지",slot:"bottom",kind:"perm",price:10,guard:1,hp:4,d:"피해 −1, 체력 +4"},
+  track:{n:"트레이닝 바지",slot:"bottom",kind:"perm",price:15,dodge:5,d:"회피 5%"},
   /* 두껍고 뻣뻣합니다 — 막는 것은 바지 중 가장 좋지만 발이 무거워집니다 */
   workpants:{n:"작업복 바지",slot:"bottom",kind:"inst",guard:6,spdM:0.90,d:"피해 −6, 이동 −10%"},
   /* 매점에서만 나옵니다. 명단이 두 명이 된 뒤부터 판매대에 오를 수 있습니다 */
   upants:{n:"학생회 인증 바지",slot:"bottom",kind:"perm",hp:3,dodge:2,price:12,d:"체력 +3, 회피 2%"},
   /* ── 신발 ── */
-  boots:{n:"안전화",slot:"shoes",kind:"perm",guard:1,dodge:4,d:"피해 −1, 회피 4%"},
-  sneakers:{n:"운동화",slot:"shoes",kind:"perm",dodge:8,d:"회피 8%"},
+  boots:{n:"안전화",slot:"shoes",kind:"perm",price:18,guard:1,dodge:4,d:"피해 −1, 회피 4%"},
+  sneakers:{n:"운동화",slot:"shoes",kind:"perm",price:25,dodge:8,d:"회피 8%"},
   slippers:{n:"삼선 슬리퍼",slot:"shoes",kind:"inst",dodge:5,crit:3,d:"회피 5%, 치명 +3%"},
   /* ── 어둠 에너지 결정 · 게이트 안에서 현장 장비를 그 자리에서 강화합니다 ── */
   crystal:{n:"어둠 에너지 결정",kind:"inst",crystal:true,
@@ -738,6 +741,41 @@ const ITEMS={
           req:GUN_MAJORS,ammo:"shotgun",d:"공격력 20/14/5(가까울수록 셈), 공속 −30%, 사거리 +9 · 관통 · 곁의 적도 휩쓴다"},
   rifle:{n:"소총",slot:"rh",kind:"perm",atk:12,aspdM:1.0,rng:31,dmg:DMG.PIERCE,style:"gun",
           req:GUN_MAJORS,ammo:"rifle",d:"공격력 +12, 사거리 +31 · 관통"},
+  /* ══ 지하상가 게이트 (2026-09-17 추가) ══
+     정문 게이트 것보다 조금씩 낫게 잡았습니다. 그림은 아직 없습니다. */
+  /* ── 오른손 ── */
+  mop:{n:"대걸레",slot:"rh",kind:"inst",atk:5,rng:7,dmg:DMG.BLUNT,style:"swing",d:"공격력 +5, 사거리 +7 · 타격"},
+  plunger:{n:"뚫어뻥",slot:"rh",kind:"perm",atk:5,aspdM:1.35,dmg:DMG.THRUST,style:"thrust",price:15,d:"공격력 +5, 공속 +35% · 찌르기"},
+  umbrella:{n:"장우산",slot:"rh",kind:"perm",atk:6,aspdM:1.10,rng:4,dmg:DMG.THRUST,style:"thrust",price:20,d:"공격력 +6, 공속 +10%, 사거리 +4 · 찌르기"},
+  ftongs:{n:"튀김 젓가락",slot:"rh",kind:"inst",atk:9,aspdM:1.10,rng:5,dmg:DMG.THRUST,style:"thrust",d:"공격력 +9, 공속 +10%, 사거리 +5 · 찌르기"},
+  selfie:{n:"셀카봉",slot:"rh",kind:"perm",atk:5,aspdM:1.15,rng:6,dmg:DMG.BLUNT,style:"swing",price:22,d:"공격력 +5, 공속 +15%, 사거리 +6 · 타격"},
+  candlestick:{n:"촛대",slot:"rh",kind:"inst",atk:8,crit:3,dmg:DMG.BLUNT,style:"swing",d:"공격력 +8, 치명 +3% · 타격"},
+  pipe:{n:"쇠파이프",slot:"rh",kind:"perm",atk:9,aspdM:0.88,dmg:DMG.BLUNT,style:"swing",price:30,d:"공격력 +9, 공속 −12% · 타격"},
+  hammer:{n:"망치",slot:"rh",kind:"inst",atk:10,aspdM:0.95,dmg:DMG.BLUNT,style:"swing",d:"공격력 +10, 공속 −5% · 타격"},
+  rollpin:{n:"밀대",slot:"rh",kind:"perm",atk:7,aspdM:1.05,dmg:DMG.BLUNT,style:"swing",price:22,d:"공격력 +7, 공속 +5% · 타격"},
+  mannequin:{n:"마네킹 팔",slot:"rh",kind:"inst",atk:7,aspdM:1.10,dmg:DMG.BLUNT,style:"swing",d:"공격력 +7, 공속 +10% · 타격"},
+  /* ── 왼손 ── */
+  toiletlid:{n:"변기 뚜껑",slot:"lh",kind:"perm",guard:4,hp:8,price:12,frail:{[DMG.BLAST]:0.4},d:"피해 −4, 체력 +8 · 폭발에 약함"},
+  bench:{n:"벤치 판자",slot:"lh",kind:"inst",guard:6,hp:6,dodge:-5,d:"피해 −6, 체력 +6, 회피 −5%"},
+  laptop:{n:"노트북",slot:"lh",kind:"perm",guard:5,hp:8,price:35,frail:{[DMG.SLASH]:0.05,[DMG.BLAST]:0.8},d:"피해 −5, 체력 +8"},
+  plywood:{n:"합판",slot:"lh",kind:"inst",guard:9,hp:10,dodge:-9,d:"피해 −9, 체력 +10, 회피 −9%"},
+  /* ── 머리 ── */
+  beanie:{n:"비니",slot:"head",kind:"perm",guard:2,hp:3,price:15,d:"피해 −2, 체력 +3"},
+  headset:{n:"헤드셋",slot:"head",kind:"perm",guard:1,aspdM:1.08,price:25,d:"피해 −1, 공속 +8%"},
+  hood:{n:"점술가 두건",slot:"head",kind:"perm",dodge:3,crit:4,price:28,d:"회피 3%, 치명 +4%"},
+  bakerhat:{n:"제빵사 모자",slot:"head",kind:"perm",guard:1,hp:6,price:14,d:"피해 −1, 체력 +6"},
+  goggles:{n:"사격용 보안경",slot:"head",kind:"perm",guard:2,crit:3,price:30,d:"피해 −2, 치명 +3%"},
+  /* ── 상의 ── */
+  pcoat:{n:"약사 가운",slot:"top",kind:"perm",guard:2,hp:10,price:25,d:"피해 −2, 체력 +10"},
+  leather:{n:"가죽 재킷",slot:"top",kind:"perm",guard:3,hp:10,price:40,d:"피해 −3, 체력 +10"},
+  cvest:{n:"편의점 조끼",slot:"top",kind:"inst",guard:2,hp:6,dodge:4,d:"피해 −2, 체력 +6, 회피 4%"},
+  sapron:{n:"분식집 앞치마",slot:"top",kind:"inst",guard:3,hp:5,dodge:5,d:"피해 −3, 체력 +5, 회피 5%"},
+  hivis:{n:"형광 안전조끼",slot:"top",kind:"perm",guard:3,hp:6,dodge:2,price:30,d:"피해 −3, 체력 +6, 회피 2%"},
+  svest:{n:"사격용 조끼",slot:"top",kind:"perm",guard:5,hp:9,price:55,d:"피해 −5, 체력 +9"},
+  /* ── 하의·신발 ── */
+  cargo:{n:"카고 바지",slot:"bottom",kind:"perm",guard:2,hp:5,price:18,d:"피해 −2, 체력 +5"},
+  runner:{n:"러닝화",slot:"shoes",kind:"perm",dodge:9,price:30,d:"회피 9%"},
+  walker:{n:"워커",slot:"shoes",kind:"perm",guard:2,dodge:5,price:28,d:"피해 −2, 회피 5%"},
   /* ── 학생회 제작 활 ──
      총과 같은 길(ammo)을 쓰지만 전공 제한이 없습니다. 대신 열 번에 한 번은 헛나갑니다
      (miss — 회피와 따로 굴리고, 빗나감을 먼저 봅니다). */
@@ -747,8 +785,25 @@ const ITEMS={
   /* ── 학생회장봉 · 학생회장의 의뢰를 마치면 받습니다 ── */
   /* 사마귀 앞발 — 학생회의 두 번째 의뢰 동안에만 나오는 재료. 팔 수도 살 수도 없습니다
      (파는 길은 잡화(G.loot)뿐이라 반출품인 이 물건은 애초에 판매대에 오르지 않습니다) */
-  mantisarm:{n:"사마귀 앞발",kind:"perm",price:0,quest:true,
+  mantisarm:{n:"사마귀 앞발",kind:"perm",price:0,quest:true,mat:true,
     d:"아직도 날이 서 있다 · 학생회에 가져갈 것"},
+  /* 매미의 날개 — 학생회의 '매미의 날개' 의뢰를 받은 뒤부터 매미를 쓰러뜨릴 때마다 하나씩 남습니다.
+     반출품이라 창고로 가고, 의뢰를 마친 뒤부터 행정실에서 price 에 팝니다 */
+  cwing:{n:"매미의 날개",kind:"perm",price:30,quest:true,mat:true,from:"매미 처치 (학생회 '매미의 날개' 의뢰를 받은 뒤)",
+    d:"빛에 비추면 무지갯빛이 돈다 · 학생회가 귀한 소재라고 한다"},
+  /* 투구뿔 — 학생회의 '딱딱한 껍질' 의뢰를 받은 뒤부터 장수풍뎅이를 쓰러뜨릴 때마다 하나씩 남습니다.
+     의뢰를 마친 뒤부터 행정실에서 price 에 팝니다 */
+  horn:{n:"투구뿔",kind:"perm",price:33,quest:true,mat:true,from:"장수풍뎅이 처치 (학생회 '딱딱한 껍질' 의뢰를 받은 뒤)",
+    d:"장수풍뎅이의 뿔 · 단단하고 가볍다 · 학생회가 찾는 재료"},
+  /* 뿔 방패 — 맞으면 때린 적에게 thorns 만큼 돌려줍니다(hurt). 투구뿔을 넘긴 뒤 매점에 오릅니다 */
+  hshield:{n:"뿔 방패",slot:"lh",kind:"perm",guard:3,hp:4,thorns:4,price:60,
+    d:"피해 −3, 체력 +4 · 맞으면 때린 적에게 4 피해를 돌려준다"},
+  /* 풍뎅이 투구 — keepDodge: 다른 장비가 깎는 회피를 없던 일로 합니다(derive) */
+  bhelm:{n:"풍뎅이 투구",slot:"head",kind:"perm",guard:3,hp:5,keepDodge:true,price:55,
+    d:"피해 −3, 체력 +5 · 다른 장비의 회피 감소를 없앤다"},
+  /* 배낭 확장 주머니 — 쓰면 그 사람의 배낭이 한 칸 늘어납니다(p.bagPlus). 한 사람에 한 번 */
+  bagpouch:{n:"배낭 확장 주머니",kind:"perm",price:0,use:{bag:1},from:"학생회 '매미의 날개' 의뢰 사례",
+    d:"쓰면 그 대원의 배낭이 한 칸 늘어난다 · 한 사람에 한 번"},
   /* 사마귀 낫 — 앞발을 넘기고 한 탐색 뒤부터 매점에 오릅니다 */
   scythe:{n:"사마귀 낫",slot:"rh",kind:"perm",atk:6,aspdM:1.15,crit:5,dmg:DMG.SLASH,style:"swing",price:45,
     d:"공격력 +6, 공속 +15%, 치명 +5% · 베기"},
@@ -765,9 +820,9 @@ const ITEMS={
   ammoS:{n:"산탄총 탄약",kind:"ammo",ammo:"shotgun",qty:6,price:18,d:"산탄총 6발"},
   ammoR:{n:"소총 탄약",kind:"ammo",ammo:"rifle",qty:20,price:26,d:"소총 20발"},
   ammoA:{n:"화살",kind:"ammo",ammo:"arrow",qty:30,price:15,d:"화살 30발"},
-  baton:{n:"경찰봉",slot:"rh",kind:"perm",atk:5,aspdM:1.10,dmg:DMG.BLUNT,style:"swing",
+  baton:{n:"경찰봉",slot:"rh",kind:"perm",price:25,atk:5,aspdM:1.10,dmg:DMG.BLUNT,style:"swing",
           d:"공격력 +5, 공속 +10% · 타격"},
-  vestp:{n:"방탄조끼",slot:"top",kind:"perm",guard:6,hp:10,d:"피해 −6, 체력 +10"},
+  vestp:{n:"방탄조끼",slot:"top",kind:"perm",price:60,guard:6,hp:10,d:"피해 −6, 체력 +10"},
   jacket:{n:"학과 점퍼",slot:"top",kind:"perm",guard:1,hp:8,price:10,d:"피해 −1, 체력 +8"},
   /* ── 잡화 ── */
   tuna:{n:"참치캔",kind:"junk",price:25,use:{hp:20},d:"먹으면 체력 20 회복 · 팔면 25 골드"},
@@ -801,6 +856,31 @@ const ITEMS={
   planner:{n:"다이어리",kind:"junk",price:18,d:"팔면 18 골드"},
   cuffs:{n:"수갑",kind:"junk",price:22,d:"팔면 22 골드"},
   radio:{n:"무전기",kind:"junk",price:18,d:"팔면 18 골드"},
+  /* ── 지하상가 · 먹을 것과 약 ── 약국 것은 응급 키트처럼 식품공학과 배율을 받지 않습니다(kit) */
+  gimbap:{n:"김밥",kind:"junk",price:10,use:{hp:14},d:"먹으면 체력 14 회복 · 팔면 10 골드"},
+  tteok:{n:"떡볶이",kind:"junk",price:28,use:{hp:26,buff:{atk:2}},d:"먹으면 체력 26 회복 · 다음 전투 공격력 +2 · 팔면 28 골드"},
+  soboro:{n:"소보로빵",kind:"junk",price:16,use:{hp:20},d:"먹으면 체력 20 회복 · 팔면 16 골드"},
+  cake:{n:"생크림 케이크",kind:"junk",price:42,use:{hp:30,share:10},d:"먹으면 체력 30 회복 · 파티 전원도 체력 10 회복 · 팔면 42 골드"},
+  dosirak:{n:"도시락",kind:"junk",price:32,use:{hp:38},d:"먹으면 체력 38 회복 · 팔면 32 골드"},
+  bmilk:{n:"바나나우유",kind:"junk",price:20,use:{hp:12,drink:true,buff:{vspeedM:1.10,dodge:3}},
+    d:"마시면 체력 12 회복 · 다음 전투 이동 +10%, 회피 +3% · 팔면 20 골드"},
+  painkiller:{n:"진통제",kind:"junk",kit:true,price:30,use:{hp:10,buff:{guard:3}},d:"쓰면 체력 10 회복 · 다음 전투 받는 피해 −3 · 팔면 30 골드"},
+  vitamin:{n:"비타민 음료",kind:"junk",price:26,use:{hp:10,drink:true,buff:{aspdM:1.12,crit:3}},
+    d:"마시면 체력 10 회복 · 다음 전투 공속 +12%, 치명 +3% · 팔면 26 골드"},
+  pas:{n:"파스",kind:"junk",kit:true,price:18,use:{pct:0.20},d:"쓰면 체력 20% 회복 · 팔면 18 골드"},
+  /* ── 지하상가 · 팔 것 ── */
+  tissue:{n:"두루마리 휴지",kind:"junk",price:5,d:"팔면 5 골드"},
+  fresh:{n:"방향제",kind:"junk",price:11,d:"팔면 11 골드"},
+  wishcoin:{n:"소원 동전",kind:"junk",price:20,d:"분수 바닥에서 건졌다 · 팔면 20 골드"},
+  tee:{n:"브랜드 티셔츠",kind:"junk",price:32,d:"택도 안 뗐다 · 팔면 32 골드"},
+  swatch:{n:"스마트워치",kind:"junk",price:70,d:"화면이 아직 켜진다 · 팔면 70 골드"},
+  gconsole:{n:"휴대용 게임기",kind:"junk",price:85,d:"세이브 파일이 남아 있다 · 팔면 85 골드"},
+  tarot:{n:"타로 카드",kind:"junk",price:18,d:"한 장이 비어 있다 · 팔면 18 골드"},
+  candle:{n:"향초",kind:"junk",price:12,d:"팔면 12 골드"},
+  cball:{n:"수정 구슬",kind:"junk",price:48,d:"안에서 무언가 움직인 것 같다 · 팔면 48 골드"},
+  copper:{n:"구리선 뭉치",kind:"junk",price:30,d:"팔면 30 골드"},
+  earplug:{n:"귀마개",kind:"junk",price:12,d:"팔면 12 골드"},
+  target:{n:"표적지",kind:"junk",price:8,d:"한가운데만 구멍이 없다 · 팔면 8 골드"},
   /* ── 지하철역 · 위험도에 값을 맞추기 위한 고가 잡화 ── */
   lost:{n:"누군가의 유실물",kind:"junk",price:55,d:"찾아갈 사람이 없다 · 팔면 55 골드"},
   /* 'mystery'가 붙은 물건은 값이 정해져 있지 않습니다.
@@ -950,8 +1030,20 @@ const baseOf=id=>(ITEMS[id]&&(ITEMS[id].dark||ITEMS[id].base))||id;
 Object.keys(ITEMS).forEach(k=>ITEMS[k].id=k);
 /* 매점 판매대에 오를 수 있는 물건 전부. 조건이 붙은 둘은 shopPool() 이 걸러냅니다.
    한 번에 다 오르지는 않습니다 — 자리 수(shopSlots)만큼 무작위로 뽑습니다. */
-const SHOP=["jacket","pen","book","spray","cap","upants","bow","healspray","scythe","fkiller"];
+const SHOP=["jacket","pen","book","spray","cap","upants","bow","healspray","scythe","fkiller","hshield","bhelm"];
 const SHOP_AMMO=["ammoP","ammoS","ammoR","ammoA"];
+/* 게이트 바닥에서 GOT_SHOP 번 주워 본 반출 장비는 매점 판매대 후보에도 오릅니다(총은 빼고).
+   G.gotN[id] 에 주운 횟수를 셉니다(noteGot). 값(price)이 없는 것은 오르지 않습니다 */
+const GOT_SHOP=5;
+const gotShopOk=id=>{const it=ITEMS[id];
+  return !!(it&&it.kind==="perm"&&it.slot&&!(it.ammo&&!it.bow)&&!it.base&&!it.dark&&it.price>0)};
+const gotShopIds=()=>Object.keys(G.gotN||{}).filter(id=>G.gotN[id]>=GOT_SHOP&&!SHOP.includes(id)&&gotShopOk(id));
+function noteGot(id){
+  if(!gotShopOk(id))return;
+  G.gotN=G.gotN||{};
+  G.gotN[id]=(G.gotN[id]||0)+1;
+  if(G.gotN[id]===GOT_SHOP&&!SHOP.includes(id))(G.gotNew=G.gotNew||[]).push(id);
+}
 /* 판매대 자리 — 처음 3칸. '학생회에 투자' 로 한 칸씩, 6칸까지 늘립니다 */
 const SHOP_SLOT0=3, SHOP_SLOT_MAX=6, INVEST_COST=[40,120,250];
 const shopSlots=()=>Math.min(SHOP_SLOT_MAX,SHOP_SLOT0+(G.invest||0));
@@ -965,7 +1057,8 @@ function shopPool(){
   : id==="healspray" ? medOpen(G)                              /* 의예과가 열린 뒤부터 */
   : id==="fkiller" ? fkOpen(G)                                 /* 화학과 Lv5 대원이 나온 뒤부터 */
   : id==="scythe" ? scytheOnSale()                             /* 앞발을 넘기고 한 탐색 뒤부터, 한 자루만 */
-  : true);
+  : id==="hshield"||id==="bhelm" ? G.hornQ>=2                 /* 투구뿔을 학생회에 넘긴 뒤부터 */
+  : true).concat(gotShopIds());
 }
 /* 판매대 채우기. 팔린 것도 G.shopStock 에 남겨 두어야 자리 수가 맞습니다. */
 function fillShop(){
@@ -987,14 +1080,16 @@ function seenGun(type){
   return false;
 }
 /* 강화판은 이름 끝의 + 로 이미 드러나므로 꼬리표를 더 달지 않고 현장 딱지 색만 바꿉니다 */
+/* 장비가 아닌 물건의 분류 — 쓸 수 있으면 소모품, 무언가를 만드는 데 들어가면 재료(mat), 나머지는 잡화 */
+const catName=it=>it.kind==="ammo"?"탄약":it.use?"소모품":it.mat?"재료":"잡화";
 const kindTag=it=>it.kind==="inst"?`<span class="kd inst${it.dark?" dk":""}">현장</span>`
-  :it.kind==="junk"?'<span class="kd junk">잡화</span>'
+  :it.kind==="junk"?`<span class="kd junk">${catName(it)}</span>`
   :`<span class="kd perm${it.base?" wk":""}">반출</span>`;
 /* 어느 칸에 차는 물건인지 — 바닥에 떨어진 것을 고를 때 보여줍니다 */
 const slotName=id=>{
   const it=ITEMS[id]; if(!it)return "";
   const s=SLOTS.find(x=>x.k===it.slot);
-  return s?s.n:it.kind==="ammo"?"탄약":"잡화";
+  return s?s.n:catName(it);
 };
 
 /* ═══════════ 장소와 전리품 ═══════════ */
@@ -1024,7 +1119,42 @@ const PLACES=[
   {n:"밤 거리",room:"nightstreet",d:"불빛이 닿지 않는 데까지 무언가 움직인다",risk:2,night:true,
    junk:["coin","snack","battery","lighter","canx","blackbox"],gear:["helmet","track","doorpanel","workpants","boots","bat"]},
 ];
+/* ══ 지하상가 게이트의 장소 (gate:"back") ══
+   gate 가 없는 장소는 정문 게이트 것입니다. 저장본은 PLACES 순번을 쓰므로 새 장소는 늘 맨 뒤에 붙입니다.
+   지형은 아직 비어 있습니다 — 배경 그림이 나오면 전투지형관리.html 로 채웁니다. */
+PLACES.push(
+  {gate:"back",n:"화장실",room:"restroom",d:"아무도 없는데 물 내려가는 소리가 난다",risk:0,
+   junk:["tissue","fresh","coin"],gear:["mop","plunger","toiletlid"]},
+  {gate:"back",n:"편의점",room:"conv",d:"계산대에서 바코드 찍는 소리만 난다",risk:0,
+   junk:["onigiri","ramen","energy","ion","dosirak","bmilk"],gear:["umbrella","cvest"]},
+  {gate:"back",n:"분수 쉼터",room:"fountain",d:"물줄기가 거꾸로 솟는다",risk:0,
+   junk:["wishcoin","coin","lost","snack"],gear:["bench","runner","sneakers"]},
+  {gate:"back",n:"분식집",room:"snackbar",d:"떡볶이 국물이 아직 끓고 있다",risk:0,
+   junk:["gimbap","tteok","tuna"],gear:["ftongs","sapron"]},
+  {gate:"back",n:"약국",room:"pharmacy",d:"약장 서랍이 전부 열려 있다",risk:1,
+   junk:["painkiller","vitamin","pas","medkit"],gear:["pcoat"]},
+  {gate:"back",n:"의류 매장",room:"clothing",d:"마네킹들이 모두 입구를 보고 있다",risk:1,
+   junk:["tee"],gear:["leather","cargo","walker","beanie","mannequin","hoodie","jeans"]},
+  {gate:"back",n:"타로 가게",room:"tarot",d:"카드가 저절로 한 장씩 뒤집힌다",risk:1,
+   junk:["tarot","candle","cball"],gear:["hood","candlestick"]},
+  {gate:"back",n:"빵집",room:"bakery",d:"오븐 안에서 무언가 부풀고 있다",risk:1,
+   junk:["soboro","cake"],gear:["rollpin","bakerhat"]},
+  {gate:"back",n:"전자제품 매장",room:"electronics",d:"꺼진 화면들에 같은 얼굴이 비친다",risk:2,
+   junk:["battery","earphone","swatch","gconsole","parcel"],gear:["selfie","laptop","headset"]},
+  {gate:"back",n:"공사중인 가게",room:"construct",d:"가림막 너머에서 드릴 소리가 난다",risk:2,
+   junk:["copper","coin"],gear:["pipe","hammer","plywood","hivis","helmet","workpants","boots"]},
+  /* 실탄사격장 — 경찰 본부처럼 총과 탄약이 나오는 자리. 조금 더 후합니다 */
+  {gate:"back",n:"실탄사격장",room:"range",d:"사로마다 탄피가 흩어져 있다",risk:2,
+   junk:["earplug","target","ration"],gear:["svest","goggles"],
+   special:{ids:["pistol","shotgun","rifle"],chance:0.45},
+   ammo:{ids:["ammoP","ammoS","ammoR"],base:2,extra:[0.70,0.40]}},
+);
 const nightPlace=()=>PLACES.find(p=>p.night);
+/* 그 게이트에서 낮에 들어갈 수 있는 장소. 장소가 없는 게이트(아직 안 만든 곳)는 정문 것을 씁니다 */
+const placesOf=gid=>{
+  const own=PLACES.filter(p=>!p.night&&(p.gate||"front")===gid);
+  return own.length?own:PLACES.filter(p=>!p.night&&!p.gate);
+};
 /* ─── 물건 도감 ───
    장소 화면에는 그곳에서 나올 수 있는 것이 전부 나열되지만,
    한 번이라도 손에 넣어 본 것만 이름이 보이고 나머지는 ?? 로 남습니다.
@@ -1049,7 +1179,7 @@ function rollLoot(place,day){
   /* 식품공학과 — 먹을 것이 한 개 더 나올 수 있습니다 */
   const fl=foodLv();
   if(fl){
-    const eat=place.junk.filter(id=>ITEMS[id].use);
+    const eat=place.junk.filter(id=>ITEMS[id].use&&!ITEMS[id].kit);   /* 약은 먹을 것이 아닙니다 */
     if(eat.length&&Math.random()<FOOD_DROP[fl]*foodRate()) out.push(pick(eat));
   }
   let gn=(Math.random()<0.55?1:0)+(Math.random()<0.25+place.risk*0.1?1:0)+(day>=3&&Math.random()<0.3?1:0);
@@ -1278,6 +1408,61 @@ const ROOMS={
       {x:17.5,y:42,w:15.5,h:24.5,lv:L1|L2,mul:0.5},
       {x:19,y:6,w:16,h:19.5,lv:L1|L2,mul:0.5},
       {x:58,y:82.5,w:12,h:12,lv:TALL}]},
+  restroom:{id:"restroom",
+      spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
+             e:[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]]},
+      obs:[
+]},
+  conv:{id:"conv",
+      spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
+             e:[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]]},
+      obs:[
+]},
+  fountain:{id:"fountain",
+      spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
+             e:[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]]},
+      obs:[
+]},
+  snackbar:{id:"snackbar",
+      spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
+             e:[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]]},
+      obs:[
+]},
+  pharmacy:{id:"pharmacy",
+      spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
+             e:[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]]},
+      obs:[
+]},
+  clothing:{id:"clothing",
+      spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
+             e:[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]]},
+      obs:[
+]},
+  tarot:{id:"tarot",
+      spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
+             e:[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]]},
+      obs:[
+]},
+  bakery:{id:"bakery",
+      spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
+             e:[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]]},
+      obs:[
+]},
+  electronics:{id:"electronics",
+      spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
+             e:[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]]},
+      obs:[
+]},
+  construct:{id:"construct",
+      spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
+             e:[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]]},
+      obs:[
+]},
+  range:{id:"range",
+      spawn:{a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
+             e:[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]]},
+      obs:[
+]},
 };
 let ROOM=ROOMS[PLACES[0].room];
 const DOOR={x:84,y:95,w:14,h:4};
@@ -1322,9 +1507,9 @@ const ENEMIES={
   crawlzomb:{n:"다리가 부러진 좀비",lvm:HUMAN,hp:760,atk:66,aspd:.55,speed:8,range:14,r:5.6,
              c:"#3E6B47",exp:330,boss:true,dmg:DMG.SLASH},
   /* 25일차 보스. 절뚝거리며 다가오고, 이것에게 죽은 사람은 일어나 적이 된다 */
-  zombie:{n:"좀비",lvm:TALL,hp:900,atk:100,aspd:100,speed:15,range:8,r:6.2,
+  zombie:{n:"좀비",lvm:TALL,hp:900,atk:50,aspd:100,speed:15,range:8,r:6.2,
           c:"#4E9E43",exp:900,boss:true,dmg:DMG.BITE},
-  zomb:{n:"좀비",lvm:HUMAN,hp:170,atk:45,aspd:.5,speed:17,range:6,r:3.4,
+  zomb:{n:"좀비",lvm:HUMAN,hp:170,atk:22,aspd:.5,speed:17,range:6,r:3.4,
         c:"#5BB04A",exp:60,dmg:DMG.BITE,noScale:true},
 };
 /* 게이트 — 저마다 며칠짜리이고 무엇이 나오는지를 따로 가집니다.
@@ -1341,7 +1526,7 @@ const GATES=[
    bossAdds:{6:2,10:2},
    pool:[{k:"worm",w:55},{k:"hopper",from:2,w:45},{k:"bee",from:4,w:28},{k:"beetle",from:5,w:22},
          {k:"cicada",from:7,w:30}]},
-  {id:"back",n:"후문 게이트",d:"상가 지하. 사람이었던 것들이 걸어다닌다",
+  {id:"back",n:"지하상가 게이트",d:"대학가 골목 아래 지하상가. 사람이었던 것들이 걸어다닌다",
    days:15,need:"front",pool:[{k:"zomb"}],boss:{5:"dogzomb",10:"crawlzomb",15:"zombie"}},
   {id:"hall",n:"강의동 게이트",d:"본관 뒤편. 아직 아무도 못 봤다",
    days:20,need:"back",pool:[{k:"zomb"}],boss:{20:"bloodeyes"},wip:true},
@@ -1472,7 +1657,7 @@ const INSTANTS=[
   {k:"m_bio",   maj:"bio", n:"자가 재생", br:"mix", v:8,
      d:"생명공학과 대원만 · 전투 중 1초마다 최대 체력의 {0.8}% 회복",
      f:u=>{if(isMaj(u,"bio"))u.regen=0.008}},
-  /* 항체는 후문 게이트(좀비)에서만 열립니다 — 그 밖에서는 쓸 데가 없습니다 */
+  /* 항체는 지하상가 게이트(좀비)에서만 열립니다 — 그 밖에서는 쓸 데가 없습니다 */
   {k:"m_bio2",  maj:"bio", gate:"back", n:"항체", br:"mix", v:35,
      d:"생명공학과 대원만 · 좀비 계열에게 받는 피해 −{35}%",
      f:u=>{if(isMaj(u,"bio"))u.zombCut=0.35}},
@@ -1610,7 +1795,7 @@ function learnSkill(s){
 }
 /* EXP_TABLE[l] — Lv l 에서 다음 레벨까지 필요한 경험치. 칸 수가 곧 최고 레벨입니다.
    Lv2(90)는 사마귀를 만나기 직전에 오도록 맞췄습니다. 그 뒤로는 한 칸에 1.5배 남짓씩 늘다가
-   Lv10 부근부터 완만해집니다. 정문 게이트를 다 돌면 Lv6 안팎, 후문 게이트를 마치면 Lv9~10. */
+   Lv10 부근부터 완만해집니다. 정문 게이트를 다 돌면 Lv6 안팎, 지하상가 게이트를 마치면 Lv9~10. */
 const EXP_TABLE=[0,90,140,220,340,520,800,1200,1700,2300,3000,3700,4500,5400,6400,7500,8700,10000,11500,13000];
 const MAX_LV=EXP_TABLE.length;
 const nextExp=l=>EXP_TABLE[l]!==undefined?EXP_TABLE[l]:9999;
@@ -1642,9 +1827,11 @@ function worn(p){return SLOTS.map(s=>ITEMS[p.gear[s.k]]).filter(Boolean)}
 function derive(p){
   const s=p.stats;
   let atk=2+s.str*0.6,guard=0,hpAdd=0,aspdM=1,spdM=1,dodge=0,critAdd=0;
+  /* 풍뎅이 투구를 쓰면 장비가 깎는 회피는 셈하지 않습니다 */
+  const keepDodge=worn(p).some(it=>it.keepDodge);
   for(const it of worn(p)){
     atk+=it.atk||0;guard+=it.guard||0;hpAdd+=it.hp||0;
-    dodge+=it.dodge||0;critAdd+=it.crit||0;
+    dodge+=keepDodge?Math.max(0,it.dodge||0):(it.dodge||0);critAdd+=it.crit||0;
     aspdM*=it.aspdM||1;spdM*=it.spdM||1;
   }
   /* 전공 패시브 — 더하는 몫을 먼저, 공격력 %는 합친 공격력에 겁니다 */
@@ -1736,6 +1923,25 @@ const scytheOnSale=()=>G.scytheFrom!=null&&G.explores>=G.scytheFrom&&!G.scytheBo
 const BOW_MAJOR=3;
 /* 응급 키트 — 값, 다시 들어오기까지의 탐색 횟수, 전투 한 번마다 침식될 확률 */
 const KIT_COST=20, KIT_WAIT=2, KIT_ROT=0.05;
+/* ── 학생회의 세 번째 의뢰 · 매미의 날개 ──
+   매미를 한 마리라도 쓰러뜨리고 캠퍼스에 돌아오면(학생회관이 열려 있을 때) 학생회장이 부릅니다.
+   G.wingQ — 0 아직 · 1 의뢰 중(매미가 날개를 떨굼) · 2 넘김(주머니를 받음, 날개는 행정실에서 팔림).
+   날개를 배낭이나 창고에 둔 채 학생회관에 들어서면 하나를 걷어 가고 주머니를 줍니다. */
+const WING="cwing", POUCH="bagpouch";
+/* ── 학생회의 네 번째 의뢰 · 딱딱한 껍질 ──
+   장수풍뎅이를 쓰러뜨리고 돌아오면 받고(G.hornQ=1), 투구뿔을 가진 채 학생회관에 들어서면 넘깁니다(G.hornQ=2).
+   넘긴 뒤부터 매점에 뿔 방패·풍뎅이 투구가 오릅니다. 대사는 자리만 잡아 둔 한 줄입니다. */
+const HORN="horn";
+/* 창고와 대원 배낭에 있는 재료 수 */
+const matCount=id=>((G.store||{})[id]||0)+(G.roster||[]).reduce((n,r)=>n+r.bag.filter(x=>x===id).length,0);
+/* 행정실에서 팔 수 있는 재료 — 그 재료를 쓰는 의뢰를 마친 뒤부터 */
+const MAT_SELL={cwing:()=>G.wingQ>=2, horn:()=>G.hornQ>=2};
+/* 재료 하나 걷기 — 창고부터, 없으면 배낭에서 */
+function matTake(id){
+  if((G.store[id]||0)>0){G.store[id]--;if(G.store[id]<=0)delete G.store[id];return true}
+  for(const r of G.roster){const i=r.bag.indexOf(id);if(i>=0){r.bag.splice(i,1);return true}}
+  return false;
+}
 /* 학생회 제작 활이 매점에 오르는 조건 — 정문 게이트 이틀째를 넘기고 탐색 3회 */
 const BOW_OPEN_DAY=2, BOW_OPEN_EXP=3;
 
@@ -2096,7 +2302,7 @@ const faceTag=p=>p&&p.face
 const FOE_ART={worm:"foe/worm.webp",hopper:"foe/hopper.webp",mantis:"foe/mantis.webp",spider:"foe/spider.webp",
                cicada:"foe/cicada.webp",beetle:"foe/beetle.webp",hornet:"foe/hornet.webp",
                bee:"foe/bee.webp",
-               bloodeyes:"",zombie:"",zomb:""};
+               bloodeyes:"",dogzomb:"foe/dogzomb.webp",zombie:"foe/zomb.webp",zomb:"foe/zomb.webp",crawlzomb:"foe/zomb.webp"};
 /* "○○Fly"는 그 몬스터가 날아오를 때 쓰는 그림입니다.
    메뚜기 두 장은 눈을 한가운데 두고 같은 배율로 맞춰 두었으므로,
    같은 자리에 같은 크기로 그리면 몸은 그대로 있고 날개만 펴집니다. */
@@ -2264,6 +2470,12 @@ const ITEM_ART={        /* 아이템 아이콘 — 만든 것부터 한 줄씩 �
   black2:"item/black2.png",
   hockey:"item/hockey.png",
   mantisarm:"item/mantisarm.png",
+  /* 장수풍뎅이 재료와 그것으로 만든 것 (2026-09-17 추가) */
+  horn:"item/horn.png",
+  bhelm:"item/bhelm.png",
+  hshield:"item/hshield.png",
+  cwing:"item/cwing.png",
+  bagpouch:"item/bagpouch.png",
   scythe:"item/scythe.png",
 };
 const artUrl=v=>v?ART+v:"";
@@ -2570,6 +2782,9 @@ function newGame(slot){
      placesSeen:[],                              /* 건축학과 — 게이트 안에서 들어가 본 장소(방 id) */
      gate:"front",cleared:[],gateClear:false,gateDay:{},bossKilled:{},
      bowKills:0,bowOpen:false,bowBought:false,   /* 학생회 제작 활 */
+     cicadaKills:0,wingQ:0,                      /* 학생회 '매미의 날개' 의뢰 */
+     beetleKills:0,hornQ:0,                      /* 학생회 '딱딱한 껍질' 의뢰 */
+     gotN:{},gotNew:[],                          /* 주운 반출 장비 횟수 — 매점 판매대 해금 */
      medOpen:false,                              /* 의예과 · 회복스프레이 */
      bedUsed:false,kitFrom:null,questDone:[],restOpen:null,chipSel:null,
      store:{},loot:{},ground:[],memorial:[],sel:null,invSel:null,rowSel:null,facesUsed:[],gunSeen:{pistol:false,shotgun:false,rifle:false,arrow:false},itemSeen:{},arcadeBest:0,starBest:0,huntBest:0,
@@ -2643,6 +2858,8 @@ const BATTLE_RIG = {
 BATTLE_RIG.seized=BATTLE_RIG.pistol;
 /* 에프킬라는 헤어스프레이와 같은 자리에 쥡니다 */
 BATTLE_RIG.fkiller=BATTLE_RIG.spray;
+/* 뿔 방패는 전공책처럼 세워 듭니다 — 전투장비배치.html 에서 따로 맞추기 전까지 */
+BATTLE_RIG.hshield=BATTLE_RIG.book;
 /* BATTLE_RIG 에 없는 아이템·방향이 나오면 기대는 기본값 */
 const RIG_FB={
   rh:{ ne:{x:.30,y:-1.50,rot:.5,scale:1,behind:true}, nw:{x:.30,y:-1.50,rot:.5,scale:1,behind:true},
@@ -3160,6 +3377,9 @@ function hurt(t,amt,c,type,src){
   amt=Math.max(1,amt-cut);
   const was=t.hp;
   t.hp=Math.max(0,t.hp-amt);t.flash=.18;
+  /* 뿔 방패 — 맞으면 때린 적에게 정해진 만큼 돌려줍니다. src 를 넘기지 않아 되돌림이 되돌아오지 않습니다 */
+  const th=t.side==="a"&&t.hasS&&ITEMS[t.sid]&&ITEMS[t.sid].thorns;
+  if(th&&src&&src.side==="e"&&src.hp>0)hurt(src,th,"#E0A32F",null);
   /* 무엇으로 끝냈는지를 세어 둡니다 — 어떤 학과사무실은 이 기록을 보고 열립니다 */
   if(was>0&&t.hp<=0&&t.side==="e"&&type===DMG.CHEM)G.chemKills=(G.chemKills||0)+1;
   B.fx.push({x:t.x,y:t.y,t:Math.round(amt),c,life:.85,off:0});
@@ -3693,6 +3913,14 @@ function drawFoe(f){
   }else if(ZOMB_WALK.has(f.key)){
     const lp=f.limp||0, tilt=lp*0.20;
     ctx.save();ctx.translate(x,y);faceFoe(ctx,f.face,tilt);
+    const zsp=sprite(f.key);
+    if(zsp){
+      /* 기어 오는 그림 한 장 — 절뚝일 때마다 앞뒤로 조금 밀리고 늘어납니다 */
+      const S=r*3.6;
+      ctx.translate(lp*r*0.12,0);ctx.scale(1+lp*0.05,1-lp*0.03);
+      if(f.flash>0)ctx.filter="brightness(0) invert(1)";
+      ctx.drawImage(zsp,-S/2,-S/2,S,S);
+    }else{
     // 끌리는 다리
     ctx.strokeStyle="#2F6B2A";ctx.lineWidth=r*0.30;ctx.lineCap="round";
     ctx.beginPath();ctx.moveTo(-r*0.2,r*0.45);
@@ -3714,6 +3942,7 @@ function drawFoe(f){
     ctx.fillStyle="#1E3A1A";
     ctx.beginPath();ctx.arc(r*0.85,-r*0.16,r*0.09,0,7);ctx.fill();
     ctx.beginPath();ctx.arc(r*0.85,r*0.16,r*0.09,0,7);ctx.fill();
+    }
     ctx.restore();
     if(f.boss){ctx.fillStyle="rgba(242,215,78,.9)";ctx.font="800 9px system-ui";
       ctx.textAlign="center";ctx.fillText("BOSS",x,y-r-12)}
@@ -4069,6 +4298,8 @@ function finishBattle(){
     G.gateDay[G.gate]=Math.max(G.gateDay[G.gate]||0,G.day);
     G.bossKilled=G.bossKilled||{};
     for(const f of B.foes)if(f.boss)G.bossKilled[f.key]=true;
+    G.cicadaKills=(G.cicadaKills||0)+B.foes.filter(f=>f.key==="cicada"&&f.hp<=0).length;
+    G.beetleKills=(G.beetleKills||0)+B.foes.filter(f=>f.key==="beetle"&&f.hp<=0).length;
   }
   /* 마지막 날의 보스를 넘겼다 — 이 게이트는 여기서 끝난다 */
   if(G.mode==="run"&&G.day>=gateOf().days&&B.foes.some(f=>f.boss))G.gateClear=true;
@@ -4088,6 +4319,12 @@ function finishBattle(){
   if(G.mode==="run"&&G.armQ===1&&!G.armDrop&&!hasArm()&&B.foes.some(f=>f.boss&&f.key==="mantis")){
     G.armDrop=true;G.ground.push({id:ARM,src:"수확"});
   }
+  /* 매미의 날개 — 의뢰를 받은 뒤부터(끝낸 뒤에도) 쓰러뜨린 매미마다 하나씩 */
+  if(G.mode==="run"&&G.wingQ>=1)
+    for(const f of B.foes)if(f.key==="cicada"&&f.hp<=0)G.ground.push({id:WING,src:"수확"});
+  /* 투구뿔 — 같은 식으로, 쓰러뜨린 장수풍뎅이마다 하나씩 */
+  if(G.mode==="run"&&G.hornQ>=1)
+    for(const f of B.foes)if(f.key==="beetle"&&f.hp<=0)G.ground.push({id:HORN,src:"수확"});
   /* 보스를 넘긴 자리에는 불을 피울 거리가 남습니다. 게이트가 닫히는 날은 밖으로
      밀려나므로 쉴 밤이 없습니다. 챙겨 가는 사람이 있어야 캠프파이어가 열립니다. */
   if(G.mode==="run"&&!G.gateClear&&B.foes.some(f=>f.boss)){
@@ -4124,7 +4361,7 @@ const EMPTY_AMMO=()=>({pistol:0,shotgun:0,rifle:0,arrow:0});
 const ammoQty=t=>ITEMS[AMMO_ID[t]].qty;
 const roundsOf=(p,t)=>(p&&p.ammo&&p.ammo[t])||0;
 const ammoSlots=p=>Object.keys(AMMO_ID).reduce((n,t)=>n+Math.ceil(roundsOf(p,t)/ammoQty(t)),0);
-const bagRoom=p=>BAG_MAX-p.bag.length-ammoSlots(p);
+const bagRoom=p=>bagMax(p)-p.bag.length-ammoSlots(p);
 /* 뭉치별 남은 발수 — 마지막 뭉치만 덜 찹니다. 배낭 화면이 한 줄씩 그립니다 */
 function ammoStacks(p,t){
   const q=ammoQty(t),out=[];
@@ -4214,7 +4451,7 @@ function takeAllGround(list){
         if(gd.n<=0)G.ground.splice(i,1);else i++;
         continue;
       }
-      if(handTo(p,gd.id)){if(it.ammo)G.gunSeen[it.ammo]=true;G.ground.splice(i,1)}
+      if(handTo(p,gd.id)){if(it.ammo)G.gunSeen[it.ammo]=true;noteGot(gd.id);G.ground.splice(i,1)}
       else i++;
     }
   }
@@ -4231,6 +4468,7 @@ function takeToBag(p,idx){
   /* 칸이 비어 입을 수 있으면 바로 입히고, 아니면 배낭으로 */
   if(!handTo(p,gd.id))return false;
   if(it.ammo)G.gunSeen[it.ammo]=true;      // 총을 손에 넣은 시점부터 탄약을 살 수 있다
+  noteGot(gd.id);
   G.ground.splice(idx,1);G.sel=null;return true;
 }
 /* 장비를 바꾸면 최대 체력만큼 현재 체력도 같이 오르내립니다.
@@ -4374,10 +4612,18 @@ function workUse(i){
 /* 소모품 — 응급 키트(kit)는 최대 체력의 몇 %, 먹을 것은 정해진 만큼 채웁니다.
    식품공학과 스킬은 먹을 것에만 걸립니다. */
 /* 기운이 붙은 것은 체력이 가득해도 쓸 수 있습니다 — 그러라고 있는 물건입니다 */
-const useAnytime=it=>!!(it.use&&(it.use.buff||it.use.share));
+const useAnytime=it=>!!(it.use&&(it.use.buff||it.use.share||it.use.bag));
 function useItem(p,bi){
   const it=ITEMS[p.bag[bi]];
   if(!it||!it.use)return;
+  /* 배낭 확장 주머니 — 체력과 상관없이, 아직 안 늘린 사람만 */
+  if(it.use.bag){
+    if(p.bagPlus)return;
+    p.bag.splice(bi,1);p.bagPlus=true;
+    logAdd(p,"배낭 확장 주머니로 배낭+");
+    popup("배낭+",`${p.name}의 배낭이 한 칸 늘었습니다. (${bagMax(p)}칸)`);
+    return;
+  }
   const m=derive(p).maxHp;
   if(p.hp>=m&&!useAnytime(it))return;
   const heal=n=>Math.round(n*(it.kit?1:1+(FOOD_HEAL[foodLv()]-1)*foodRate()));
@@ -4965,7 +5211,7 @@ function gearLine(p){
     공속 <b>${d.aspd}</b> · 이동 <b>${d.speed}</b> · 체력 <b>${d.maxHp}</b></div>`;
 }
 /* 마우스를 올렸을 때 뜨는 글 — 이름 (구분) / 능력치 */
-const itemTip=it=>`${it.n} (${it.kind==="inst"?"현장":it.kind==="junk"?"잡화":it.kind==="ammo"?"탄약":"반출"})\n${it.d}`
+const itemTip=it=>`${it.n} (${it.kind==="inst"?"현장":it.kind==="junk"?catName(it):it.kind==="ammo"?"탄약":"반출"})\n${it.d}`
   .replace(/<[^>]+>/g,"").replace(/"/g,"&quot;");
 /* 판매대·창고 칸 — 장비 6칸과 같은 모양(위 글 · 그림 · 이름 · 값). 한 줄에 6칸씩 이어집니다.
    칸을 누르면(data-row, bindRows) 칸들 아래에 설명과 버튼이 한 줄로 펼쳐집니다.
@@ -5030,13 +5276,13 @@ function invPanel(p,pi,mode,group){
     const it=ITEMS[id];
     /* 어둠 에너지 결정으로 강화할 수 있는 것 — 칸마다 따로 셉니다(자기 자신은 뺍니다) */
     const dkt=it.crystal&&on(`${pi}|bag|${bi}`)?darkTargets(p,bi):[];
-    const canWear=!!it.slot, k=`${pi}|bag|${bi}`, top=it.slot?SLOTS.find(s=>s.k===it.slot).n:"잡화";
+    const canWear=!!it.slot, k=`${pi}|bag|${bi}`, top=it.slot?SLOTS.find(s=>s.k===it.slot).n:catName(it);
     return {k,id,top,icon:itemIcon(id),detail:()=>`<div class="slot has open">
       <span class="sn">${top}</span>
       <span class="si">${itemIcon(id)}${it.n} ${kindTag(it)}<small>${it.d}</small></span>
       ${act?`<div class="acts">
         ${canWear?`<button class="mini" data-eq="${pi}|${bi}">착용</button>`:""}
-        ${it.use?`<button class="mini" data-use="${pi}|${bi}" ${full&&!useAnytime(it)?"disabled":""}>${it.kit?"쓴다":it.use.drink?"마신다":"먹는다"}</button>`:""}
+        ${it.use?`<button class="mini" data-use="${pi}|${bi}" ${(full&&!useAnytime(it))||(it.use.bag&&p.bagPlus)?"disabled":""}>${it.use.bag?(p.bagPlus?"이미 배낭+":"쓴다"):it.kit?"쓴다":it.use.drink?"마신다":"먹는다"}</button>`:""}
         ${it.skill?`<button class="mini dk" data-sc="${pi}|${bi}" ${atBase?"disabled":""}>쓴다</button>`:""}
         ${it.crystal&&!it.skill?(dkt.length
           ?`<span class="tag">강화할 것</span>${dkt.map((g,gi)=>
@@ -5066,10 +5312,10 @@ function invPanel(p,pi,mode,group){
     return `<div class="gc has tap kind-${it.kind} ${on(c.k)?"open":""}" data-sel="${c.k}" title="${itemTip(it)}">
       <span class="sn">${c.top}</span>${c.icon}<span class="nm">${it.n}</span></div>`}).join("")
     +'<div class="gc"><span class="sn">&nbsp;</span><span class="ico empty"></span><span class="nm">—</span></div>'
-      .repeat(Math.max(0,BAG_MAX-bagC.length));
+      .repeat(Math.max(0,bagMax(p)-bagC.length));
   const used=p.bag.length+ammoSlots(p);
   return `<div class="inv"><div class="invh">장비</div>${slots}
-    <div class="invh">배낭 ${used} / ${BAG_MAX}</div>
+    <div class="invh">${bagName(p)} ${used} / ${bagMax(p)}</div>
     <div class="gear6">${bagCells}</div>${bagPick?bagPick.detail():""}</div>${warn}`;
 }
 /* 판매대·창고·감정 줄도 장비칸과 같습니다. 눌러야 버튼이 나옵니다. */
@@ -5206,7 +5452,7 @@ function squadCards(){
   if(sel&&list.includes(sel)){
     const on=t.includes(sel), full=!on&&t.length>=squadMax();
     more=`<div class="app sqd">${faceTag(sel)}<div class="hd"><b>${sel.name}</b>
-        <span>${majorName(sel)} · Lv.${sel.lvl} · 배낭 ${sel.bag.length+ammoSlots(sel)}/${BAG_MAX}</span></div>
+        <span>${majorName(sel)} · Lv.${sel.lvl} · ${bagName(sel)} ${sel.bag.length+ammoSlots(sel)}/${bagMax(sel)}</span></div>
       ${barRows(sel)}${statGrid(sel)}${gearLine(sel)}
       <div class="acts">${away(sel)?`<span class="tag">${sel.resting?"입원":sel.teaching?"교육":"학습"} 중이라 나갈 수 없습니다</span>`
         :`<button class="mini" data-pt="${G.roster.indexOf(sel)}" ${full?"disabled":""}>${on?"출동에서 뺀다":full?"자리가 찼습니다":"출동에 넣는다"}</button>`}</div></div>`;
@@ -5261,6 +5507,17 @@ function campusNotes(){
   if(!G.bowOpen&&(G.gateDay||{}).front>=BOW_OPEN_DAY&&G.explores>=BOW_OPEN_EXP){
     G.bowOpen=true;
     popup("소문","학생회에는 다양한 취미와 좋은 손재주를 가진 학생들이 있습니다. 그들이 기어코 활을 만들었다는 소문이 들립니다. 매점에서 팔 지도 모릅니다.");
+    return;
+  }
+  if((G.gotNew||[]).length){
+    const ids=G.gotNew;G.gotNew=[];
+    popup("소문",`${ids.map(id=>ITEMS[id].n).join(", ")}을(를) 자주 주워 온다는 소문이 돌았습니다.<br><br>매점에서도 팔기 시작합니다.`);
+    return;
+  }
+  if(!G.wingQ&&(G.cicadaKills||0)>=1&&facOf("union").cond(G)){wingQuest();return}
+  if(!G.hornQ&&(G.beetleKills||0)>=1&&facOf("union").cond(G)){
+    G.hornQ=1;markSeen(HORN);
+    popupTalk([["union","장풍이 껍데기를 구해와라."]],render);
     return;
   }
   /* 경찰 본부 의뢰 — 행정실이 열려 있어야 행정실장이 있습니다 */
@@ -5327,10 +5584,49 @@ function policeQuestPay(){
   G.policeQ=2;
   popupTalk(POLICE_PAY_LINES,()=>{policePay();render()});
 }
+function wingQuest(){
+  G.wingQ=1;                         /* 대사가 끝나기 전에 세워 둡니다 — 다시 그려도 또 뜨지 않게 */
+  popupTalk([
+    ["union","이번에 매미 몬스터를 처치했다며?"],
+    ["pc","역시 학생회장. 모르는 게 없네."],
+    ["union","학생회장이 되려면 그정도는 기본이지. 심지어 매미의 날개가 귀한 소재라는 것도 알고있지."],
+    ["pc","오 정말?"],
+    ["union","매미를 쓰러뜨리고 '매미의 날개' 아이템을 가져와 줘. 너에게 꼭 필요한 걸 만들어 주지."],
+  ],()=>{markSeen(WING);render()});
+}
+/* 날개를 넘기고 주머니를 받습니다 — 주인공 배낭에, 자리가 없으면 창고에 */
+function wingHandIn(){
+  G.wingQ=2;
+  takeItem(WING);
+  const pc=pcOf();
+  const toBag=!!(pc&&G.roster.includes(pc)&&giveItem(pc,POUCH));
+  if(!toBag)G.store[POUCH]=(G.store[POUCH]||0)+1;
+  markSeen(POUCH);
+  popupTalk([
+    ["union","매미의 날개를 가져왔군."],
+    ["pc","매미는 게이트 깊은 곳에서 만날 수 있어서 어려웠어."],
+    ["union","그만큼 도움되는 아이템을 만들 수 있을꺼야. 잠깐만 여기서 기다려 봐. 사실 미리 얻은 매미의 날개가 있어서 시제품을 만들어 봤으니."],
+    ["na",`<div class="gotitem">${itemIcon(WING)}<span>매미의 날개 1개를 건넸다.</span></div>
+      <div class="gotitem">${itemIcon(POUCH)}<span>배낭 확장 주머니를 받았다.${toBag?"":" (배낭이 가득해 창고에 넣었다)"}</span></div>`],
+    ["union",`<span class="gotitem">${itemIcon(POUCH)}<span>이걸로 가방 용량을 1칸 늘릴 수 있어.</span></span>`],
+    ["pc","와 이거 정말 필요했던 거야!"],
+    ["union","이걸로 더 많은 아이템을 사고 팔 수 있게 되겠군. 후후후."],
+  ],render);
+}
 /* ── 학생회관에 들어섰을 때 도는 두 번째 의뢰 ──
    받기 · 넘기기 · 다시 받기 세 갈래뿐입니다. 팝업이 떠 있으면 다음 그리기에서 봅니다. */
 function unionNotes(){
   if(document.querySelector(".pop"))return;
+  if(G.wingQ===1&&hasItem(WING)){wingHandIn();return}
+  if(G.hornQ===1&&hasItem(HORN)){
+    G.hornQ=2;takeItem(HORN);
+    markSeen("hshield");markSeen("bhelm");
+    popupTalk([
+      ["union","잘했다."],
+      ["na",`<div class="gotitem">${itemIcon(HORN)}<span>투구뿔 1개를 건넸다.</span></div>`],
+    ],render);
+    return;
+  }
   /* 앞발을 가져왔다 — 넘기고 낫을 맡깁니다 */
   if(G.armQ===1&&hasArm()){
     G.armQ=2;
@@ -5607,7 +5903,7 @@ function render(){
     if(!G.offer){
       // 첫날은 위험도 ★ 장소만 나옵니다. 초반에 손쓸 새 없이 잃는 일을 막기 위해서입니다.
       // 밤 거리(night)는 캠프파이어에서만 가므로 낮 후보에서 뺍니다.
-      const day=PLACES.filter(p=>!p.night);
+      const day=placesOf(G.gate);
       const pool=G.day===1?day.filter(p=>p.risk===0):day;
       G.offer=[...pool].sort(()=>Math.random()-.5).slice(0,2+(archLv()?1:0));   /* 구조 파악 +1 */
     }
@@ -5617,7 +5913,7 @@ function render(){
     const t=party();
     el.innerHTML=logo+`
       <div class="bar"><span class="tag">${G.gateName} · <b>${G.day}</b>일차</span>
-      <span class="tag">가방 ${t.reduce((s,r)=>s+r.bag.length+ammoSlots(r),0)} / ${t.length*BAG_MAX}</span></div>
+      <span class="tag">가방 ${t.reduce((s,r)=>s+r.bag.length+ammoSlots(r),0)} / ${t.reduce((s,r)=>s+bagMax(r),0)}</span></div>
       ${chips()}
       <div class="card"><h2>어디로 갈까</h2>${(()=>{
         /* 할 말이 없는 날은 문단째 안 그립니다 */
@@ -5637,7 +5933,7 @@ function render(){
       <button class="ghost" id="out" ${G.fought?"":"disabled"}>게이트에서 나간다</button></div>
       <div class="card"><h2>파티</h2>
       ${t.map((r,i)=>`<div class="app">${faceTag(r)}<div class="hd"><b>${r.name}</b>
-        <span>${majorName(r)} · Lv.${r.lvl} · 배낭 ${r.bag.length+ammoSlots(r)}/${BAG_MAX}</span></div>
+        <span>${majorName(r)} · Lv.${r.lvl} · ${bagName(r)} ${r.bag.length+ammoSlots(r)}/${bagMax(r)}</span></div>
         ${barRows(r)}${invPanel(r,G.roster.indexOf(r),"manage",t)}${gearLine(r)}</div>`).join("")}</div>`;
     el.querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{
       const pl=G.offer[+b.dataset.p];G.here=pl;ROOM=ROOMS[pl.room];seePlace(pl);
@@ -5715,7 +6011,7 @@ function render(){
             it.kind==="ammo"?`${gd.n}발 · 한 칸에 ${it.qty}발`:it.d}</small></span>
           <span class="caret">${o?"▴":"▾"}</span>
           ${o?`<div class="acts"><span class="tag">누구 배낭에</span>
-            ${t.map((r,ri)=>`<button class="mini" data-give="${ri}" ${(canTakeGround(r,gd)||canWearNow(r,gd.id))?"":"disabled"}>${r.name} ${r.bag.length+ammoSlots(r)}/${BAG_MAX}</button>`).join("")}
+            ${t.map((r,ri)=>`<button class="mini" data-give="${ri}" ${(canTakeGround(r,gd)||canWearNow(r,gd.id))?"":"disabled"}>${r.name} ${r.bag.length+ammoSlots(r)}/${bagMax(r)}</button>`).join("")}
             <button class="mini bad" data-toss="1">버린다</button></div>`:""}
         </div>`}).join("")
         :`<div class="tag" style="margin-top:8px">전부 정리했습니다.</div>`}
@@ -6037,6 +6333,23 @@ function render(){
     const ent=Object.entries(G.loot).filter(([,n])=>n>0);
     const rows=ent.filter(([id])=>!ITEMS[id].mystery);
     const myst=ent.filter(([id])=>ITEMS[id].mystery);
+    /* 매입은 잡화 · 소모품 · 재료로 나눠 보여 줍니다. 잡화·소모품은 들고 온 것(G.loot),
+       재료는 의뢰를 마친 것만 창고·배낭에서 삽니다(MAT_SELL) */
+    const mats=Object.keys(MAT_SELL).filter(id=>MAT_SELL[id]()).map(id=>[id,matCount(id)]).filter(([,n])=>n>0);
+    const groups=[
+      {k:"junk",n:"잡화",rows:rows.filter(([id])=>!ITEMS[id].use),d:"게이트에서 주워 온 물건입니다."},
+      {k:"use",n:"소모품",rows:rows.filter(([id])=>ITEMS[id].use),d:"먹고 마시는 것입니다. 팔지 않고 창고에 넣어 두면 다음 게이트에 들고 갈 수 있습니다."},
+      {k:"mat",n:"재료",rows:mats,d:"학생회에 넘기고 남은 재료입니다. 창고와 배낭에 있는 것을 삽니다."},
+    ].filter(g=>g.rows.length);
+    const gSum=g=>g.rows.reduce((s,[id,n])=>s+ITEMS[id].price*n,0);
+    const sellRow=(g,[id,n])=>{const o=G.rowSel==="sell:"+id,it=ITEMS[id];
+      return `<div class="buyrow tap ${o?"open":""}" data-row="sell:${id}">
+        <div><b>${itemIcon(id)}${it.n}</b> × ${n}<span class="tag"> · 개당 ${it.price} 골드</span></div>
+        <span class="tag">${it.price*n} 골드 <span class="caret">${o?"▴":"▾"}</span></span>
+        ${o?`<div class="acts">
+          ${g.k==="use"?`<button class="ghost" data-keep="${id}">창고에 넣는다</button>`:""}
+          ${n>1?`<button class="ghost" data-s1="${id}">1개 판다</button>`:""}
+          <button data-sa="${id}">${n>1?`${n}개 전부 판다`:"판다"}</button></div>`:""}</div>`};
     el.innerHTML=logo+`
       <div class="bar"><span class="tag">행정실</span><span class="tag">골드 <b>${G.gold}</b></span></div>
       ${npcBar("office")}
@@ -6051,15 +6364,16 @@ function render(){
         ${o?`<div class="acts"><button data-app="${id}">열어본다</button></div>`:""}</div>`}).join("")}
       ${G.appraisal?`<div class="tag" style="margin-top:10px;color:var(--mark)">${G.appraisal}</div>`:""}</div>`:
       (G.appraisal?`<div class="tag" style="color:var(--mark)">${G.appraisal}</div>`:"")}
-      <div class="card"><h2>회수품 매입</h2>
+      ${groups.length?groups.map(g=>`<div class="card"><h2>${g.n} 매입</h2>
+      <p>${g.d}</p>
+      ${g.rows.map(r=>sellRow(g,r)).join("")}
+      <div class="bar" style="margin-top:12px"><span class="tag">${g.n} <b>${gSum(g)}</b> 골드어치</span>
+      <span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${g.k==="use"
+        ?`<button class="ghost" data-keepall="1">전부 창고에 넣는다</button>`:""}
+      <button data-sg="${g.k}">${g.n} 전체판매</button></span></div></div>`).join("")
+      :`<div class="card"><h2>회수품 매입</h2>
       <p>게이트에서 가져온 물품은 행정실에서 돈으로 교환할 수 있습니다.</p>
-      ${rows.length?rows.map(([id,n])=>`<div class="buyrow">
-        <div><b>${itemIcon(id)}${ITEMS[id].n}</b> × ${n}<span class="tag"> · 개당 ${ITEMS[id].price} 골드</span></div>
-        <div class="tag">${ITEMS[id].price*n} 골드</div></div>`).join("")
-        :`<div class="tag" style="margin-top:10px">팔 것이 없습니다.</div>`}
-      <div class="bar" style="margin-top:12px"><span class="tag">받을 금액 <b>${lootTotal()}</b> 골드</span>
-      <span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button class="ghost" id="sellx" ${rows.some(([id])=>ITEMS[id].use)?"":"disabled"}>소모품 제외 판매</button>
-      <button id="sell" ${rows.length?"":"disabled"}>전부 판다</button></span></div></div>
+      <div class="tag" style="margin-top:10px">팔 것이 없습니다.</div></div>`}
       <div class="card"><h2>정원</h2>
       ${dorm>=DORM_MAX?`<p>${DORM_MAX}명이 한계입니다. 학적부에 더 낼 자리가 없습니다.</p>`
        :`<p>학적부에 자리를 한 칸 더 냅니다.</p>
@@ -6105,22 +6419,36 @@ function render(){
         G.appraisal=`${ITEMS[id].n} · 열어보니 <b>${ri.n}</b>. ${ri.price} 골드짜리입니다.`;
       }
       render()});
-    /* 매입 — keepUse 면 먹고 마실 것(use 가 있는 잡화)은 팔지 않고 창고로 옮깁니다.
-       창고에서 대원 배낭에 넣어 다음 게이트에 들고 갈 수 있습니다 */
-    const sellLoot=keepUse=>{
-      const moved=[];
-      if(keepUse)for(const [id,n] of Object.entries(G.loot))if(ITEMS[id].use&&!ITEMS[id].mystery){
-        G.store[id]=(G.store[id]||0)+n;markSeen(id);moved.push(`${ITEMS[id].n} ${n}`);delete G.loot[id]}
-      const a=lootTotal();G.gold+=a;G.goldEarned+=a;
+    /* 매입 — 한 종류를 n 개까지 팝니다. 재료는 창고·배낭에서, 나머지는 들고 온 것(G.loot)에서 */
+    const sellId=(id,n)=>{
+      const it=ITEMS[id];let k=0;
+      if(it.mat){while(k<n&&matTake(id))k++}
+      else{k=Math.min(n,G.loot[id]||0);G.loot[id]=(G.loot[id]||0)-k;if(G.loot[id]<=0)delete G.loot[id]}
       /* 무엇을 몇 개나 넘겼는지도 세어 둡니다 — 어떤 학과사무실은 이 장부를 봅니다 */
-      G.bookSold=(G.bookSold||0)+(G.loot.oldbook||0);
-      const keep={};                                   // 감정 전 물건은 팔지 않고 남긴다
-      for(const e of Object.entries(G.loot))if(ITEMS[e[0]].mystery)keep[e[0]]=e[1];
-      G.loot=keep;
-      if(moved.length)G.appraisal=`${a} 골드를 받았습니다. 소모품(${moved.join(" · ")})은 창고로 옮겼습니다.`;
-      render()};
-    document.getElementById("sell").onclick=()=>sellLoot(false);
-    document.getElementById("sellx").onclick=()=>sellLoot(true);
+      if(id==="oldbook")G.bookSold=(G.bookSold||0)+k;
+      const a=k*it.price;G.gold+=a;G.goldEarned+=a;
+      return a;
+    };
+    const keepId=id=>{const n=G.loot[id]||0;if(!n)return 0;
+      G.store[id]=(G.store[id]||0)+n;markSeen(id);delete G.loot[id];return n};
+    const done=t=>{G.rowSel=null;G.appraisal=t;render()};
+    el.querySelectorAll("[data-sg]").forEach(b=>b.onclick=()=>{
+      const g=groups.find(x=>x.k===b.dataset.sg);if(!g)return;
+      const a=g.rows.reduce((s,[id,n])=>s+sellId(id,n),0);
+      done(`${g.n} 전부를 팔아 ${a} 골드를 받았습니다.`)});
+    el.querySelectorAll("[data-sa]").forEach(b=>b.onclick=()=>{
+      const id=b.dataset.sa,n=ITEMS[id].mat?matCount(id):(G.loot[id]||0);
+      done(`${ITEMS[id].n} ${n}개를 팔아 ${sellId(id,n)} 골드를 받았습니다.`)});
+    el.querySelectorAll("[data-s1]").forEach(b=>b.onclick=()=>{
+      const id=b.dataset.s1;
+      done(`${ITEMS[id].n} 1개를 팔아 ${sellId(id,1)} 골드를 받았습니다.`)});
+    el.querySelectorAll("[data-keep]").forEach(b=>b.onclick=()=>{
+      const id=b.dataset.keep,n=keepId(id);
+      done(`${ITEMS[id].n} ${n}개를 창고에 넣었습니다.`)});
+    el.querySelectorAll("[data-keepall]").forEach(b=>b.onclick=()=>{
+      const g=groups.find(x=>x.k==="use");if(!g)return;
+      const moved=g.rows.map(([id])=>`${ITEMS[id].n} ${keepId(id)}`);
+      done(`소모품(${moved.join(" · ")})을 창고에 넣었습니다.`)});
     document.getElementById("bk").onclick=()=>{G.appraisal=null;G.scene="campus";render()};
     return;
   }
@@ -6303,6 +6631,16 @@ function render(){
         `사례 · <b>${ITEMS[SCYTHE].n}</b>을(를) 매점에`,
         G.armQ>=2?`<span class="tag" style="color:var(--ok)">넘겼습니다</span>`
                  :`<span class="tag">${hasArm()?"가져왔습니다":"아직입니다"}</span>`,"border-color:var(--mark)")}
+      ${questCard("horn",G.hornQ>=1,G.hornQ>=2,"딱딱한 껍질",
+        "장수풍뎅이를 쓰러뜨리고 투구뿔을 가져오기로 했습니다.",
+        `사례 · 매점에 <b>${ITEMS.hshield.n}</b> · <b>${ITEMS.bhelm.n}</b>`,
+        G.hornQ>=2?`<span class="tag" style="color:var(--ok)">넘겼습니다</span>`
+                  :`<span class="tag">${hasItem(HORN)?"가져왔습니다":"아직입니다"}</span>`,"border-color:var(--mark)")}
+      ${questCard("wing",G.wingQ>=1,G.wingQ>=2,"매미의 날개",
+        "매미를 쓰러뜨리고 매미의 날개를 가져오기로 했습니다. 꼭 필요한 것을 만들어 준다고 합니다.",
+        `사례 · <b>${ITEMS[POUCH].n}</b>`,
+        G.wingQ>=2?`<span class="tag" style="color:var(--ok)">넘겼습니다</span>`
+                  :`<span class="tag">${hasItem(WING)?"가져왔습니다":"아직입니다"}</span>`,"border-color:var(--mark)")}
       ${QUESTS.map((q,i)=>{const ok=q.done(G),got=questGot(q);
         return questCard("q:"+q.id,true,got,q.n,q.d,`사례 · <b>${ITEMS[q.give].n}</b>`,
           got?`<span class="tag" style="color:var(--ok)">받았습니다</span>`

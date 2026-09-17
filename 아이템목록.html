@@ -50,6 +50,7 @@
   .kd.perm.wk{background:#12384a;color:var(--work)}
   .kd.junk{background:#3a3450;color:var(--junk)} .kd.ammo{background:#3d3520;color:var(--ammo)}
   .kd.appr{background:#2e3240;color:var(--appr)}
+  .kd.use{background:#1f3d3a;color:#7FD6C2} .kd.mat{background:#43301f;color:#E0A96B}
   .nm{display:flex;align-items:center;gap:8px}
   .nm b{font-weight:700}
   .nm .plus{color:var(--dark)} .nm .plus.wk{color:var(--work)}
@@ -90,7 +91,7 @@
 <div id="sum"></div>
 <div class="tw"><table><thead><tr id="head"></tr></thead><tbody id="body"></tbody></table></div>
 <div class="hint">
-  머리글을 누르면 그 열로 정렬합니다(한 번 더 누르면 반대 순서). 분류는 반출 → 현장 → 잡화 → 탄약 → 감정 결과 전용 순입니다.<br>
+  머리글을 누르면 그 열로 정렬합니다(한 번 더 누르면 반대 순서). 분류는 반출 → 현장 → 잡화 → 소모품 → 재료 → 탄약 → 감정 결과 전용 순입니다. 장비가 아닌 것은 쓸 수 있으면 소모품, 무언가를 만드는 데 들어가면 재료입니다.<br>
   모든 값은 index.html 에서 그때그때 읽어옵니다. 이 파일에는 아이템 자료를 따로 두지 않습니다.
 </div>
 
@@ -159,12 +160,13 @@ async function loadIndex(allowPick){
 }
 
 /* ═══════════ 표 만들기 ═══════════ */
-const KINDS=[{k:"perm",n:"반출"},{k:"inst",n:"현장"},{k:"junk",n:"잡화"},{k:"ammo",n:"탄약"},
+const KINDS=[{k:"perm",n:"반출"},{k:"inst",n:"현장"},{k:"junk",n:"잡화"},{k:"use",n:"소모품"},{k:"mat",n:"재료"},{k:"ammo",n:"탄약"},
              {k:"appr",n:"감정 결과 전용"}];
 const kindIdx=k=>KINDS.findIndex(x=>x.k===k);
 /* grant 가 붙은 것(실탄 상자)은 손에 들어오지 않는 감정 결과 이름표입니다 —
    열자마자 안의 것들이 창고로 가고 이 물건 자체는 어디에도 남지 않습니다 */
-const kindOf=it=>it.grant?"appr":it.kind;
+/* 장비가 아닌 것은 index 의 분류(catName)를 따릅니다 — 쓸 수 있으면 소모품, 재료(mat), 나머지 잡화 */
+const kindOf=it=>it.grant?"appr":it.kind==="ammo"||it.slot?it.kind:it.use?"use":it.mat?"mat":it.kind;
 const pct=v=>`${v<0?"−":"+"}${Math.round(Math.abs(v)*100)}%`;
 
 /* 튜토리얼 지급품은 index 소스에서 직접 찾습니다 — tutplace 가 바닥에 깔아 두는
@@ -189,6 +191,7 @@ function sourcesOf(it,tut,appr){
   if(it.id==="medkit") return ["응급의학 실습실 (침상을 한 번 써 본 뒤)"];
   if(it.id==="medkitD") return ["응급 키트가 게이트 안에서 침식"];
   if(it.base) return [`실습동 ${(typeof WORK_UP!=="undefined"&&WORK_UP[it.base]?WORK_UP[it.base].g+" 골드":"")} (원본 ${ITEMS[it.base].n})`];
+  if(it.from) return [it.from];
   if(it.campfire) return ["보스 전리품 (게이트가 닫히는 날은 제외)"];
   if(it.crystal){
     const a=(typeof CRYSTAL_RATE!=="undefined")?CRYSTAL_RATE:0.10;
@@ -203,7 +206,7 @@ function sourcesOf(it,tut,appr){
     if(pl.gear.includes(it.id))t.push("장비");
     if(pl.special&&pl.special.ids.includes(it.id))t.push(Math.round(pl.special.chance*100)+"%");
     if(pl.ammo&&(pl.ammo.ids||pl.ammo).includes(it.id))t.push("탄약");
-    if(t.length)out.push(`${pl.n}(${t.join("·")})`);
+    if(t.length)out.push(`${pl.gate==="back"?"[지하상가] ":""}${pl.n}(${t.join("·")})`);
   }
   if(SHOP.includes(it.id)||SHOP_AMMO.includes(it.id))out.push("매점");
   if(typeof QUESTS!=="undefined"&&QUESTS.some(q=>q.give===it.id))out.push("학생회장의 의뢰");
