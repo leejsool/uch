@@ -411,6 +411,8 @@
 /* ═════════════════════════════════════════════════════
    ▼▼▼ 개발용 스위치 — 정식 배포 전에 false로 바꾸세요 ▼▼▼ */
 const DEV_SHOW_UNLOCK=false;
+/* 임시 보너스 (2026-09-17) — 전투 경험치, 행정실 판매 금액, 게임장 상금 배율. 롤백할 때 둘 다 1 로 */
+const BOOST_EXP=2, BOOST_GOLD=1.5;
 /* ▲▲▲ 여기까지 ▲▲▲ */
 
 const L1=1,L2=2,L3=4;
@@ -1296,18 +1298,14 @@ const ROOMS={
       {x:12,y:59,w:11,h:6,l:"의자",lv:L1},
       {x:17,y:74,w:8,h:7.5,l:"의자",lv:L1},
       {x:12,y:44.5,w:6,h:10,lv:L1|L2}]},
-  /* 골목길 — 배경(battle/alley.webp)에 맞춘 배치. 위는 가게 줄과 벽돌 건물 사이 샛골목,
-     왼쪽 아래는 한옥이고 오른쪽 넓은 보도블록이 싸움터입니다. 일행은 오른쪽 아래, 적은 가게 앞 인도에서 옵니다 */
   alley:{id:"alley",
-      spawn:{a:[[62,90],[70,90],[78,90],[86,90]],
-             e:[[42,37],[52,36],[62,37],[72,36],[82,37],[92,37],[58,46],[76,46],[90,48],[27,25]]},
+      spawn:{a:[[82,88.5],[92.5,87.5],[58,89.5],[70,95.5]],
+             e:[[69,43],[29.5,15],[20,26],[86.5,39.5],[28,34],[75,46],[12,22],[93.5,52],[95,40.5],[44.5,35]]},
       obs:[
-      {x:0,y:0,w:21.5,h:31,l:"건물",lv:TALL},
-      {x:37,y:0,w:63,h:32,l:"가게",lv:TALL},
-      {x:14.5,y:13,w:8.5,h:18,l:"쓰레기통",lv:L1|L2},
-      {x:32,y:19,w:5.5,h:12,l:"스쿠터",lv:L1|L2},
-      {x:0,y:39,w:45,h:22,l:"한옥",lv:TALL},
-      {x:0,y:57.5,w:51.5,h:42.5,l:"한옥",lv:TALL}]},
+      {x:0,y:0,w:15.5,h:30,l:"건물",lv:TALL},
+      {x:39.5,y:0,w:60.5,h:31,l:"건물",lv:TALL},
+      {x:0,y:40,w:43.5,h:60.5,lv:TALL},
+      {x:35.5,y:56,w:12,h:43,lv:TALL}]},
   avenue:{id:"avenue",
       spawn:{a:[[95.5,64.5],[75,93],[84.5,84],[92,75.5]],
              e:[[50,16],[35,16],[64,16],[22,21],[46,22],[58,22],[30,29],[52,31],[9.5,50.5],[14,34]]},
@@ -1331,7 +1329,7 @@ const ROOMS={
       {x:48,y:73,w:4.5,h:12,lv:L1|L2,mul:0.5},
       {x:48.5,y:90,w:3.5,h:4,lv:L1|L2,mul:0.5}]},
   busstop:{id:"busstop",
-      spawn:{a:[[91,56],[90,79],[94,85.5],[93.5,66]],
+      spawn:{a:[[91,56],[90,79],[91.5,91],[93.5,66]],
              e:[[52,25],[36,22],[20,26],[66,28],[16.5,35.5],[66,20],[12,22],[60,16],[10.5,56],[6.5,71]]},
       obs:[
       {x:33,y:36.5,w:21,h:18,l:"버스",lv:TALL},
@@ -1930,8 +1928,10 @@ const KIT_COST=20, KIT_WAIT=2, KIT_ROT=0.05;
 const WING="cwing", POUCH="bagpouch";
 /* ── 학생회의 네 번째 의뢰 · 딱딱한 껍질 ──
    장수풍뎅이를 쓰러뜨리고 돌아오면 받고(G.hornQ=1), 투구뿔을 가진 채 학생회관에 들어서면 넘깁니다(G.hornQ=2).
-   넘긴 뒤부터 매점에 뿔 방패·풍뎅이 투구가 오릅니다. 대사는 자리만 잡아 둔 한 줄입니다. */
+   넘긴 뒤부터 매점에 뿔 방패·풍뎅이 투구가 오릅니다. */
 const HORN="horn";
+/* 행정실에서 받는 값 — 임시 보너스(BOOST_GOLD)를 얹습니다 */
+const sellPrice=id=>Math.round(ITEMS[id].price*BOOST_GOLD);
 /* 창고와 대원 배낭에 있는 재료 수 */
 const matCount=id=>((G.store||{})[id]||0)+(G.roster||[]).reduce((n,r)=>n+r.bag.filter(x=>x===id).length,0);
 /* 행정실에서 팔 수 있는 재료 — 그 재료를 쓰는 의뢰를 마친 뒤부터 */
@@ -2263,7 +2263,7 @@ const FACE_ART={
   m:["face/m-01.webp","face/m-02.webp","face/m-03.webp","face/m-04.webp","face/m-05.webp",
      "face/m-06.webp","face/m-07.webp","face/m-08.webp","face/m-09.webp","face/m-10.webp",
      "face/m-11.webp","face/m-12.webp","face/m-13.webp","face/m-14.webp","face/m-15.webp",
-     "face/m-16.webp","face/m-17.webp","face/m-18.webp",
+     "face/m-16.webp","face/m-18.webp",
      "face/m-vit-1.webp","face/m-spd-1.webp"],
   f:["face/f-01.webp","face/f-02.webp","face/f-03.webp","face/f-04.webp","face/f-05.webp",
      "face/f-06.webp","face/f-07.webp","face/f-08.webp","face/f-09.webp","face/f-10.webp",
@@ -2272,7 +2272,12 @@ const FACE_ART={
   /* 줄 초상이 다 떨어졌을 때 쓰는 얼굴 없는 그림. 여럿이 같이 써도 됩니다 */
   anon:{m:"face/m-anon.webp", f:"face/f-anon.webp"},
   shin:"face/m-shin.webp",                           /* 고정 인물 신재혁 */
+  lee:"face/lee.webp",                               /* 주인공 이경호 */
 };
+/* 고유 인물의 전용 초상 — 주인 말고는 누구에게도 주지 않습니다 */
+const FACE_OWNER={[FACE_ART.lee]:"이경호",[FACE_ART.shin]:"신재혁"};
+/* 지운 초상 — 옛 저장본에서 이 얼굴을 가진 사람은 다른 얼굴로 바꿉니다 */
+const FACE_GONE=["face/m-17.webp"];
 const isAnon=f=>f===FACE_ART.anon.m||f===FACE_ART.anon.f;
 /* 이미 나간 초상은 다시 주지 않습니다.
    지원자 명단에 걸려 있는 것도 그동안은 빼둡니다(같은 얼굴 셋이 나란히 서지 않게). */
@@ -2283,7 +2288,7 @@ function facesTaken(){
 }
 function pickFace(sex){
   const t=facesTaken();
-  const pool=(FACE_ART[sex]||[]).filter(f=>!t.has(f));
+  const pool=(FACE_ART[sex]||[]).filter(f=>!t.has(f)&&!FACE_OWNER[f]);
   if(pool.length)return pool[(Math.random()*pool.length)|0];
   return FACE_ART.anon[sex]||"";     // 남은 초상이 없으면 어나니머스
 }
@@ -2681,6 +2686,20 @@ function unpackSave(sv){
     if(r&&r.name==="신재혁"&&(!r.face||r.face===FACE_ART.anon.m))r.face=FACE_ART.shin;
   /* 메모리얼 홀에 얼굴을 적지 않던 시절의 사망자 — 누구 얼굴이었는지 남은 기록이 없어 어나니머스로 둡니다 */
   for(const m of (d.memorial||[]))if(m&&!m.face)m.face=FACE_ART.anon[m.sex||"m"];
+  /* 지운 초상이나 남의 전용 초상을 가진 사람 — 남은 풀에서 새 얼굴을, 없으면 어나니머스를 줍니다 */
+  {
+    const bad=r=>r&&r.face&&(FACE_GONE.includes(r.face)||(FACE_OWNER[r.face]&&FACE_OWNER[r.face]!==r.name));
+    const people=[...(d.roster||[]),...(d.memorial||[]),...(d.applicants||[])].filter(Boolean);
+    const used=new Set([...(d.facesUsed||[]),...people.map(r=>r.face)]);
+    for(const r of people)if(bad(r)){
+      const sex=r.sex||"m";
+      const pool=(FACE_ART[sex]||[]).filter(f=>!used.has(f)&&!FACE_OWNER[f]);
+      r.face=pool.length?pool[(Math.random()*pool.length)|0]:FACE_ART.anon[sex];
+      used.add(r.face);
+      if(d.facesUsed&&!isAnon(r.face))d.facesUsed.push(r.face);
+    }
+    if(d.facesUsed)d.facesUsed=d.facesUsed.filter(f=>!FACE_GONE.includes(f));
+  }
   if(!d.tips)d.tips={};                  /* 안내창 기록이 없던 저장본 */
   if(!d.shopSold)d.shopSold=[];          /* 매점 재고 기록이 없던 저장본 */
   if(d.shopDay===undefined)d.shopDay=-1;
@@ -2767,7 +2786,7 @@ let G,feed=[];
 function bootGame(){migrateSave();G={scene:"title"};feed=[];armBack();render()}
 function newGame(slot){
   const base={vit:10,maj:10,str:10,spd:10,agi:10,luk:10};
-  const p={name:"이경호",sex:"m",face:"face/lee.webp",   /* 주인공은 전용 초상 */lvl:1,exp:0,major:null,stats:{...base},base:{...base},
+  const p={name:"이경호",sex:"m",face:FACE_ART.lee,   /* 주인공은 전용 초상 */lvl:1,exp:0,major:null,stats:{...base},base:{...base},
            gear:emptyGear(),bag:[],ammo:EMPTY_AMMO(),points:1,inParty:true,log:["첫 게이트 진입"]};
   p.hp=derive(p).maxHp;
   G={slot:(slot===undefined?curSlot():slot),scene:"intro",introLine:0,gold:0,mode:"tutorial",
@@ -4344,9 +4363,10 @@ function finishBattle(){
   mergeGroundAmmo();
   const ammoGot=Object.entries(salvSum).map(([id,n])=>`${ITEMS[id].n} ${n}발`);
   G.night=false;
-  const results=grantExp(alive.map(a=>a.ref),exp);
+  const gain=Math.round(exp*BOOST_EXP);         /* 임시 보너스 */
+  const results=grantExp(alive.map(a=>a.ref),gain);
   for(const r of results)r.hp0=hp0.has(r.p)?hp0.get(r.p):r.p.hp;
-  G.lastGain={exp,results,dead,broke,ammoGot,
+  G.lastGain={exp:gain,results,dead,broke,ammoGot,
               boss:(B.foes.find(f=>f.boss)||{}).name||null,found:found.length,relic:relic.length};
   G.scene="reward";render();
 }
@@ -4769,7 +4789,7 @@ function arSpider(s){
 }
 /* 상금은 잡은 만큼. 대신 판마다 요금을 냅니다 */
 const ARCADE_FEE={spider:10,star:10,hunt:20};
-const arcadePrize=sc=>sc*3;
+const arcadePrize=sc=>Math.round(sc*3*BOOST_GOLD);
 
 /* ═══════════ 미니게임 · 별 줍기 ═══════════
    화면을 손가락으로 끌어 좌우로 움직이고, 점프 버튼으로 발판을 오르며 별을 모읍니다. */
@@ -4942,7 +4962,7 @@ function starPaint(){
   actx.fillStyle=AR.t<10?"#F25C5C":"#968CB0";
   actx.fillText(`${AR.t.toFixed(1)}초`,AW-12,24);
 }
-const starPrize=sc=>sc*4;
+const starPrize=sc=>Math.round(sc*4*BOOST_GOLD);
 
 /* ═══════════ 미니게임 · 좀비 헌터 ═══════════
    좌우로 움직이며 위에서 내려오는 좀비를 쏩니다. 총알은 0.95초마다 한 발. 한 방이면 죽습니다. */
@@ -5101,7 +5121,7 @@ function huntZombie(z){
     actx.fillText(z.hp,z.x,z.y-r-15);
   }
 }
-const huntPrize=sc=>sc*3;
+const huntPrize=sc=>Math.round(sc*3*BOOST_GOLD);
 
 
 
@@ -5517,7 +5537,18 @@ function campusNotes(){
   if(!G.wingQ&&(G.cicadaKills||0)>=1&&facOf("union").cond(G)){wingQuest();return}
   if(!G.hornQ&&(G.beetleKills||0)>=1&&facOf("union").cond(G)){
     G.hornQ=1;markSeen(HORN);
-    popupTalk([["union","장풍이 껍데기를 구해와라."]],render);
+    popupTalk([
+      ["union","곤충 중 최강곤충이 뭔지 아니?"],
+      ["pc","갑자기 무슨 소리야 뜬금없이."],
+      ["union","매끈한 몸, 우람한 뿔, 웅장한 날갯짓. 장수풍뎅이야말로 최강의 곤충이지."],
+      ["pc","아니 갑자기 그렇게 말해도..."],
+      ["union","뭐야? 너는 장수풍뎅이의 아름다움을 모르는 건가? 장수풍뎅이의 아름다움을 모르는 당신, 불쌍해요."],
+      ["pc","보통은 곤충을 보고 아름답다고 생각하지 않는다고."],
+      ["union","쳇."],
+      ["union","어쨌든 장수풍뎅이 껍데기를 가져왔으면 좋겠어. 만들고 싶은 게 있으니."],
+      ["pc","회장이 좋아하는 우람한 뿔을 가져와 볼게."],
+      ["union","이제야 말이 통하는군!"],
+    ],render);
     return;
   }
   /* 경찰 본부 의뢰 — 행정실이 열려 있어야 행정실장이 있습니다 */
@@ -5605,7 +5636,7 @@ function wingHandIn(){
   popupTalk([
     ["union","매미의 날개를 가져왔군."],
     ["pc","매미는 게이트 깊은 곳에서 만날 수 있어서 어려웠어."],
-    ["union","그만큼 도움되는 아이템을 만들 수 있을꺼야. 잠깐만 여기서 기다려 봐. 사실 미리 얻은 매미의 날개가 있어서 시제품을 만들어 봤으니."],
+    ["union","그만큼 도움되는 아이템을 만들 수 있을 거야. 잠깐만 여기서 기다려 봐. 사실 미리 얻은 매미의 날개가 있어서 시제품을 만들어 봤으니."],
     ["na",`<div class="gotitem">${itemIcon(WING)}<span>매미의 날개 1개를 건넸다.</span></div>
       <div class="gotitem">${itemIcon(POUCH)}<span>배낭 확장 주머니를 받았다.${toBag?"":" (배낭이 가득해 창고에 넣었다)"}</span></div>`],
     ["union",`<span class="gotitem">${itemIcon(POUCH)}<span>이걸로 가방 용량을 1칸 늘릴 수 있어.</span></span>`],
@@ -5622,8 +5653,18 @@ function unionNotes(){
     G.hornQ=2;takeItem(HORN);
     markSeen("hshield");markSeen("bhelm");
     popupTalk([
-      ["union","잘했다."],
+      ["union","가져왔나? 가져왔어?? 가져왔냐구!!"],
+      ["pc","왜 이렇게 집착하는 거야?"],
+      ["union","가져오지 않았다면 꺼져주시면 감사하겠습니다."],
+      ["pc","예의 바르게 욕하지 마. 가져왔으니까."],
+      ["union","오오오오오! 진즉 말했어야지. 어서 넘기도록!"],
       ["na",`<div class="gotitem">${itemIcon(HORN)}<span>투구뿔 1개를 건넸다.</span></div>`],
+      ["union","매점에서 이 투구뿔로 만든 마스터피스를 구매할 수 있을 거야. 비싼 물건은 그만큼의 값어치가 있으니 잘 쓰도록 해."],
+      ["pc","공짜로 줄 거라는 기대도 안했어."],
+      ["union","공짜로 주는 것도 있어."],
+      ["pc","정말? 뭐 줄 거야?"],
+      ["union","나의 사랑 ❤️"],
+      ["pc","꺼져주시면 감사하겠습니다."],
     ],render);
     return;
   }
@@ -5631,10 +5672,10 @@ function unionNotes(){
   if(G.armQ===1&&hasArm()){
     G.armQ=2;
     popupTalk([
-      ["union","고생했어. 이걸 가공하면 좋은 무기가 될꺼야."],
+      ["union","고생했어. 이걸 가공하면 좋은 무기가 될 거야."],
       ["pc","좋은 무기로 만들어 줘."],
-      ["union","무기가 완성되면 매점에 팔께."],
-      ["pc","역시 파는거였어!"],
+      ["union","무기가 완성되면 매점에 팔게."],
+      ["pc","역시 파는 거였어!"],
     ],()=>{
       takeItem(ARM);
       G.scytheBought=false;
@@ -5654,7 +5695,7 @@ function unionNotes(){
       ["pc","설마."],
       ["union","이번에 사마귀를 상대하면 꼭 사마귀의 날카로운 앞발을 챙겨와 줘."],
       ["pc","무기로 쓸 수 있을까?"],
-      ["union","학생회에는 손재주 있는 학생들이 많아. 일단 가져만 오면 어떻게든 해 볼께."],
+      ["union","학생회에는 손재주 있는 학생들이 많아. 일단 가져만 오면 어떻게든 해 볼게."],
     ],render);
     return;
   }
@@ -5668,7 +5709,7 @@ function unionNotes(){
       ["pc","다시 만들어 줄 수 있을까?"],
       ["union","(머리를 감싸쥔다.)"],
       ["union","다시 가져와 봐. 한번 했으니 두번 못할 건 없지."],
-      ["pc","이번엔 소중히 사용할께."],
+      ["pc","이번엔 소중히 사용할게."],
     ],render);
   }
 }
@@ -5690,7 +5731,7 @@ function bowGift(){
     ["na","말을 마친 총무는 갑자기 생각났다는 듯 무언가를 내민다."],
     ["shop","여기, 화살이에요."],
     ["na",`<div class="gotitem">${itemIconN("ammoA",ITEMS.ammoA.qty)}<span>화살 ${ITEMS.ammoA.qty}개를 받았다.</span></div>`],
-    ["pc","공짜로 주는거에요?"],
+    ["pc","공짜로 주는 거예요?"],
     ["shop","화살도 없이 활을 쏠 수는 없으니까. 첫 구매 서비스라고 생각해요. 나중에 화살을 더 만들면 매점에서 팔테니 돈 챙겨 오세요."],
     ["pc","테스트용 샘플같은 개념이었군."],
   ],()=>{
@@ -5704,7 +5745,7 @@ function bowGift(){
     render();
   });
 }
-const lootTotal=()=>Object.entries(G.loot).reduce((s,[id,n])=>s+ITEMS[id].price*n,0);
+const lootTotal=()=>Object.entries(G.loot).reduce((s,[id,n])=>s+sellPrice(id)*n,0);
 /* 감정 — 가중치대로 하나를 뽑아 확정 물건으로 바꿉니다 */
 function appraise(id){
   const t=ITEMS[id].mystery.into;
@@ -6341,11 +6382,11 @@ function render(){
       {k:"use",n:"소모품",rows:rows.filter(([id])=>ITEMS[id].use),d:"먹고 마시는 것입니다. 팔지 않고 창고에 넣어 두면 다음 게이트에 들고 갈 수 있습니다."},
       {k:"mat",n:"재료",rows:mats,d:"학생회에 넘기고 남은 재료입니다. 창고와 배낭에 있는 것을 삽니다."},
     ].filter(g=>g.rows.length);
-    const gSum=g=>g.rows.reduce((s,[id,n])=>s+ITEMS[id].price*n,0);
+    const gSum=g=>g.rows.reduce((s,[id,n])=>s+sellPrice(id)*n,0);
     const sellRow=(g,[id,n])=>{const o=G.rowSel==="sell:"+id,it=ITEMS[id];
       return `<div class="buyrow tap ${o?"open":""}" data-row="sell:${id}">
-        <div><b>${itemIcon(id)}${it.n}</b> × ${n}<span class="tag"> · 개당 ${it.price} 골드</span></div>
-        <span class="tag">${it.price*n} 골드 <span class="caret">${o?"▴":"▾"}</span></span>
+        <div><b>${itemIcon(id)}${it.n}</b> × ${n}<span class="tag"> · 개당 ${sellPrice(id)} 골드</span></div>
+        <span class="tag">${sellPrice(id)*n} 골드 <span class="caret">${o?"▴":"▾"}</span></span>
         ${o?`<div class="acts">
           ${g.k==="use"?`<button class="ghost" data-keep="${id}">창고에 넣는다</button>`:""}
           ${n>1?`<button class="ghost" data-s1="${id}">1개 판다</button>`:""}
@@ -6416,7 +6457,7 @@ function render(){
         G.appraisal=`${ITEMS[id].n} · 열어보니 <b>${ri.n}</b>. 창고에 넣었습니다.`;
       }else{
         G.loot[res]=(G.loot[res]||0)+1;
-        G.appraisal=`${ITEMS[id].n} · 열어보니 <b>${ri.n}</b>. ${ri.price} 골드짜리입니다.`;
+        G.appraisal=`${ITEMS[id].n} · 열어보니 <b>${ri.n}</b>. ${sellPrice(res)} 골드짜리입니다.`;
       }
       render()});
     /* 매입 — 한 종류를 n 개까지 팝니다. 재료는 창고·배낭에서, 나머지는 들고 온 것(G.loot)에서 */
@@ -6426,7 +6467,7 @@ function render(){
       else{k=Math.min(n,G.loot[id]||0);G.loot[id]=(G.loot[id]||0)-k;if(G.loot[id]<=0)delete G.loot[id]}
       /* 무엇을 몇 개나 넘겼는지도 세어 둡니다 — 어떤 학과사무실은 이 장부를 봅니다 */
       if(id==="oldbook")G.bookSold=(G.bookSold||0)+k;
-      const a=k*it.price;G.gold+=a;G.goldEarned+=a;
+      const a=k*sellPrice(id);G.gold+=a;G.goldEarned+=a;
       return a;
     };
     const keepId=id=>{const n=G.loot[id]||0;if(!n)return 0;
@@ -6819,11 +6860,11 @@ function render(){
       <p>누군가 게이트 안의 것들을 본떠 만든 기계가 세 대 놓여 있습니다.
       판마다 요금을 넣어야 하고, 상금은 잡은 만큼 나옵니다. 횟수 제한은 없습니다.</p></div>
       <button class="fac" id="g1" ${G.gold<ARCADE_FEE.spider?"disabled":""}><span class="ic">🕷</span>
-        <span class="tx"><b>거미 잡기 · ${ARCADE_FEE.spider}골드</b><span>줄을 타고 내려오는 거미를 눌러 잡습니다 · 마리당 3골드 · 최고 ${G.arcadeBest}마리</span></span></button>
+        <span class="tx"><b>거미 잡기 · ${ARCADE_FEE.spider}골드</b><span>줄을 타고 내려오는 거미를 눌러 잡습니다 · 마리당 ${3*BOOST_GOLD}골드 · 최고 ${G.arcadeBest}마리</span></span></button>
       <button class="fac" id="g2" ${G.gold<ARCADE_FEE.star?"disabled":""}><span class="ic">⭐</span>
-        <span class="tx"><b>별 줍기 · ${ARCADE_FEE.star}골드</b><span>발판을 뛰어다니며 별을 모읍니다 · 개당 4골드 · 최고 ${G.starBest||0}개</span></span></button>
+        <span class="tx"><b>별 줍기 · ${ARCADE_FEE.star}골드</b><span>발판을 뛰어다니며 별을 모읍니다 · 개당 ${4*BOOST_GOLD}골드 · 최고 ${G.starBest||0}개</span></span></button>
       <button class="fac" id="g3" ${G.gold<ARCADE_FEE.hunt?"disabled":""}><span class="ic">🔫</span>
-        <span class="tx"><b>좀비 헌터 · ${ARCADE_FEE.hunt}골드</b><span>내려오는 좀비를 쏘아 막습니다 · 마리당 3골드 · 최고 ${G.huntBest||0}마리</span></span></button>
+        <span class="tx"><b>좀비 헌터 · ${ARCADE_FEE.hunt}골드</b><span>내려오는 좀비를 쏘아 막습니다 · 마리당 ${3*BOOST_GOLD}골드 · 최고 ${G.huntBest||0}마리</span></span></button>
       ${G.gold<ARCADE_FEE.spider?`<div class="tag" style="color:var(--bad)">골드가 모자라 기계를 돌릴 수 없습니다.</div>`:""}
       <div class="bar"><span class="tag"></span><button class="ghost" id="bk">캠퍼스로</button></div>`;
     document.getElementById("g1").onclick=()=>{if(!payFee("spider"))return;AR=null;G.scene="spidergame";render()};
