@@ -648,7 +648,6 @@ const BAG_MAX=5;
 const bagMax=p=>BAG_MAX+(p&&p.bagPlus?1:0);
 const bagName=p=>p&&p.bagPlus?"배낭+":"배낭";
 const BED_MAX=4;
-const STUDY_COST=20;   /* 학습실 — Lv1 대원을 맡기는 값 */
 /* ── 사범대학 교육장 ──
    싸우지 않고 수업만으로 경험치를 받는 자리입니다. 맡긴 대원은 게이트에 나가지 못하고(away),
    탐색을 한 번 다녀올 때마다 교육비가 나가고 경험치가 들어옵니다.
@@ -1509,7 +1508,15 @@ const ENEMIES={
   zombie:{n:"좀비",lvm:TALL,hp:900,atk:65,aspd:.42,speed:7,range:8,r:6.2,
           c:"#4E9E43",exp:900,boss:true,dmg:DMG.BITE},
   zomb:{n:"좀비",lvm:HUMAN,hp:170,atk:22,aspd:.5,speed:6,range:6,r:3.4,   /* 기어 오므로 느립니다(17 → 6) */
-        c:"#5BB04A",exp:60,dmg:DMG.BITE,noScale:true},
+        c:"#5BB04A",exp:60,dmg:DMG.BITE},
+  /* 2게이트 3일차부터. 네 발로 낮게 달려드는 작은 것 — 체력이 적고 아주 빠르고 떼로 옵니다.
+     처음 만나면 싸우기 전에 대사가 한 번 붙습니다(introTalkFor).
+     pace 는 그림이 들썩이는 박자, size 는 그림 크기(판정 반지름 배수)입니다 */
+  sqzomb:{n:"다람쥐 좀비",lvm:CRAWL,hp:55,atk:12,aspd:1.15,speed:62,range:5,r:2.7,
+          c:"#A8834E",exp:50,dmg:DMG.BITE,pace:7.5,size:3.4},
+  /* 2게이트 6일차부터. 서서 걸어오고, 맞기 직전에 뒤로 물러나 흘립니다(dodge·backstep) */
+  fzomb:{n:"여자 좀비",lvm:HUMAN,hp:210,atk:26,aspd:.62,speed:15,range:7,r:3.6,
+         c:"#8AA36B",exp:105,dmg:DMG.BITE,dodge:15,backstep:true,pace:2.6,size:2.94},
 };
 /* 게이트 — 저마다 며칠짜리이고 무엇이 나오는지를 따로 가집니다.
    days  이 게이트의 마지막 날. 그날 보스를 잡으면 게이트가 닫히고 캠퍼스로 돌아옵니다.
@@ -1526,7 +1533,8 @@ const GATES=[
    pool:[{k:"worm",w:55},{k:"hopper",from:2,w:45},{k:"bee",from:4,w:28},{k:"beetle",from:5,w:22},
          {k:"cicada",from:7,w:30}]},
   {id:"back",n:"지하상가 게이트",d:"대학가 골목 아래 지하상가. 사람이었던 것들이 걸어다닌다",
-   days:15,need:"front",pool:[{k:"zomb"}],boss:{5:"dogzomb",10:"crawlzomb",15:"zombie"}},
+   days:15,need:"front",boss:{5:"dogzomb",10:"crawlzomb",15:"zombie"},
+   pool:[{k:"zomb",w:40},{k:"sqzomb",from:3,w:55},{k:"fzomb",from:6,w:35}]},
   {id:"hall",n:"강의동 게이트",d:"본관 뒤편. 아직 아무도 못 봤다",
    days:20,need:"back",pool:[{k:"zomb"}],boss:{20:"bloodeyes"},wip:true},
 ];
@@ -1583,14 +1591,25 @@ const ZBOSS_DODGE_MUL=1.2, ZBOSS_DODGE_MAX=75;
 /* 내려찍기에 맞으면 잠시 기절 — 이 동안은 움직이지도 때리지도 못하고 머리 위로 별이 돕니다 */
 const ZBOSS_STUN=0.7;
 const ZBOSS_STEP=2.2;      /* 걸음 박자(초당 위상) */
-const ZBOSS_RAISE=2.3;     /* 팔을 드는 각도(라디안) — 머리 위로 치켜든 모양 */
+/* 팔은 옆으로 벌리는 게 아니라 어깨의 좌우 축을 중심으로 앞으로 돌아 머리 위까지 올라갑니다.
+   정면을 보는 그림이므로 그 회전은 화면에서 세로 방향의 축소(cos)로만 나타납니다 —
+   길이가 줄었다가, 반 바퀴를 넘으면 부호가 뒤집혀 위로 곧추섭니다. 뒤집힌 것이라서
+   손바닥은 처음처럼 안쪽을 향한 채입니다(돌려 세우면 바깥을 향해 버립니다). */
+const ZBOSS_RAISE=Math.PI; /* 팔을 드는 각도 — 정확히 반 바퀴 */
+const ZBOSS_FORE=.26;      /* 보는 쪽을 곧장 겨눌 때 남는 길이(0 이면 사라져 버립니다) */
+const ZBOSS_FAT=.30;       /* 그때 굵어지는 비율 — 가까워 보이게 */
+const ZBOSS_LEAN=.26;      /* 도는 동안 바깥으로 살짝 기우는 각(라디안) */
+const ZBOSS_TUCK=.05;      /* 들어 올리며 몸 가운데로 모이는 거리(그림 크기 배수) */
+const ZBOSS_ARMUP=1.25;    /* 다 들었을 때 팔이 그림 위로 넘는 높이(판정 반지름 배수) */
 const ZBOSS_BASE=384;
 /* 보스 그림(384 기준)의 두 팔. dir 은 드는 방향 — 왼팔은 시계방향, 오른팔은 반시계방향으로 들립니다 */
 const ZBOSS_LIMBS=[
+  /* root 는 팔을 떼어 낸 뒤 몸에 도로 칠해 주는 어깨 끝입니다. 위팔까지 넓게 잡으면
+     팔을 들었을 때 겨드랑이에 잘린 팔이 남아 보이므로, 어깨 봉우리만 덮습니다 */
   {poly:[[0,50],[70,30],[105,70],[110,120],[96,160],[100,285],[0,285]],px:82,py:80,dir:1,
-   root:[[55,35],[105,70],[110,120],[96,160],[62,120]]},
+   root:[[52,34],[100,62],[104,88],[58,88]]},
   {poly:[[286,105],[384,92],[384,384],[262,384],[262,300],[286,292]],px:322,py:150,dir:-1,
-   root:[[286,105],[322,100],[322,205],[286,205]]},
+   root:[[286,105],[326,100],[326,152],[286,152]]},
 ];
 /* 지금 자세 — arm 은 팔을 든 정도(1 이 다 든 것, 음수는 내려찍어 안쪽으로 꺾인 것) */
 function zbossPose(f){
@@ -1601,7 +1620,7 @@ function zbossPose(f){
   if(S.ph==="charge")return{arm:1,lift:1,shake:.35+.65*Math.min(1,u/Z.charge),squash:0};
   if(S.ph==="drop"){const e=Math.min(1,u/Z.drop);return{arm:1-1.35*e,lift:1-e,shake:0,squash:e}}
   const e=Math.min(1,u/Z.rec);
-  return{arm:-.35*(1-e),lift:0,shake:0,squash:1-e};
+  return{arm:-.22*(1-e),lift:0,shake:0,squash:1-e};
 }
 /* 한 틱의 행동. 이 보스는 늘 여기서 끝나므로 true 를 돌려줍니다 */
 function zbossStep(f,lifeA,dt){
@@ -1697,9 +1716,9 @@ function zombDraw(g,img,S,c){
 }
 /* 물어 죽이는 것들. 여기에 당한 대원은 그 자리에서 일어나 적이 됩니다.
    다리가 부러진 좀비는 물지 않고 찢으므로(SLASH) 빠집니다. */
-const ZOMB_BITE=new Set(["zombie","zomb","dogzomb"]);
+const ZOMB_BITE=new Set(["zombie","zomb","dogzomb","sqzomb","fzomb"]);
 /* 좀비 계열 전부 — 항체(생명공학과)가 피해를 덜어내는 대상입니다 */
-const ZOMB_KIN=new Set(["zombie","zomb","dogzomb","crawlzomb"]);
+const ZOMB_KIN=new Set(["zombie","zomb","dogzomb","crawlzomb","sqzomb","fzomb"]);
 /* 보스가 데리고 나오는 것들. 좀비는 무리로 몰려옵니다. */
 const BOSS_ADDS={zombie:{key:"zomb",count:5}};
 /* 무엇이 나오는지는 알려주지 않습니다. 공기만 바뀝니다. */
@@ -2202,34 +2221,25 @@ const FACILITIES=[
    cond:g=>eduOpen(g).length>0,
    prog:g=>"잠겨 있다",
    msg:"사범대학 학과사무실의 문이 열렸습니다.<br><br>열려 있는 전공만 배정할 수 있습니다.",
-   /* 나레이션이 교육장까지 알려 주므로 교육장 안내문은 따로 띄우지 않습니다 —
-      둘은 같은 조건이라 늘 함께 열립니다 */
-   onUnlock:()=>{if(!G.announced.includes("eduhall"))G.announced.push("eduhall")},
    intro:[["deptEdu","이제부터 사범대학에서 초등교육과를 전공으로 선택할 수 있게 되었네."],
           ["pc","초등교육과는 뭐가 좋나요?"],
-          ["deptEdu","초등교육과의 스킬은 아군의 성장을 더 빠르게 하지. 뿐만 아니라 사범대학의 교육장은 전투 없이도 파티원을 교육할 수 있지."],
+          ["deptEdu","초등교육과의 스킬은 아군의 성장을 더 빠르게 하지. 뿐만 아니라 사범대학 학습실에서는 전투 없이도 파티원을 교육할 수 있게 될 걸세."],
           ["pc","하지만 우린 초등학생이 아닌데요."],
           ["deptEdu","고도로 발달한 대학생은 초등학생과 같다."],
           ["pc","????"],
           ["pc2","우리 정신연령은 초등학생 수준이긴 해."],
           ["na","초등교육과와 교육장을 사용할 수 있게 되었습니다."]]},
-  /* 학습실 — 사범대학. Lv3 대원이 나오고, 전공을 가진 대원이 둘 이상이면 열립니다.
-     Lv1 대원을 STUDY_COST 골드에 맡기면 '학습중'(입원처럼 나가지 못함)이 되고,
-     탐색을 한 번 다녀오면 Lv2 가 되어 돌아옵니다(귀환 처리에서) */
-  {id:"study",ic:"📖",n:"학습실",d:"Lv1 대원을 공부시킵니다",
+  /* 학습실 — 사범대학. 따로 있던 교육장을 여기로 합쳤습니다(2026-09-18).
+     Lv3 대원이 나오고 전공을 가진 대원이 둘 이상이면 열립니다.
+     맡긴 대원은 나가지 못하고(r.studying), 탐색을 다녀올 때마다 교육비를 내고 수업을 받습니다.
+     상한 레벨(eduMaxLv)은 열려 있는 사범 전공이 정하므로, 사범 전공이 없으면 맡길 사람이 없습니다 */
+  {id:"study",ic:"📖",n:"학습실",d:"싸우지 않고 수업으로 키웁니다",
    cond:g=>topLvl(g)>=3&&(g.roster||[]).filter(r=>majorsOf(r).length>0).length>=2,
    prog:g=>`최고 Lv ${topLvl(g)} / 3 · 전공 가진 대원 ${(g.roster||[]).filter(r=>majorsOf(r).length>0).length} / 2명`,
-   msg:"사범대학에 학습실이 문을 열었습니다."},
-  /* 교육장 — 사범 전공이 열리면 학과사무실과 같이 켜집니다.
-     맡긴 대원은 나가지 못하고(r.teaching), 탐색을 다녀올 때마다 교육비를 내고 수업을 받습니다.
-     상한 레벨(eduMaxLv)에 닿으면 그 탐색을 끝으로 수업이 끝나 나옵니다 */
-  {id:"eduhall",ic:"🏫",n:"교육장",d:"싸우지 않고 경험치를 받습니다",
-   cond:g=>eduOpen(g).length>0,
-   prog:g=>"잠겨 있다",
-   msg:"사범대학 교육장이 문을 열었습니다.<br><br>맡긴 대원은 게이트에 나가지 못하는 대신, 탐색을 한 번 다녀올 때마다 수업을 받고 경험치를 얻습니다."},
+   msg:"사범대학에 학습실이 문을 열었습니다.<br><br>맡긴 대원은 게이트에 나가지 못하는 대신, 탐색을 한 번 다녀올 때마다 수업을 받고 경험치를 얻습니다."},
 ];
 const FAC_SCENE={office:"office",shop:"shop",adm:"admissions",union:"union",clinic:"clinic",tower:"tower",arcade:"arcade",work:"work",
-                 deptArts:"dept",deptMed:"dept",deptRotc:"dept",deptSci:"dept",deptHum:"dept",library:"library",deptEdu:"dept",study:"study",eduhall:"eduhall"};
+                 deptArts:"dept",deptMed:"dept",deptRotc:"dept",deptSci:"dept",deptHum:"dept",library:"library",deptEdu:"dept",study:"study"};
 
 /* ═══════════ 시설 담당자 ═══════════
    first — 그 시설에 처음 들어갈 때 한 번. 줄 단위로 넘깁니다.
@@ -2348,7 +2358,8 @@ function sayBlock(ln,defId){
 /* 화자 이름 — 팝업 대사의 제목으로 씁니다 */
 const sayName=ln=>{
   const who=Array.isArray(ln)?ln[0]:null;
-  const me=who==="pc"?pcOf():who==="pc2"?pc2Of():null;
+  /* {p:대원} 이면 그 사람이 말합니다 — 전투 대사처럼 그 자리에 있는 사람을 직접 넘길 때 씁니다 */
+  const me=who&&who.p?who.p:who==="pc"?pcOf():who==="pc2"?pc2Of():null;
   return who==="na"?"":me?(me.name||"나"):(NPCS[who]?NPCS[who].n:"");
 };
 /* 팝업으로 이어지는 대사. 마지막 줄에서 onDone 이 돕니다 */
@@ -2359,7 +2370,8 @@ function popupTalk(lines,onDone){
     const ln=lines[i++],last=i>=lines.length;
     const who=Array.isArray(ln)?ln[0]:null, t=Array.isArray(ln)?ln[1]:ln;
     /* 나레이션은 글만, 말하는 사람이 있으면 초상을 옆에 붙입니다 */
-    const face=!who||who==="na"?"":who==="pc"?pcFace():who==="pc2"?pc2Face():npcFace(who);
+    const face=!who||who==="na"?"":who.p?faceOf(who.p)
+      :who==="pc"?pcFace():who==="pc2"?pc2Face():npcFace(who);
     popup(sayName(ln)||"　",face?`<div class="talkpop">${face}<p class="say">${t}</p></div>`:t,
           last?"확인":"계속",step,true);
   };
@@ -2379,7 +2391,7 @@ function openFacility(id){
   }
   G.talkFor=id;G.talkLine=0;G.talkNext=dest;G.scene="talk";render();
 }
-const CAMPUS_SCENES=["campus","hall","office","shop","admissions","union","gates","soon","tower","clinic","arcade","spidergame","stargame","huntgame","spiderend","starend","huntend","dept","work","record","study","eduhall"];
+const CAMPUS_SCENES=["campus","hall","office","shop","admissions","union","gates","soon","tower","clinic","arcade","spidergame","stargame","huntgame","spiderend","starend","huntend","dept","work","record","study"];
 
 /* ═══════════ 그림 ═══════════
    그림은 전부 art 폴더에 둡니다. 빈 칸("")이면 지금처럼 이모지나 글자로 나옵니다.
@@ -2402,7 +2414,7 @@ const BUILDINGS=[
   {id:"arts",  n:"예체능대학",   box:[26.7, 7.4,45.5,10.6], facs:["deptArts","arcade"]},
   {id:"rotc",  n:"ROTC",        box:[60.5, 6.8,77.7,10.9], facs:["deptRotc"]},
   {id:"human", n:"인문사회대학", box:[17.7,23.4,38.5,27.1], facs:["deptHum","library"]},
-  {id:"edu",   n:"사범대학",     box:[66.1,23.9,84.8,27.5], facs:["deptEdu","study","eduhall"]},
+  {id:"edu",   n:"사범대학",     box:[66.1,23.9,84.8,27.5], facs:["deptEdu","study"]},
   {id:"field", n:"대운동장",     box:[44,39.62,62,42.9], facs:["union"]},
   {id:"sci",   n:"이공대학",     box:[15,53.75,33,57.75], facs:["deptSci","work"]},
   {id:"med",   n:"의학대학",     box:[74.7,53.2,92.8,56.8], facs:["deptMed","clinic","tower"]},
@@ -2467,7 +2479,8 @@ const faceTag=p=>p&&p.face
 const FOE_ART={worm:"foe/worm.webp",hopper:"foe/hopper.webp",mantis:"foe/mantis.webp",spider:"foe/spider.webp",
                cicada:"foe/cicada.webp",beetle:"foe/beetle.webp",hornet:"foe/hornet.webp",
                bee:"foe/bee.webp",
-               bloodeyes:"",dogzomb:"foe/dogzomb.webp",zombie:"foe/zombBoss.webp",zomb:"foe/zomb.webp",crawlzomb:"foe/zomb.webp"};
+               bloodeyes:"",dogzomb:"foe/dogzomb.webp",zombie:"foe/zombBoss.webp",zomb:"foe/zomb.webp",crawlzomb:"foe/zomb.webp",
+               sqzomb:"foe/sqzomb.webp",fzomb:"foe/fzomb.webp"};
 /* "○○Fly"는 그 몬스터가 날아오를 때 쓰는 그림입니다.
    메뚜기 두 장은 눈을 한가운데 두고 같은 배율로 맞춰 두었으므로,
    같은 자리에 같은 크기로 그리면 몸은 그대로 있고 날개만 펴집니다. */
@@ -2842,6 +2855,13 @@ function unpackSave(sv){
   d.instants=(d.instants||[]).map(skillOf).filter(Boolean);
   d.skillOffer=d.skillOffer?d.skillOffer.map(skillOf).filter(Boolean):null;
   if(!d.itemSeen)d.itemSeen={};
+  /* 교육장을 학습실로 합치기 전(2026-09-18) 저장본 — 교육중이던 사람을 학습중으로 옮깁니다 */
+  for(const r of (d.roster||[]))if(r&&r.teaching){delete r.teaching;r.studying=true}
+  if(d.announced&&d.announced.includes("eduhall")){
+    d.announced=d.announced.filter(x=>x!=="eduhall");
+    if(!d.announced.includes("study"))d.announced.push("study");
+  }
+  if(d.scene==="eduhall")d.scene="campus";
   /* 신재혁 전용 초상이 없던 저장본 — 어나니머스로 들어온 신재혁에게 초상을 줍니다 */
   for(const r of [...(d.roster||[]),...(d.memorial||[])])
     if(r&&r.name==="신재혁"&&(!r.face||r.face===FACE_ART.anon.m))r.face=FACE_ART.shin;
@@ -2978,7 +2998,7 @@ function newGame(slot){
   feed=[];render();
 }
 /* 입원·학습·교육 중인 사람은 게이트에 나갈 수 없습니다 */
-const away=r=>!!(r.resting||r.studying||r.teaching);
+const away=r=>!!(r.resting||r.studying);
 const party=()=>{
   const av=G.roster.filter(r=>!away(r));
   const s=av.filter(r=>r.inParty);
@@ -3400,7 +3420,8 @@ function makeEnemy(key,i,day){
   const soft=G.mode==="tutorial"?1:0;
   const u={key,name:E.n,side:"e",face:1.57,r:E.r,lvm:E.lvm,boss:!!E.boss,exp:E.exp,dmgType:E.dmg,
     hp:Math.round(E.hp*hs),maxHp:Math.round(E.hp*hs),atk:Math.max(1,+(E.atk*as).toFixed(1)-soft),
-    aspd:E.aspd,vspeed:E.speed,range:E.range,guard:0,cool:1+i*.5,color:E.c,wig:i*1.3};
+    aspd:E.aspd,vspeed:E.speed,range:E.range,guard:0,cool:1+i*.5,color:E.c,wig:i*1.3,
+    dodge:E.dodge||0,backstep:!!E.backstep};
   const sp=reachSpot(s[0],s[1],u.r,u.lvm);   /* 대원 쪽과 이어진 자리에만 세웁니다 */
   u.x=sp.x;u.y=sp.y;
   return u;
@@ -3476,6 +3497,19 @@ function rollEncounter(day,risk,party,noBoss){
   }else for(let i=0;i<n;i++)out.push(mob());
   return out;
 }
+/* 처음 보는 적에 붙는 대사 — 싸우기 전에 한 번만 나옵니다.
+   말하는 사람은 그 전투에 나온 대원입니다. 혼자 나갔으면 둘째 사람 줄은 빼고 갑니다 */
+function introTalkFor(list,keys){
+  const a=list[0], b=list[1];
+  if(keys.includes("sqzomb")&&!G.metSq){
+    G.metSq=true;
+    return [[{p:a},"저길 봐. 다람쥐도 좀비가 됐어!"],
+            b&&[{p:b},"그런데 지하상가에 웬 다람쥐일까?"],
+            [{p:a},"근처에 펫샵에서 탈출했나?"],
+            b&&[{p:b},"온다! 빠르다!"]].filter(Boolean);
+  }
+  return null;
+}
 function startBattle(list,keys){
   G.fought=true;
   clearPaths();
@@ -3486,6 +3520,7 @@ function startBattle(list,keys){
   for(const u of B.allies){if(u.wid)itemSprite(u.wid);if(u.sid)itemSprite(u.sid);}
   if(ROOM)bgSprite(ROOM.id);
   feed=[];
+  B.intro=introTalkFor(list,keys);
   const bs=B.foes.find(f=>f.boss);
   say(bs?`${bs.name}이(가) 천천히 몸을 일으킨다. 적 ${keys.length}체.`:`적 ${keys.length}체가 다가온다.`);
 }
@@ -3536,7 +3571,11 @@ function say(t){feed.push(t);if(feed.length>3)feed.shift();
 function hurt(t,amt,c,type,src){
   if(src)t.lastHitBy=src;
   if(t.dodge&&Math.random()*100<t.dodge){        // 신발이 빠르면 몇 대는 흘린다
-    say(`${t.name}이(가) 몸을 틀어 피했다.`);
+    if(t.backstep){                              // 뒤로 물러나 흘리는 것 — 물러나는 연출이 붙습니다
+      t.bstepT=BSTEP_T;
+      if(src)t.face=Math.atan2(src.y-t.y,src.x-t.x);
+      say(`${t.name}이(가) 뒤로 물러나 피했다.`);
+    }else say(`${t.name}이(가) 몸을 틀어 피했다.`);
     B.fx.push({x:t.x,y:t.y,t:"회피",c:"#6BD98F",life:.8,off:0});
     return;
   }
@@ -3734,6 +3773,10 @@ function tick(dt){
         f.vspeed=base*(f.limp>0?1.75:0.30);
         moveTo(f,t.x,t.y,dt);
         f.vspeed=base;
+      }else if(FOE_FRONT.has(f.key)){
+        /* 정면 그림들 — 들썩이는 박자만 돌리고 속도는 그대로입니다 */
+        f.cp=(f.cp||0)+dt*((ENEMIES[f.key]||{}).pace||3);
+        moveTo(f,t.x,t.y,dt);
       }else if(f.key==="worm"){
         f.cp=(f.cp||0)+dt*3.1;
         const s=Math.max(0,Math.sin(f.cp));f.surge=s*s;
@@ -3766,7 +3809,7 @@ function tick(dt){
     }else say(`${a.name}이(가) 쓰러졌다. 돌아오지 못한다.`);
   }
   for(const u of [...B.allies,...B.foes]){if(u.flash>0)u.flash-=dt;if(u.strike>0)u.strike-=dt;
-    if(u.slowT>0)u.slowT-=dt}
+    if(u.slowT>0)u.slowT-=dt;if(u.bstepT>0)u.bstepT-=dt}
   B.fx=B.fx.filter(p=>{p.life-=dt;p.off+=26*dt;return p.life>0});
   if(B.shake>0)B.shake=Math.max(0,B.shake-dt);
   if(B.shots)B.shots=B.shots.filter(w=>{w.life-=dt;return w.life>0});
@@ -4001,6 +4044,9 @@ function faceFoe(g,ang,extra){
 }
 const ZBOSS_SIZE=4.6;                            /* 좀비 보스 그림 크기(판정 반지름 배수) */
 const KEEP_RATIO=new Set(["cicada"]);            /* 그림 비율대로 그리는 몬스터 */
+/* 정면을 보는 그림 — 방향대로 돌리지 않고 좌우만 뒤집습니다(좀비 보스와 같은 방식) */
+const FOE_FRONT=new Set(["sqzomb","fzomb"]);
+const BSTEP_T=0.34;                              /* 뒤로 물러났다 돌아오는 데 걸리는 시간(초) */
 function drawFoe(f){
   const x=f.x*SX,y=f.y*SY,r=f.r*Math.min(SX,SY);
   const bx=Math.cos(f.face),by=Math.sin(f.face);
@@ -4146,15 +4192,36 @@ function drawFoe(f){
       ctx.drawImage(zp.body,-S/2,-S,S,S);
       ZBOSS_LIMBS.forEach((L,i)=>{
         const jit=po.shake?(Math.random()-.5)*.08*po.shake:0;
+        const th=po.arm*ZBOSS_RAISE, cs=Math.cos(th), sn=Math.abs(Math.sin(th));
+        const a01=Math.max(0,Math.min(1,po.arm));
         ctx.save();
-        ctx.translate(L.px*k-S/2,L.py*k-S);ctx.rotate(L.dir*(po.arm*ZBOSS_RAISE+jit));
+        ctx.translate(L.px*k-S/2+L.dir*a01*ZBOSS_TUCK*S,L.py*k-S-a01*.03*S);
+        ctx.rotate(L.dir*(ZBOSS_LEAN*Math.sin(th)+jit));
+        /* 세로만 cos 으로 줄입니다 — 음수가 되면 뒤집혀 팔이 위를 향합니다 */
+        ctx.scale(1+sn*ZBOSS_FAT,(cs<0?-1:1)*Math.max(Math.abs(cs),ZBOSS_FORE));
         ctx.drawImage(zp.limbs[i],-L.px*k,-L.py*k,S,S);
         ctx.restore();
       });
     }
     ctx.restore();
     if(f.boss){ctx.fillStyle="rgba(242,215,78,.9)";ctx.font="800 9px system-ui";
-      ctx.textAlign="center";ctx.fillText("BOSS",x,y+r-S-8)}
+      ctx.textAlign="center";ctx.fillText("BOSS",x,y+r-S-8-po.lift*r*ZBOSS_ARMUP)}
+  }else if(FOE_FRONT.has(f.key)&&sprite(f.key)){
+    /* 정면을 보는 그림 — 돌리지 않고 좌우만 뒤집습니다. 발이 판정 원의 아래쪽에 닿습니다.
+       bp 는 뒤로 물러난 정도(1 물러난 순간 → 0 제자리) — 그만큼 뒤로 밀리고 상체가 젖혀집니다 */
+    const sp=sprite(f.key), E=ENEMIES[f.key]||{}, S=r*(E.size||4.0);
+    const c=f.cp||0, step=Math.abs(Math.sin(c));
+    const bp=Math.sqrt(Math.max(0,f.bstepT||0)/BSTEP_T), bk=bp*f.r*1.3;
+    const st=f.strike>0?Math.sin((1-Math.max(0,f.strike)/.24)*Math.PI):0;
+    ctx.save();
+    ctx.translate(x-Math.cos(f.face)*bk*SX, y+r-Math.sin(f.face)*bk*SY);
+    if(Math.cos(f.face)<0)ctx.scale(-1,1);
+    ctx.translate(0,-step*r*0.16-st*r*0.10);      // 걸음마다 들썩이고, 덤빌 때 솟습니다
+    ctx.rotate(Math.sin(c)*0.05-bp*0.17);
+    ctx.scale(1+(1-step)*0.045+st*0.08, 1-(1-step)*0.045-st*0.04);
+    if(f.flash>0)ctx.filter="brightness(0) invert(1)";
+    ctx.drawImage(sp,-S/2,-S,S,S);
+    ctx.restore();
   }else if(ZOMB_WALK.has(f.key)){
     const lp=f.limp||0, tilt=lp*0.20;
     ctx.save();ctx.translate(x,y);faceFoe(ctx,f.face,tilt);
@@ -4264,7 +4331,8 @@ function drawFoe(f){
       ctx.textAlign="center";ctx.fillText("BOSS",x,y-r-12)}
   }
   const lift=(f.key==="hopper"&&f.air>0)?Math.sin((1-f.air/HOP_AIR)*Math.PI)*r*1.6
-    :(f.key==="zombie"&&sprite("zombie"))?r*(ZBOSS_SIZE-2):0;   // 좀비 보스는 서 있는 그림 위로
+    /* 좀비 보스는 서 있는 그림 위로 — 팔을 들면 이름표와 막대도 그만큼 비켜 줍니다 */
+    :(f.key==="zombie"&&sprite("zombie"))?r*(ZBOSS_SIZE-2+zbossPose(f).lift*ZBOSS_ARMUP):0;
   bar(f,x,y-r-6-lift,"#F25C5C",r);
 }
 /* 음파 — 우는 쪽에서 대상 쪽으로 고리 세 겹이 벌어지며 나아간다 */
@@ -4393,7 +4461,7 @@ function togglePause(){
 /* ═══════════ 뒤로가기 (안드로이드 하드웨어 버튼 · Esc) ═══════════
    게이트 전투 중이면 일시정지 토글, 캠퍼스에서는 방 → 건물 → 캠퍼스 순으로 한 단계 올라간다.
    최상위 화면(캠퍼스·타이틀)에서는 한 번 더 누르면 종료. 그 밖(게이트 진행)은 무시. */
-const BACK_FAC_SCENES=["office","shop","admissions","union","clinic","tower","arcade","dept","soon","study","eduhall"];
+const BACK_FAC_SCENES=["office","shop","admissions","union","clinic","tower","arcade","dept","soon","study"];
 let backExitArm=0;
 function appExit(){
   try{
@@ -5703,14 +5771,14 @@ function squadCards(){
     const ri=G.roster.indexOf(r), st=away(r)?"rest":t.includes(r)?"on":"off";
     return `<div class="sq ${st} ${sel===r?"open":""}" data-sq="${ri}">
       <b>${r.name}</b>${r.face?`<img src="${artUrl(r.face)}" alt="">`:'<span class="nf"></span>'}
-      <span class="st">${r.resting?"입원":r.studying?"학습중":r.teaching?"교육중":st==="on"?"출동":"대기"}</span></div>`}).join("");
+      <span class="st">${r.resting?"입원":r.studying?"학습중":st==="on"?"출동":"대기"}</span></div>`}).join("");
   let more="";
   if(sel&&list.includes(sel)){
     const on=t.includes(sel), full=!on&&t.length>=squadMax();
     more=`<div class="app sqd">${faceTag(sel)}<div class="hd"><b>${sel.name}</b>
         <span>${majorName(sel)} · Lv.${sel.lvl} · ${bagName(sel)} ${sel.bag.length+ammoSlots(sel)}/${bagMax(sel)}</span></div>
       ${barRows(sel)}${statGrid(sel)}${gearLine(sel)}
-      <div class="acts">${away(sel)?`<span class="tag">${sel.resting?"입원":sel.teaching?"교육":"학습"} 중이라 나갈 수 없습니다</span>`
+      <div class="acts">${away(sel)?`<span class="tag">${sel.resting?"입원":"학습"} 중이라 나갈 수 없습니다</span>`
         :`<button class="mini" data-pt="${G.roster.indexOf(sel)}" ${full?"disabled":""}>${on?"출동에서 뺀다":full?"자리가 찼습니다":"출동에 넣는다"}</button>`}</div></div>`;
   }
   return `<div class="card"><div class="cardhead"><h2>출동 명단</h2>
@@ -6242,7 +6310,10 @@ function render(){
       <canvas id="cv"></canvas>
       <div id="feed">${feed.map(x=>`<div>${x}</div>`).join("")}</div>
       `;
-    fitCanvas();startLoop();
+    fitCanvas();
+    /* 처음 보는 적에 붙는 대사 — 다 읽고 나서야 싸움이 굴러갑니다 */
+    if(B.intro){const tk=B.intro;B.intro=null;popupTalk(tk,startLoop)}
+    else startLoop();
     cv.onclick=()=>{if(B&&B.paused)B.paused=false};
     return;
   }
@@ -6450,8 +6521,8 @@ function render(){
       /* 체력이 가득한 채로 돌아온 대원이 있으면 예체능대학에 무용과가 붙습니다 (귀환 회복 전 기준) */
       if(went.some(r=>r.hp>0&&r.hp>=derive(r).maxHp))G.danceHome=true;
       if(tut){G.roster=[p];G.mode="campus";if(!G.announced.includes("office"))G.announced.push("office")}
-      G.studyDone=[];                  /* 이번 귀환에 학습을 마친 사람 */
-      G.eduDone=[];G.eduKick=null;     /* 교육장 — 수업을 마치고 나온 사람 · 교육비를 못 내 나온 사람 */
+      /* 학습실 — 수업을 마치고 나온 사람 · 교육비를 못 내 나온 사람 */
+      G.studyDone=[];G.studyKick=null;
       G.bedDone=[];                    /* 이번 귀환에 다 나아 퇴원한 사람 — 캠퍼스 명단 위에 한 줄로 알립니다 */
       for(const r of G.roster){
         for(const s of SLOTS){const it=ITEMS[r.gear[s.k]];if(it&&it.kind==="inst")r.gear[s.k]=null}
@@ -6476,30 +6547,23 @@ function render(){
           logAdd(r,"응급의학 실습실 퇴원");
           (G.bedDone=G.bedDone||[]).push(r.name);
         }
-        /* 학습실 — 탐색을 한 번 다녀오면 학습이 끝나 Lv2 가 됩니다. 출동 자리가 남아 있으면 명단에도 올립니다 */
-        if(r.studying){
-          r.studying=false;
-          if(r.lvl<2){r.lvl=2;r.exp=0;r.points=(r.points||0)+1;logAdd(r,"학습실 학습 완료 · Lv 2 달성")}
-          r.inParty=G.roster.filter(x=>x.inParty&&!away(x)).length<squadMax();
-          G.studyDone.push(r.name);
-        }
-        /* 교육장 — 탐색을 한 번 다녀올 때마다 교육비를 내고 수업을 받습니다.
+        /* 학습실 — 탐색을 한 번 다녀올 때마다 교육비를 내고 수업을 받습니다.
            상한 레벨에 닿으면 그 자리에서 수업이 끝나고, 교육비를 못 내면 그대로 나옵니다 */
-        if(r.teaching){
+        if(r.studying){
           const cap=eduMaxLv(G), cost=eduCost(r.lvl);
           let out=true;
-          if(r.lvl>=cap)logAdd(r,"교육장 수업 종료 · 더 배울 것이 없음");
-          else if(G.gold<cost){G.eduKick=r.name;logAdd(r,"교육장 수업 중단 · 교육비 부족")}
+          if(r.lvl>=cap)logAdd(r,"학습실 수업 종료 · 더 배울 것이 없음");
+          else if(G.gold<cost){G.studyKick=r.name;logAdd(r,"학습실 수업 중단 · 교육비 부족")}
           else{
             G.gold-=cost;G.eduBill=(G.eduBill||0)+cost;
-            const b=r.lvl, got=Math.min(eduExpGain(r.lvl),eduRoom(r,cap));
+            const got=Math.min(eduExpGain(r.lvl),eduRoom(r,cap));
             addExp(r,got);
-            logAdd(r,`교육장 수업 · 경험치 +${got}`);
+            logAdd(r,`학습실 수업 · 경험치 +${got}`);
             out=r.lvl>=cap;                 /* 상한에 닿았으면 마치고 나옵니다 */
-            if(out)G.eduDone.push(r.name);
+            if(out)G.studyDone.push(r.name);
           }
           if(out){
-            r.teaching=false;
+            r.studying=false;
             r.inParty=G.roster.filter(x=>x.inParty&&!away(x)).length<squadMax();
           }
         }
@@ -6553,15 +6617,13 @@ function render(){
       <div class="card"><h2>명단 · ${G.roster.length}명</h2>
       ${G.bedKick?`<div class="tag" style="color:var(--bad);margin-bottom:8px">골드가 모자라 ${G.bedKick}이(가) 퇴원했습니다</div>`:""}
       ${G.bedDone&&G.bedDone.length?`<div class="tag" style="color:var(--ok);margin-bottom:8px">${G.bedDone.join(", ")}이(가) 다 나아 퇴원했습니다</div>`:""}
-      ${G.studyDone&&G.studyDone.length?`<div class="tag" style="color:var(--cy);margin-bottom:8px">${G.studyDone.join(", ")}이(가) 학습을 마쳤습니다</div>`:""}
-      ${G.eduDone&&G.eduDone.length?`<div class="tag" style="color:var(--cy);margin-bottom:8px">${G.eduDone.join(", ")}이(가) 교육장 수업을 마쳤습니다</div>`:""}
-      ${G.eduKick?`<div class="tag" style="color:var(--bad);margin-bottom:8px">교육비가 모자라 ${G.eduKick}이(가) 교육장에서 나왔습니다</div>`:""}
+      ${G.studyDone&&G.studyDone.length?`<div class="tag" style="color:var(--cy);margin-bottom:8px">${G.studyDone.join(", ")}이(가) 학습실 수업을 마쳤습니다</div>`:""}
+      ${G.studyKick?`<div class="tag" style="color:var(--bad);margin-bottom:8px">교육비가 모자라 ${G.studyKick}이(가) 학습실에서 나왔습니다</div>`:""}
       ${rosterOrder().map(r=>{
         const on=party().includes(r), ri=G.roster.indexOf(r);
         /* 입원 중인 사람은 얼굴과 체력만 — 나머지는 눌러야 펼쳐집니다 */
         const open=!away(r)||G.restOpen===ri;
         const st=r.resting?'<span style="color:var(--ok)">입원</span>':r.studying?'<span style="color:var(--cy)">학습중</span>'
-          :r.teaching?'<span style="color:var(--cy)">교육중</span>'
           :on?'<span style="color:var(--mark)">출동</span>':"대기";
         return `<div class="app ${away(r)?"":on?"sel":"out"}">
           ${faceTag(r)}<div class="hd"><b>${r.name}</b><span>${st} · ${majorName(r)} · Lv ${r.lvl}</span></div>
@@ -6943,85 +7005,60 @@ function render(){
     document.getElementById("bk").onclick=()=>{G.scene="campus";render()};
     return;
   }
-  /* ── 학습실 ── Lv1 대원을 맡겨 한 번의 탐색 동안 공부시킵니다 */
-  if(S==="study"){
-    G.studyDone=null;
-    const inStudy=G.roster.filter(r=>r.studying);
-    const cands=G.roster.filter(r=>!away(r)&&r.lvl===1);
-    el.innerHTML=logo+`
-      <div class="bar"><span class="tag">사범대학 · 학습실</span><span class="tag">골드 <b>${G.gold}</b></span></div>
-      <div class="card"><h2>학습중</h2>
-      ${inStudy.length?inStudy.map(r=>`<div class="app" style="border-left-color:var(--cy);margin-top:9px">
-        ${faceTag(r)}<div class="hd"><b>${r.name}</b><span>학습중 · Lv ${r.lvl}</span></div>${hpLine(r)}</div>`).join("")
-        :`<p>공부하는 사람이 없습니다.</p>`}</div>
-      <div class="card"><h2>학습시키기</h2>
-      ${cands.map(r=>`<div class="app" style="margin-top:9px">
-        ${faceTag(r)}<div class="hd"><b>${r.name}</b><span>${majorName(r)} · Lv ${r.lvl}</span></div>${expBar(r)}
-        <div class="bar" style="margin-top:9px"><span class="tag">${STUDY_COST} 골드</span>
-        <button data-study="${G.roster.indexOf(r)}" ${G.gold<STUDY_COST?"disabled":""}>학습하기</button></div></div>`).join("")
-        ||`<p>학습시킬 사람이 없습니다.</p>`}</div>
-      <div class="bar"><span class="tag"></span><button class="ghost" id="bk">캠퍼스로</button></div>`;
-    el.querySelectorAll("[data-study]").forEach(b=>b.onclick=()=>{
-      const r=G.roster[+b.dataset.study];
-      if(!r||r.lvl!==1||away(r)||G.gold<STUDY_COST)return;
-      G.gold-=STUDY_COST;r.studying=true;r.inParty=false;
-      logAdd(r,"학습실 학습 시작");render()});
-    document.getElementById("bk").onclick=()=>{G.scene="campus";render()};
-    return;
-  }
-  /* ── 교육장 ── 싸우지 않고 수업만으로 경험치를 받습니다.
+  /* ── 학습실 ── 싸우지 않고 수업만으로 경험치를 받습니다(따로 있던 교육장을 여기로 합쳤습니다).
      맡기는 데는 돈이 들지 않고, 탐색을 한 번 다녀올 때마다 교육비가 나갑니다(침상과 같은 방식).
      상한 레벨은 지금 열려 있는 사범 전공이 정합니다 — 초등교육과만 열려 있으면 Lv2 까지. */
-  if(S==="eduhall"){
-    G.eduDone=null;G.eduKick=null;
+  if(S==="study"){
+    G.studyDone=null;G.studyKick=null;
     const cap=eduMaxLv(G), off=eduOffPct(), plus=eduExpPct();
-    const inEdu=G.roster.filter(r=>r.teaching);
+    const inEdu=G.roster.filter(r=>r.studying);
     const cands=G.roster.filter(r=>!away(r)&&r.lvl<cap);
     const rooms=eduRooms(), free=rooms-inEdu.length;
     el.innerHTML=logo+`
-      <div class="bar"><span class="tag">사범대학 · 교육장 · 교실 ${rooms}개 (${free}개 빔)</span><span class="tag">골드 <b>${G.gold}</b></span></div>
+      <div class="bar"><span class="tag">사범대학 · 학습실 · 교실 ${rooms}개 (${free}개 빔)</span><span class="tag">골드 <b>${G.gold}</b></span></div>
       <div class="card"><h2>수업</h2>
       <p>수업을 듣는 사람은 게이트에 나가지 못하는 대신, 탐색을 한 번 다녀올 때마다
       <b style="color:var(--mark)">교육비</b>를 내고 <b style="color:var(--cy)">경험치</b>를 받습니다.
       여기서 오를 수 있는 것은 <b>Lv ${cap}</b>까지이고, 거기에 닿으면 수업이 끝나 명단으로 돌아옵니다.</p>
+      ${cap?"":`<div class="tag" style="color:var(--mark)">사범 계열 전공이 하나도 열리지 않아 아직 가르칠 것이 없습니다.</div>`}
       ${off||plus
         ? `<div class="tag" style="color:var(--cy)">초등교육과 대원이 수업을 맡았습니다 — 교육비 −${off}% · 경험치 +${plus}%</div>`
         : `<div class="tag">가르칠 사람이 없어 강사를 부릅니다. 초등교육과 대원이 명단에 있으면 교육비가 깎이고 경험치가 늘어납니다.</div>`}
       <div class="bar" style="margin-top:9px"><span class="tag">누적 교육비 ${G.eduBill||0} 골드</span></div></div>
       <div class="card"><h2>수업 중</h2>
       ${inEdu.length?inEdu.map(r=>`<div class="app" style="border-left-color:var(--cy);margin-top:9px">
-        ${faceTag(r)}<div class="hd"><b>${r.name}</b><span>교육중 · Lv ${r.lvl}</span></div>${expBar(r)}
+        ${faceTag(r)}<div class="hd"><b>${r.name}</b><span>학습중 · Lv ${r.lvl}</span></div>${expBar(r)}
         <div class="bar" style="margin-top:9px"><span class="tag">탐색 한 번마다 ${eduCost(r.lvl)} 골드 · 경험치 ${eduExpGain(r.lvl)}</span>
-        <button class="ghost" data-eduout="${G.roster.indexOf(r)}">그만두기</button></div></div>`).join("")
+        <button class="ghost" data-studyout="${G.roster.indexOf(r)}">그만두기</button></div></div>`).join("")
         :`<p>수업을 듣는 사람이 없습니다.</p>`}
       ${free>0?`<div class="tag" style="margin-top:11px">빈 교실 ${free}개.</div>`:
         `<div class="tag" style="margin-top:11px;color:var(--mark)">교실이 다 찼습니다.</div>`}</div>
       <div class="card"><h2>교실 확충</h2>
       ${rooms>=EDU_ROOM_MAX?`<p>${EDU_ROOM_MAX}개가 한계입니다. 더 늘릴 자리가 없습니다.</p>`
        :`<div class="bar" style="margin-top:10px"><span class="tag">지금 ${rooms}개 → ${rooms+1}개</span>
-         <button id="eduup" ${G.gold<EDU_ROOM_COST?"disabled":""}>${EDU_ROOM_COST} 골드로 늘린다</button></div>`}</div>
+         <button id="studyup" ${G.gold<EDU_ROOM_COST?"disabled":""}>${EDU_ROOM_COST} 골드로 늘린다</button></div>`}</div>
       <div class="card"><h2>수업 듣기</h2>
       ${cands.map(r=>`<div class="app" style="margin-top:9px">
         ${faceTag(r)}<div class="hd"><b>${r.name}</b><span>${majorName(r)} · Lv ${r.lvl}</span></div>${expBar(r)}
         <div class="bar" style="margin-top:9px"><span class="tag">탐색 한 번마다 ${eduCost(r.lvl)} 골드 · 경험치 ${eduExpGain(r.lvl)}</span>
-        <button data-edu="${G.roster.indexOf(r)}" ${free<=0?"disabled":""}>${free>0?"수업 듣기":"교실이 찼습니다"}</button></div></div>`).join("")
+        <button data-study="${G.roster.indexOf(r)}" ${free<=0?"disabled":""}>${free>0?"수업 듣기":"교실이 찼습니다"}</button></div></div>`).join("")
         ||`<p>여기서 더 배울 사람이 없습니다.</p>`}</div>
       <div class="bar"><span class="tag"></span><button class="ghost" id="bk">캠퍼스로</button></div>`;
-    el.querySelectorAll("[data-edu]").forEach(b=>b.onclick=()=>{
-      const r=G.roster[+b.dataset.edu];
+    el.querySelectorAll("[data-study]").forEach(b=>b.onclick=()=>{
+      const r=G.roster[+b.dataset.study];
       if(!r||away(r)||r.lvl>=cap||free<=0)return;
-      r.teaching=true;r.inParty=false;
-      logAdd(r,"교육장 수업 시작");render()});
-    const eup=document.getElementById("eduup");
+      r.studying=true;r.inParty=false;
+      logAdd(r,"학습실 수업 시작");render()});
+    const eup=document.getElementById("studyup");
     if(eup)eup.onclick=()=>{
       if(G.gold<EDU_ROOM_COST||rooms>=EDU_ROOM_MAX)return;
       G.gold-=EDU_ROOM_COST;G.classes=rooms+1;render()};
-    el.querySelectorAll("[data-eduout]").forEach(b=>b.onclick=()=>{
-      const r=G.roster[+b.dataset.eduout];
-      if(!r||!r.teaching)return;
-      r.teaching=false;
+    el.querySelectorAll("[data-studyout]").forEach(b=>b.onclick=()=>{
+      const r=G.roster[+b.dataset.studyout];
+      if(!r||!r.studying)return;
+      r.studying=false;
       r.inParty=G.roster.filter(x=>x.inParty&&!away(x)).length<squadMax();
-      logAdd(r,"교육장 수업 중단");render()});
+      logAdd(r,"학습실 수업 중단");render()});
     document.getElementById("bk").onclick=()=>{G.scene="campus";render()};
     return;
   }
