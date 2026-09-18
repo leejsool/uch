@@ -14,8 +14,16 @@
     font-family:'Pretendard','Apple SD Gothic Neo',system-ui,'Malgun Gothic',sans-serif;
     padding:12px 12px calc(14px + env(safe-area-inset-bottom));}
   #app{width:100%;max-width:440px;display:flex;flex-direction:column;gap:10px}
-  .logo{font-size:19px;font-weight:800;letter-spacing:-.03em}
+  .logo{font-size:19px;font-weight:800;letter-spacing:-.03em;display:flex;align-items:center}
   .logo em{font-style:normal;color:var(--gate)}
+  /* 소리 단추 — 글자는 CSS가 넣습니다. body 에 muted 가 붙으면 모양만 바뀝니다 */
+  .snd{margin-left:auto;background:none;border:0;padding:2px 4px;cursor:pointer;
+    font-size:15px;line-height:1;opacity:.5;color:var(--dim);transition:opacity .15s}
+  .snd:hover{opacity:.95}
+  .snd::after{content:"🔊"}
+  body.muted .snd::after{content:"🔇"}
+  #titlewrap .tsnd{position:absolute;right:4px;top:4px;z-index:3;margin:0;opacity:.75;
+    text-shadow:0 1px 4px rgba(0,0,0,.9)}
   .bar{display:flex;justify-content:space-between;align-items:center;gap:8px}
   .tag{font-size:12px;color:var(--dim)}
   .tag b{color:var(--mark)}
@@ -792,7 +800,7 @@ const ITEMS={
     d:"빛에 비추면 무지갯빛이 돈다 · 학생회가 귀한 소재라고 한다"},
   /* 투구뿔 — 학생회의 '딱딱한 껍질' 의뢰를 받은 뒤부터 장수풍뎅이를 쓰러뜨릴 때마다 하나씩 남습니다.
      의뢰를 마친 뒤부터 행정실에서 price 에 팝니다 */
-  horn:{n:"투구뿔",kind:"perm",price:33,quest:true,mat:true,from:"장수풍뎅이 처치 (학생회 '딱딱한 껍질' 의뢰를 받은 뒤)",
+  horn:{n:"투구뿔",kind:"perm",price:30,quest:true,mat:true,from:"장수풍뎅이 처치 (학생회 '딱딱한 껍질' 의뢰를 받은 뒤)",
     d:"장수풍뎅이의 뿔 · 단단하고 가볍다 · 학생회가 찾는 재료"},
   /* 뿔 방패 — 맞으면 때린 적에게 thorns 만큼 돌려줍니다(hurt). 투구뿔을 넘긴 뒤 매점에 오릅니다 */
   hshield:{n:"뿔 방패",slot:"lh",kind:"perm",guard:3,hp:4,thorns:4,price:60,
@@ -1514,7 +1522,11 @@ const ENEMIES={
      pace 는 그림이 들썩이는 박자, size 는 그림 크기(판정 반지름 배수)입니다 */
   sqzomb:{n:"다람쥐 좀비",lvm:CRAWL,hp:55,atk:12,aspd:1.15,speed:62,range:5,r:2.7,
           c:"#A8834E",exp:50,dmg:DMG.BITE,pace:7.5,size:3.4},
-  /* 2게이트 6일차부터. 서서 걸어오고, 맞기 직전에 뒤로 물러나 흘립니다(dodge·backstep) */
+  /* 2게이트 3일차부터. 날아다녀서 지형을 거의 다 넘습니다(FLY). 빠르고 자주 쪼지만 한 대에 잘 터집니다.
+     pace 가 빠른 것은 날갯짓입니다 */
+  pgzomb:{n:"비둘기 좀비",lvm:FLY,hp:72,atk:15,aspd:1.0,speed:48,range:6,r:3.0,
+          c:"#7E8290",exp:72,dmg:DMG.PIERCE,pace:9,size:3.6},
+  /* 2게이트 11일차부터. 서서 걸어오고, 맞기 직전에 뒤로 훌쩍 뛰어 흘립니다(dodge·backstep) */
   fzomb:{n:"여자 좀비",lvm:HUMAN,hp:210,atk:26,aspd:.62,speed:15,range:7,r:3.6,
          c:"#8AA36B",exp:105,dmg:DMG.BITE,dodge:15,backstep:true,pace:2.6,size:2.94},
 };
@@ -1534,7 +1546,8 @@ const GATES=[
          {k:"cicada",from:7,w:30}]},
   {id:"back",n:"지하상가 게이트",d:"대학가 골목 아래 지하상가. 사람이었던 것들이 걸어다닌다",
    days:15,need:"front",boss:{5:"dogzomb",10:"crawlzomb",15:"zombie"},
-   pool:[{k:"zomb",w:40},{k:"sqzomb",from:3,w:55},{k:"fzomb",from:6,w:35}]},
+   /* 앞쪽 닷새는 짐승만(다람쥐·비둘기, 5일차 보스도 강아지), 그 뒤로 사람이었던 것들이 섞입니다 */
+   pool:[{k:"sqzomb",w:55},{k:"pgzomb",from:3,w:42},{k:"zomb",from:7,w:38},{k:"fzomb",from:11,w:30}]},
   {id:"hall",n:"강의동 게이트",d:"본관 뒤편. 아직 아무도 못 봤다",
    days:20,need:"back",pool:[{k:"zomb"}],boss:{20:"bloodeyes"},wip:true},
 ];
@@ -1560,8 +1573,13 @@ const ZOMB_LIMBS=[
 /* 그림이 읽힌 뒤 한 번만 자릅니다 — 몸통(팔다리를 뺀 것)과 팔다리 조각.
    root 는 몸통에 남겨 두는 팔다리 뿌리입니다. 조각이 밀려나도 이음매가 비지 않습니다 */
 const zombParts=img=>cutParts(img,ZOMB_LIMBS,ZOMB_BASE);
-/* 그림 한 장을 몸통과 팔다리 조각으로 자릅니다. limbs 표마다 한 번만 자르고 그림에 붙여 둡니다 */
-function cutParts(img,LIMBS,BASE){
+/* 잘린 단면에 칠하는 색 — 그림의 외곽선과 같은 계열의 어두운 갈색 */
+const CUT_EDGE="#2B2117";
+/* 그림 한 장을 몸통과 팔다리 조각으로 자릅니다. limbs 표마다 한 번만 자르고 그림에 붙여 둡니다.
+   rim 을 주면 잘라 낸 자리에 어두운 테두리를 둘러 줍니다 — 단면이 그냥 뚝 끊겨 보이지 않고
+   몸이 거기서 둥글게 돌아가는 것처럼 읽힙니다. 팔을 내린 자세에서는 조각이 그 자리를 덮으므로
+   원래 그림과 달라지지 않습니다(겨드랑이에 그림자가 한 줄 지는 정도) */
+function cutParts(img,LIMBS,BASE,rim){
   img._cut=img._cut||new Map();
   if(img._cut.has(LIMBS))return img._cut.get(LIMBS);
   const w=img.naturalWidth,h=img.naturalHeight,k=w/BASE;
@@ -1576,6 +1594,18 @@ function cutParts(img,LIMBS,BASE){
       bx.globalCompositeOperation="destination-out";
       const c=mk(),x=c.getContext("2d");path(x,L.poly);x.clip();x.drawImage(img,0,0);return c;
     });
+    if(rim){
+      /* 떼어 낸 자리(poly 에서 root 를 뺀 것)를 어둡게 칠해 두고, 흐리게 번지도록 몸통 위에만 얹습니다.
+         source-atop 이라 몸통 바깥으로는 새어 나가지 않고 잘린 가장자리 안쪽에만 남습니다 */
+      const cut=mk(),cx=cut.getContext("2d");
+      cx.fillStyle=CUT_EDGE;LIMBS.forEach(L=>{path(cx,L.poly);cx.fill()});
+      cx.globalCompositeOperation="destination-out";LIMBS.forEach(L=>{path(cx,L.root);cx.fill()});
+      bx.globalCompositeOperation="source-atop";
+      for(const [b,a] of [[3,.55],[1,.85]]){       // 넓고 옅은 그늘 위에 좁고 진한 선
+        bx.filter=`blur(${b*k}px)`;bx.globalAlpha=a*rim;bx.drawImage(cut,0,0);
+      }
+      bx.filter="none";bx.globalAlpha=1;
+    }
     img._cut.set(LIMBS,{body,limbs});
   }catch(e){img._cut.set(LIMBS,null)}
   return img._cut.get(LIMBS);
@@ -1604,12 +1634,16 @@ const ZBOSS_ARMUP=1.25;    /* 다 들었을 때 팔이 그림 위로 넘는 높�
 const ZBOSS_BASE=384;
 /* 보스 그림(384 기준)의 두 팔. dir 은 드는 방향 — 왼팔은 시계방향, 오른팔은 반시계방향으로 들립니다 */
 const ZBOSS_LIMBS=[
-  /* root 는 팔을 떼어 낸 뒤 몸에 도로 칠해 주는 어깨 끝입니다. 위팔까지 넓게 잡으면
-     팔을 들었을 때 겨드랑이에 잘린 팔이 남아 보이므로, 어깨 봉우리만 덮습니다 */
-  {poly:[[0,50],[70,30],[105,70],[110,120],[96,160],[100,285],[0,285]],px:82,py:80,dir:1,
-   root:[[52,34],[100,62],[104,88],[58,88]]},
-  {poly:[[286,105],[384,92],[384,384],[262,384],[262,300],[286,292]],px:322,py:150,dir:-1,
-   root:[[286,105],[326,100],[326,152],[286,152]]},
+  /* poly 의 몸통 쪽 변은 겨드랑이 주름을 따라 굽습니다 — 직선으로 자르면 팔을 들었을 때
+     가슴이 칼로 썬 듯 평평하게 끊겨 보입니다. root 는 몸에 도로 칠해 주는 어깨 봉우리인데,
+     밑변이 poly 의 곡선으로 이어져야 턱이 지지 않습니다(예전에는 y=88 에서 수평으로 끊겨
+     ㄴ자 계단이 보였습니다). 위팔까지 넓게 잡으면 겨드랑이에 잘린 팔이 남아 보입니다 */
+  {poly:[[0,50],[70,28],[104,60],[118,88],[114,116],[106,144],[100,172],[98,200],[100,285],[0,285]],
+   px:82,py:80,dir:1,
+   root:[[54,36],[70,28],[104,60],[118,88],[104,96],[78,70],[56,50]]},
+  {poly:[[296,108],[384,92],[384,384],[262,384],[262,300],[264,258],[268,220],[274,194],[282,166],[290,138]],
+   px:322,py:150,dir:-1,
+   root:[[296,108],[334,104],[330,148],[298,142],[290,138]]},
 ];
 /* 지금 자세 — arm 은 팔을 든 정도(1 이 다 든 것, 음수는 내려찍어 안쪽으로 꺾인 것) */
 function zbossPose(f){
@@ -1716,9 +1750,9 @@ function zombDraw(g,img,S,c){
 }
 /* 물어 죽이는 것들. 여기에 당한 대원은 그 자리에서 일어나 적이 됩니다.
    다리가 부러진 좀비는 물지 않고 찢으므로(SLASH) 빠집니다. */
-const ZOMB_BITE=new Set(["zombie","zomb","dogzomb","sqzomb","fzomb"]);
+const ZOMB_BITE=new Set(["zombie","zomb","dogzomb","sqzomb","fzomb","pgzomb"]);
 /* 좀비 계열 전부 — 항체(생명공학과)가 피해를 덜어내는 대상입니다 */
-const ZOMB_KIN=new Set(["zombie","zomb","dogzomb","crawlzomb","sqzomb","fzomb"]);
+const ZOMB_KIN=new Set(["zombie","zomb","dogzomb","crawlzomb","sqzomb","fzomb","pgzomb"]);
 /* 보스가 데리고 나오는 것들. 좀비는 무리로 몰려옵니다. */
 const BOSS_ADDS={zombie:{key:"zomb",count:5}};
 /* 무엇이 나오는지는 알려주지 않습니다. 공기만 바뀝니다. */
@@ -2170,9 +2204,9 @@ const FACILITIES=[
      logAdd(v,"자원 입학");
      claimFace(v);G.roster.push(v);G.recruited++;G.freeRecruit=v;
    }},
-  {id:"arcade",ic:"🕹",n:"게임장",d:"거미 잡기와 별 줍기 · 상금 있음",
+  {id:"arcade",ic:"🕹",n:"게임장",d:"거미 잡기 · 별 줍기 · 좀비 헌터",
    cond:g=>g.explores>=1,prog:g=>`탐색 ${Math.min(g.explores,1)} / 1회`,
-   msg:"학생회관 지하 오락실에 전원이 들어왔습니다.<br><br>누군가 게이트 안의 것들을 본떠 만든 기계가 한 대 놓여 있습니다. 거미 잡기와 별 줍기, 두 대가 있습니다.<br><br>기계마다 탐색을 다녀올 때마다 한 번씩 상금을 받을 수 있습니다."},
+   msg:"학생회관 지하 오락실에 전원이 들어왔습니다.<br><br>누군가 게이트 안의 것들을 본떠 만든 기계가 세 대 놓여 있습니다.<br><br>돈은 들지도 나오지도 않습니다. 남는 것은 기록뿐입니다."},
   {id:"tower",ic:"🗿",n:"메모리얼 홀",d:"돌아오지 못한 사람들의 기록",
    cond:g=>g.deaths>=1,prog:g=>`첫 사망자가 나오면 열림`,
    msg:"의학대학에 사망자를 기리는 공간을 마련했습니다.<br><br>돌아오지 못한 사람들의 기록이 여기 남습니다."},
@@ -2284,9 +2318,9 @@ const NPCS={
     again:["누굴 눕히시겠습니까?","야 엄살 부리지 마. 안 죽어 안 죽어.","무리해서 넣지 마세요. 돈 나갑니다."]},
   arcade:{n:"오락실 주인",role:"게임장",ic:"🕹",
     first:["안쪽 것들을 본떠 만든 기계입니다. 무섭죠? 재밌기도 하고.",
-           "기계마다 다녀올 때 한 번씩만 상금이 나갑니다.",
-           "돈 딸 생각은 마세요. 그 정도는 아닙니다."],
-    again:["한 판 하시게요?","오늘 상금은 아직 남아 있습니다.","기록은 갱신하셨습니까?"]},
+           "돈은 안 받습니다. 상금도 없고요.",
+           "어차피 여기 말고 돈 쓸 데가 많잖습니까."],
+    again:["한 판 하시게요?","공짜입니다. 마음껏 하세요.","기록은 갱신하셨습니까?"]},
   deptArts:{n:"태권도부 사범",role:"예체능대학 학과사무실",ic:"🥋",
     first:["도장은 비었습니다. 매트만 남았죠.",
            "몸으로 부딪치는 걸 배우고 싶으면 여기로 오세요.",
@@ -2480,7 +2514,7 @@ const FOE_ART={worm:"foe/worm.webp",hopper:"foe/hopper.webp",mantis:"foe/mantis.
                cicada:"foe/cicada.webp",beetle:"foe/beetle.webp",hornet:"foe/hornet.webp",
                bee:"foe/bee.webp",
                bloodeyes:"",dogzomb:"foe/dogzomb.webp",zombie:"foe/zombBoss.webp",zomb:"foe/zomb.webp",crawlzomb:"foe/zomb.webp",
-               sqzomb:"foe/sqzomb.webp",fzomb:"foe/fzomb.webp"};
+               sqzomb:"foe/sqzomb.webp",fzomb:"foe/fzomb.webp",pgzomb:"foe/pgzomb.webp"};
 /* "○○Fly"는 그 몬스터가 날아오를 때 쓰는 그림입니다.
    메뚜기 두 장은 눈을 한가운데 두고 같은 배율로 맞춰 두었으므로,
    같은 자리에 같은 크기로 그리면 몸은 그대로 있고 날개만 펴집니다. */
@@ -2577,7 +2611,7 @@ const ITEM_ART={        /* 아이템 아이콘 — 만든 것부터 한 줄씩 �
   tongs:"item/tongs.png",
   mic:"item/mic.png",
   pistol:"item/pistol.png",
-  seized:"item/pistol.png",    /* 압수 권총 — 전용 그림이 생길 때까지 권총 그림 */
+  seized:"item/seized.png",
   shotgun:"item/shotgun.png",
   rifle:"item/rifle.png",
   baton:"item/baton.png",
@@ -2602,7 +2636,7 @@ const ITEM_ART={        /* 아이템 아이콘 — 만든 것부터 한 줄씩 �
   medkit:"item/medkit.png",
   medkitD:"item/medkitD.png",
   healspray:"item/healspray.png",
-  fkiller:"item/spray.webp",   /* 에프킬라 — 전용 그림이 생길 때까지 헤어스프레이 그림 */
+  fkiller:"item/fkiller.png",
   oldbook:"item/oldbook.png",
   balm:"item/balm.png",
   tcard:"item/tcard.png",
@@ -2656,6 +2690,60 @@ const ITEM_ART={        /* 아이템 아이콘 — 만든 것부터 한 줄씩 �
   cwing:"item/cwing.png",
   bagpouch:"item/bagpouch.png",
   scythe:"item/scythe.png",
+  /* 지하상가 잡화·식품·손장비 (2026-09-18 추가) */
+  copper:"item/copper.png",
+  earplug:"item/earplug.png",
+  gimbap:"item/gimbap.png",
+  laptop:"item/laptop.png",
+  mop:"item/mop.png",
+  dosirak:"item/dosirak.png",
+  tissue:"item/tissue.png",
+  tteok:"item/tteok.png",
+  plunger:"item/plunger.png",
+  runner:"item/runner.png",
+  mannequin:"item/mannequin.png",
+  /* 옷·손장비·먹을 것 (2026-09-18 추가) */
+  leather:"item/leather.png",
+  hammer:"item/hammer.png",
+  rollpin:"item/rollpin.png",
+  bmilk:"item/bmilk.png",
+  fresh:"item/fresh.png",
+  bench:"item/bench.png",
+  toiletlid:"item/toiletlid.png",
+  sapron:"item/sapron.png",
+  tee:"item/tee.png",
+  beanie:"item/beanie.png",
+  vitamin:"item/vitamin.png",
+  /* 사격장 장비 · 식품 · 잡화 (2026-09-18 추가) */
+  goggles:"item/goggles.png",
+  svest:"item/svest.png",
+  cake:"item/cake.png",
+  selfie:"item/selfie.png",
+  soboro:"item/soboro.png",
+  wishcoin:"item/wishcoin.png",
+  pipe:"item/pipe.png",
+  cball:"item/cball.png",
+  swatch:"item/swatch.png",
+  ammobox:"item/ammobox.png",
+  /* 옷·머리·손장비·약 (2026-09-18 추가) */
+  pcoat:"item/pcoat.png",
+  umbrella:"item/umbrella.png",
+  hood:"item/hood.png",
+  bakerhat:"item/bakerhat.png",
+  painkiller:"item/painkiller.png",
+  candlestick:"item/candlestick.png",
+  cargo:"item/cargo.png",
+  tarot:"item/tarot.png",
+  ftongs:"item/ftongs.png",
+  pas:"item/pas.png",
+  cvest:"item/cvest.png",
+  target:"item/target.png",
+  /* 마지막 다섯 (2026-09-18 추가) — 이걸로 그림 없는 아이템이 없어졌습니다 */
+  plywood:"item/plywood.png",
+  candle:"item/candle.png",
+  headset:"item/headset.png",
+  hivis:"item/hivis.png",
+  gconsole:"item/gconsole.png",
 };
 const artUrl=v=>v?ART+v:"";
 /* 그림이 아직 없는 아이템도 같은 크기의 빈 자리를 남깁니다.
@@ -3063,6 +3151,18 @@ BATTLE_RIG.seized=BATTLE_RIG.pistol;
 BATTLE_RIG.fkiller=BATTLE_RIG.spray;
 /* 뿔 방패는 전공책처럼 세워 듭니다 — 전투장비배치.html 에서 따로 맞추기 전까지 */
 BATTLE_RIG.hshield=BATTLE_RIG.book;
+/* 자루가 긴 것들은 야구방망이와 같은 자리에, 노트북은 전공책처럼 세워 듭니다 (2026-09-18) */
+BATTLE_RIG.mop=BATTLE_RIG.plunger=BATTLE_RIG.mannequin=BATTLE_RIG.bat;
+BATTLE_RIG.laptop=BATTLE_RIG.book;
+/* 망치·밀대도 자루로 휘두르고, 벤치 판자는 문짝처럼 크게, 변기 뚜껑은 냄비 뚜껑처럼 듭니다 */
+BATTLE_RIG.hammer=BATTLE_RIG.rollpin=BATTLE_RIG.selfie=BATTLE_RIG.pipe=BATTLE_RIG.bat;
+/* 장우산·촛대도 자루로, 튀김 젓가락은 집게와 같은 자리에 쥡니다 */
+BATTLE_RIG.umbrella=BATTLE_RIG.candlestick=BATTLE_RIG.bat;
+BATTLE_RIG.ftongs=BATTLE_RIG.tongs;
+/* 합판은 문짝처럼 크게 세워 듭니다 */
+BATTLE_RIG.plywood=BATTLE_RIG.doorpanel;
+BATTLE_RIG.bench=BATTLE_RIG.doorpanel;
+BATTLE_RIG.toiletlid=BATTLE_RIG.lid;
 /* BATTLE_RIG 에 없는 아이템·방향이 나오면 기대는 기본값 */
 const RIG_FB={
   rh:{ ne:{x:.30,y:-1.50,rot:.5,scale:1,behind:true}, nw:{x:.30,y:-1.50,rot:.5,scale:1,behind:true},
@@ -3508,6 +3608,13 @@ function introTalkFor(list,keys){
             [{p:a},"근처에 펫샵에서 탈출했나?"],
             b&&[{p:b},"온다! 빠르다!"]].filter(Boolean);
   }
+  if(keys.includes("pgzomb")&&!G.metPg){
+    G.metPg=true;
+    return [[{p:a},"비둘기다. 저것도 물렸나 봐."],
+            b&&[{p:b},"여긴 지하인데 어디로 들어온 거야?"],
+            [{p:a},"난다. 막아 놓은 건 소용없겠어."],
+            b&&[{p:b},"머리 조심해!"]].filter(Boolean);
+  }
   return null;
 }
 function startBattle(list,keys){
@@ -3749,10 +3856,12 @@ function tick(dt){
       continue;
     }
     if(f.flee==="heal"){
-      f.hp=Math.min(f.maxHp,f.hp+f.maxHp*FL.rate*dt);
+      /* live 는 이 판이 시작될 때 걸러 둔 것이라, 이번 판에 쓰러진 것도 여기 남아 있습니다.
+         hp>0 을 보지 않으면 0 이 된 것을 도로 채워 놓아 영영 죽지 않습니다 */
+      if(f.hp>0)f.hp=Math.min(f.maxHp,f.hp+f.maxHp*FL.rate*dt);
       const n=lifeA.reduce((b,o)=>D(f,o)<D(f,b)?o:b);
       f.face=Math.atan2(n.y-f.y,n.x-f.x);          // 노려보기만 한다
-      if(f.hp>=f.maxHp*FL.to){f.flee=null;say(`${f.name}이(가) 다시 달려든다.`)}
+      if(f.hp>0&&f.hp>=f.maxHp*FL.to){f.flee=null;say(`${f.name}이(가) 다시 달려든다.`)}
       continue;
     }
     if(f.key==="zombie"&&zbossStep(f,lifeA,dt))continue;
@@ -4045,8 +4154,23 @@ function faceFoe(g,ang,extra){
 const ZBOSS_SIZE=4.6;                            /* 좀비 보스 그림 크기(판정 반지름 배수) */
 const KEEP_RATIO=new Set(["cicada"]);            /* 그림 비율대로 그리는 몬스터 */
 /* 정면을 보는 그림 — 방향대로 돌리지 않고 좌우만 뒤집습니다(좀비 보스와 같은 방식) */
-const FOE_FRONT=new Set(["sqzomb","fzomb"]);
-const BSTEP_T=0.34;                              /* 뒤로 물러났다 돌아오는 데 걸리는 시간(초) */
+const FOE_FRONT=new Set(["sqzomb","fzomb","pgzomb"]);
+/* 뒤로 흘리는 동작 — 훌쩍 뛰어 물러나고(out) → 자세를 고르며 멈췄다가(hold) → 걸어 돌아옵니다(in).
+   그림만 움직입니다. 판정 자리는 그대로여서 전투 계산은 달라지지 않습니다 */
+const BSTEP_OUT=0.24, BSTEP_HOLD=0.30, BSTEP_IN=0.36;
+const BSTEP_T=BSTEP_OUT+BSTEP_HOLD+BSTEP_IN;     /* 한 번 흘리는 데 걸리는 시간(초) */
+const BSTEP_DIST=2.6;                            /* 물러나는 거리(판정 반지름 배수) */
+const BSTEP_HOP=0.62;                            /* 뛰는 동안 뜨는 높이(판정 반지름 배수) */
+/* 지금 자세 — bp 물러난 정도(0 제자리 ~ 1 다 물러남) · hop 떠 있는 정도 · ret 돌아오는 중인 정도 */
+function bstepPose(u){
+  const t=u.bstepT||0;
+  if(t<=0)return{bp:0,hop:0,ret:0};
+  const e=BSTEP_T-t, ease=k=>k*k*(3-2*k);        // 시작부터 지난 시간
+  if(e<BSTEP_OUT){const k=e/BSTEP_OUT;return{bp:ease(k),hop:Math.sin(k*Math.PI),ret:0}}
+  if(e<BSTEP_OUT+BSTEP_HOLD)return{bp:1,hop:0,ret:0};
+  const k=Math.min(1,(e-BSTEP_OUT-BSTEP_HOLD)/BSTEP_IN);
+  return{bp:1-ease(k),hop:0,ret:1-k};
+}
 function drawFoe(f){
   const x=f.x*SX,y=f.y*SY,r=f.r*Math.min(SX,SY);
   const bx=Math.cos(f.face),by=Math.sin(f.face);
@@ -4176,7 +4300,7 @@ function drawFoe(f){
     /* 좀비 보스 — 정면을 보는 그림이라 돌리지 않고 좌우만 뒤집습니다.
        걸음마다 몸이 들렸다 쿵 내려앉고, 어깨가 좌우로 기웁니다. 발이 판정 원의 아래쪽에 닿습니다 */
     const c=f.cp||0, step=f.slam?0:Math.abs(Math.sin(c)), po=zbossPose(f);
-    const S=r*ZBOSS_SIZE, img=sprite("zombie"), zp=cutParts(img,ZBOSS_LIMBS,ZBOSS_BASE);
+    const S=r*ZBOSS_SIZE, img=sprite("zombie"), zp=cutParts(img,ZBOSS_LIMBS,ZBOSS_BASE,1);
     ctx.save();ctx.translate(x,y+r);
     if(Math.cos(f.face)<0)ctx.scale(-1,1);
     if(po.shake)ctx.translate((Math.random()-.5)*r*.35*po.shake,(Math.random()-.5)*r*.12*po.shake);
@@ -4208,17 +4332,20 @@ function drawFoe(f){
       ctx.textAlign="center";ctx.fillText("BOSS",x,y+r-S-8-po.lift*r*ZBOSS_ARMUP)}
   }else if(FOE_FRONT.has(f.key)&&sprite(f.key)){
     /* 정면을 보는 그림 — 돌리지 않고 좌우만 뒤집습니다. 발이 판정 원의 아래쪽에 닿습니다.
-       bp 는 뒤로 물러난 정도(1 물러난 순간 → 0 제자리) — 그만큼 뒤로 밀리고 상체가 젖혀집니다 */
+       bs 는 뒤로 흘리는 자세 — 뛰어 물러난 만큼 뒤로 밀리고 몸이 뜨며 상체가 젖혀집니다 */
     const sp=sprite(f.key), E=ENEMIES[f.key]||{}, S=r*(E.size||4.0);
     const c=f.cp||0, step=Math.abs(Math.sin(c));
-    const bp=Math.sqrt(Math.max(0,f.bstepT||0)/BSTEP_T), bk=bp*f.r*1.3;
+    const bs=bstepPose(f), bp=bs.bp, bk=bp*f.r*BSTEP_DIST;
     const st=f.strike>0?Math.sin((1-Math.max(0,f.strike)/.24)*Math.PI):0;
     ctx.save();
     ctx.translate(x-Math.cos(f.face)*bk*SX, y+r-Math.sin(f.face)*bk*SY);
     if(Math.cos(f.face)<0)ctx.scale(-1,1);
-    ctx.translate(0,-step*r*0.16-st*r*0.10);      // 걸음마다 들썩이고, 덤빌 때 솟습니다
-    ctx.rotate(Math.sin(c)*0.05-bp*0.17);
-    ctx.scale(1+(1-step)*0.045+st*0.08, 1-(1-step)*0.045-st*0.04);
+    /* 걸음마다 들썩이고, 덤빌 때 솟고, 뛰어 물러나는 동안 공중에 뜹니다 */
+    ctx.translate(0,-step*r*0.16-st*r*0.10-bs.hop*r*BSTEP_HOP);
+    /* 뛰는 동안은 뒤로 젖히고, 돌아오는 동안은 앞으로 기웁니다 */
+    ctx.rotate(Math.sin(c)*0.05-bp*0.20+bs.ret*0.10);
+    ctx.scale(1+(1-step)*0.045+st*0.08-bs.hop*0.05,
+              1-(1-step)*0.045-st*0.04+bs.hop*0.10);   // 뜰 때는 세로로 늘어납니다
     if(f.flash>0)ctx.filter="brightness(0) invert(1)";
     ctx.drawImage(sp,-S/2,-S,S,S);
     ctx.restore();
@@ -4333,7 +4460,10 @@ function drawFoe(f){
   const lift=(f.key==="hopper"&&f.air>0)?Math.sin((1-f.air/HOP_AIR)*Math.PI)*r*1.6
     /* 좀비 보스는 서 있는 그림 위로 — 팔을 들면 이름표와 막대도 그만큼 비켜 줍니다 */
     :(f.key==="zombie"&&sprite("zombie"))?r*(ZBOSS_SIZE-2+zbossPose(f).lift*ZBOSS_ARMUP):0;
-  bar(f,x,y-r-6-lift,"#F25C5C",r);
+  /* 뒤로 흘리는 동안에는 막대도 그림을 따라 물러나고 같이 떠오릅니다 */
+  const bs=(FOE_FRONT.has(f.key)&&f.bstepT>0)?bstepPose(f):null, bk=bs?bs.bp*f.r*BSTEP_DIST:0;
+  bar(f, x-(bs?Math.cos(f.face)*bk*SX:0),
+       y-r-6-lift-(bs?Math.sin(f.face)*bk*SY+bs.hop*r*BSTEP_HOP:0), "#F25C5C", r);
 }
 /* 음파 — 우는 쪽에서 대상 쪽으로 고리 세 겹이 벌어지며 나아간다 */
 function drawWave(w){
@@ -4971,12 +5101,8 @@ function unequip(p,slot){
 /* ═══════════ 미니게임 · 거미 잡기 ═══════════
    줄을 타고 내려오는 거미를 화면에서 눌러 잡습니다. 세 마리를 놓치면 끝. */
 let AR=null,araf=null,arlast=0,acv,actx,AW=380,AH=470;
-/* 요금을 못 내면 기계가 돌지 않습니다 */
-function payFee(kind){
-  const f=ARCADE_FEE[kind];
-  if(G.gold<f)return false;
-  G.gold-=f;return true;
-}
+/* 오락실은 돈이 오가지 않습니다 — 요금도 상금도 없고 남는 것은 기록뿐입니다 (2026-09-18).
+   상금으로 버는 돈이 게이트에서 버는 것보다 많아져서 탐색할 이유가 없어졌습니다. */
 function arcadeStop(){if(araf)cancelAnimationFrame(araf);araf=null}
 function arcadeStart(){
   AR={kind:"spider",score:0,miss:0,t:0,spawn:.5,list:[],pops:[],over:false};
@@ -5079,10 +5205,6 @@ function arSpider(s){
   for(const e of [-.3,-.1,.1,.3]){actx.beginPath();actx.arc(e*r,r*0.52,r*0.1,0,7);actx.fill()}
   actx.restore();
 }
-/* 상금은 잡은 만큼. 대신 판마다 요금을 냅니다 */
-const ARCADE_FEE={spider:10,star:10,hunt:20};
-const arcadePrize=sc=>sc*3;
-
 /* ═══════════ 미니게임 · 별 줍기 ═══════════
    화면을 손가락으로 끌어 좌우로 움직이고, 점프 버튼으로 발판을 오르며 별을 모읍니다. */
 const STAR_TIME=45;
@@ -5254,7 +5376,6 @@ function starPaint(){
   actx.fillStyle=AR.t<10?"#F25C5C":"#968CB0";
   actx.fillText(`${AR.t.toFixed(1)}초`,AW-12,24);
 }
-const starPrize=sc=>sc*4;
 
 /* ═══════════ 미니게임 · 좀비 헌터 ═══════════
    좌우로 움직이며 위에서 내려오는 좀비를 쏩니다. 총알은 0.95초마다 한 발. 한 방이면 죽습니다. */
@@ -5425,13 +5546,12 @@ function huntZombie(z){
     actx.fillText(z.hp,z.x,z.y-r-15);
   }
 }
-const huntPrize=sc=>sc*3;
 
 
 
 /* ═══════════ 화면 ═══════════ */
 const el=document.getElementById("app");
-const logo=`<div class="logo">Univer<em>City</em>Hunter</div>`;
+const logo=`<div class="logo">Univer<em>City</em>Hunter<button class="snd" type="button" aria-label="소리"></button></div>`;
 
 function statGrid(w){
   return `<div class="grid">${STATS.map(s=>{
@@ -5807,7 +5927,8 @@ function bindChips(){
 /* ── 대화 이벤트는 캠퍼스에 한 번 올 때마다 하나만 ──
    조건이 여럿 겹쳐도 줄지어 대화가 이어지지 않게 합니다(앞뒤 대화가 이어진 이야기로 읽히기도 합니다).
    G.visit 은 게이트에서 돌아올 때마다 하나씩 늘고, 대화를 띄우면 G.talkAt 에 그 값을 적습니다.
-   남은 대화는 다음에 돌아왔을 때 뜹니다. 플레이어가 직접 한 일에 바로 붙는 대화(활 첫 구매)는 세지 않습니다. */
+   남은 대화는 다음에 돌아왔을 때 뜹니다. 플레이어가 직접 한 일에 바로 붙는 대화(활 첫 구매,
+   학생회관에서 재료를 넘기는 것)는 세지 않습니다 — 그쪽은 들어서는 것 말고 다른 방법이 없기 때문입니다. */
 const talkFree=()=>G.talkAt!==(G.visit||0);
 const talkUse=()=>{G.talkAt=G.visit||0};
 function pendingUnlock(){return FACILITIES.find(f=>f.cond(G)&&!G.announced.includes(f.id)&&(!f.intro||talkFree()))}
@@ -5944,6 +6065,7 @@ function wingHandIn(){
   if(!toBag)G.store[POUCH]=(G.store[POUCH]||0)+1;
   markSeen(POUCH);
   popupTalk([
+    ["na",`의뢰받은 <b>${ITEMS[WING].n}</b>를 가져왔다.`],
     ["union","매미의 날개를 가져왔군."],
     ["pc","매미는 게이트 깊은 곳에서 만날 수 있어서 어려웠어."],
     ["union","그만큼 도움되는 아이템을 만들 수 있을 거야. 잠깐만 여기서 기다려 봐. 사실 미리 얻은 매미의 날개가 있어서 시제품을 만들어 봤으니."],
@@ -5954,15 +6076,20 @@ function wingHandIn(){
     ["union","이걸로 더 많은 아이템을 사고 팔 수 있게 되겠군. 후후후."],
   ],render);
 }
-/* ── 학생회관에 들어섰을 때 도는 두 번째 의뢰 ──
-   받기 · 넘기기 · 다시 받기 세 갈래뿐입니다. 팝업이 떠 있으면 다음 그리기에서 봅니다. */
+/* ── 학생회관에 들어섰을 때 도는 의뢰 ──
+   받기 · 넘기기 · 다시 받기뿐입니다. 팝업이 떠 있으면 다음 그리기에서 봅니다.
+   **귀환당 하나 제한(talkFree)을 쓰지 않습니다.** 학생회관에 들어서는 것은 플레이어가
+   직접 한 일이고, 넘기는 버튼이 따로 없어 들어서는 것 말고는 재료를 건넬 방법이 없습니다.
+   제한을 걸었더니 "가져왔습니다"라고만 적힌 채 아무 일도 일어나지 않아 안 깨지는 것처럼 보였습니다.
+   갈래마다 return 하므로 한 번에 하나씩, 팝업을 닫아야 다음 것이 이어집니다. */
 function unionNotes(){
-  if(document.querySelector(".pop")||!talkFree())return;
-  if(G.wingQ===1&&hasItem(WING)){talkUse();wingHandIn();return}
+  if(document.querySelector(".pop"))return;
+  if(G.wingQ===1&&hasItem(WING)){wingHandIn();return}
   if(G.hornQ===1&&hasItem(HORN)){
-    G.hornQ=2;takeItem(HORN);talkUse();
+    G.hornQ=2;takeItem(HORN);
     markSeen("hshield");markSeen("bhelm");
     popupTalk([
+      ["na",`의뢰받은 <b>${ITEMS[HORN].n}</b>을 가져왔다.`],
       ["union","가져왔나? 가져왔어?? 가져왔냐구!!"],
       ["pc","왜 이렇게 집착하는 거야?"],
       ["union","가져오지 않았다면 꺼져주시면 감사하겠습니다."],
@@ -5980,8 +6107,9 @@ function unionNotes(){
   }
   /* 앞발을 가져왔다 — 넘기고 낫을 맡깁니다 */
   if(G.armQ===1&&hasArm()){
-    G.armQ=2;talkUse();
+    G.armQ=2;
     popupTalk([
+      ["na",`의뢰받은 <b>${ITEMS[ARM].n}</b>을 가져왔다.`],
       ["union","고생했어. 이걸 가공하면 좋은 무기가 될 거야."],
       ["pc","좋은 무기로 만들어 줘."],
       ["union","무기가 완성되면 매점에 팔게."],
@@ -5997,7 +6125,7 @@ function unionNotes(){
   }
   /* 첫 의뢰를 받아 간 뒤에 한 번 */
   if(!G.armQ&&questGot(QUESTS[0])){
-    G.armQ=1;talkUse();
+    G.armQ=1;
     popupTalk([
       ["union","보스 사마귀가 있다니 끔찍한 일이야."],
       ["pc","진짜 무서웠어. 거대한 앞발이 어찌나 날카롭던지."],
@@ -6011,7 +6139,7 @@ function unionNotes(){
   }
   /* 낫을 사 갔는데 지금은 하나도 없다 — 버렸거나 팔았거나 부서졌거나 */
   if(G.armQ===2&&G.scytheBought&&!hasScythe()){
-    G.armQ=1;talkUse();
+    G.armQ=1;
     popupTalk([
       ["union","사마귀 낫은 잘 쓰고 있어? 학생회의 걸작이라고."],
       ["pc","어.. 음.. 그.."],
@@ -6084,6 +6212,99 @@ function playTap(){
   const g=document.getElementById("goldnum");
   if(g){g.classList.add("goldbump");setTimeout(()=>g.classList.remove("goldbump"),420)}
 }
+/* ══ 배경음악 ══
+   화면 갈래마다 한 곡씩 돌립니다. art/bgm/ 에 mp3 를 넣으면 그대로 붙고,
+   아직 안 만든 곡은 조용히 넘어갑니다 — 파일이 없다고 게임이 멈추지는 않습니다.
+   브라우저는 사람이 화면을 한 번 건드리기 전에는 소리를 내주지 않습니다. 그래서 일단 틀어 보고,
+   거절당하면 첫 입력(터치·클릭·키) 때 한 번 더 겁니다 — 제목 화면을 열자마자 나오거나,
+   안 되면 첫 손짓에 나옵니다. */
+const BGM_ART={
+  title:  "bgm/title.mp3",     /* 제목 · 저장 파일 고르기 */
+  intro:  "bgm/intro.mp3",     /* 오프닝 일곱 줄 · 능력치 배분 · 브리핑 */
+  campus: "bgm/campus.mp3",    /* 캠퍼스와 그 안의 시설 */
+  gate:   "bgm/gate.mp3",      /* 게이트 안 — 장소 고르기 · 전리품 · 야영 · 귀환 */
+  battle: "bgm/battle.mp3",    /* 전투 */
+  boss:   "bgm/boss.mp3",      /* 보스가 있는 전투 */
+};
+const BGM_VOL=0.42, BGM_FADE=520;        /* 소리 크기 · 곡을 바꿀 때 걸치는 시간(ms) */
+const BGM_KEY="uch.bgmOff";
+/* 도구들(아이템목록·스킬목록·캐릭터이동·해금조건)은 index.html 의 <script> 를 제 페이지에
+   그대로 주입해 자료만 읽어 갑니다. 거기서까지 노래가 흐를 이유는 없습니다.
+   도구들은 게임 화면 자리를 `<div id="app" hidden>` 으로 숨겨 두므로 그것으로 가립니다.
+   모의전투처럼 iframe 으로 띄운 것도 뺍니다. 직접 끄고 싶으면 window.UCH_NO_BGM 를 세우십시오. */
+function bgmAllowed(){
+  if(window.UCH_NO_BGM)return false;
+  try{if(window.top!==window.self)return false}catch(e){return false}
+  const a=document.getElementById("app");
+  return !!a&&!a.hidden;
+}
+let bgmOff=false; try{bgmOff=localStorage.getItem(BGM_KEY)==="1"}catch(e){}
+let bgmNow="", bgmEl=null, bgmArmed=false;
+/* 지금 화면에 맞는 곡. 빈 문자열이면 아무것도 틀지 않습니다 */
+function bgmFor(){
+  const S=G.scene;
+  if(S==="title"||S==="slots")return "title";
+  if(S==="intro"||S==="stats"||S==="briefing")return "intro";
+  if(S==="fail")return "";                                   /* 전멸 — 조용히 */
+  if(S==="battle"||S==="battleload")
+    return (B&&B.foes&&B.foes.some(f=>f.boss))?"boss":"battle";
+  /* confirm 은 들어가기 전 마지막 확인이라 아직 캠퍼스입니다.
+     instant("오늘의 힘")는 게이트 안에서 고르므로 캠퍼스가 아니라 gate 입니다 */
+  if(CAMPUS_SCENES.includes(S)||S==="confirm"||S==="arcadeend"
+     ||S==="volunteer"||S==="talk")return "campus";
+  return "gate";      /* 장소 고르기 · 조우 · 오늘의 힘 · 전리품 · 야영 · 레벨업 · 귀환 */
+}
+/* 소리 크기를 ms 동안 to 까지 밀어 올리거나 내립니다 */
+function bgmRamp(a,to,ms,done){
+  if(a._r)clearInterval(a._r);
+  const from=a.volume, t0=Date.now();
+  a._r=setInterval(()=>{
+    const k=Math.min(1,(Date.now()-t0)/ms);
+    try{a.volume=Math.max(0,Math.min(1,from+(to-from)*k))}catch(e){}
+    if(k>=1){clearInterval(a._r);a._r=null;if(done)done()}
+  },40);
+}
+function bgmTry(a){
+  const pr=a.play();
+  if(pr&&pr.catch)pr.catch(()=>bgmArm());
+  bgmRamp(a,bgmOff?0:BGM_VOL,BGM_FADE);
+}
+/* 아직 소리를 못 냅니다 — 첫 입력을 기다렸다 한 번 더 겁니다 */
+function bgmArm(){
+  if(bgmArmed)return;
+  bgmArmed=true;
+  const EV=["pointerdown","keydown","touchstart"];
+  const go=()=>{bgmArmed=false;EV.forEach(e=>document.removeEventListener(e,go,true));
+    if(bgmEl&&!bgmOff)bgmTry(bgmEl)};
+  EV.forEach(e=>document.addEventListener(e,go,true));
+}
+function bgmPlay(key){
+  if(!bgmAllowed())key="";
+  if(key===bgmNow)return;
+  bgmNow=key;
+  const old=bgmEl; bgmEl=null;
+  if(old)bgmRamp(old,0,BGM_FADE,()=>{try{old.pause()}catch(e){}});
+  const src=BGM_ART[key];
+  if(!src)return;
+  const a=new Audio(artUrl(src));
+  a.loop=true; a.volume=0; a.preload="auto";
+  a.addEventListener("error",()=>{if(bgmEl===a)bgmEl=null});   /* 아직 없는 곡 */
+  bgmEl=a;
+  if(!bgmOff)bgmTry(a);
+}
+function bgmMute(off){
+  bgmOff=off;
+  try{localStorage.setItem(BGM_KEY,off?"1":"0")}catch(e){}
+  document.body.classList.toggle("muted",off);
+  if(!bgmEl)return;
+  if(off)bgmRamp(bgmEl,0,240,()=>{try{bgmEl&&bgmEl.pause()}catch(e){}});
+  else bgmTry(bgmEl);
+}
+document.body.classList.toggle("muted",bgmOff);
+/* 소리 단추는 화면마다 새로 그려지므로 눌린 곳을 보고 처리합니다 */
+document.addEventListener("click",e=>{
+  if(e.target&&e.target.closest&&e.target.closest(".snd"))bgmMute(!bgmOff);
+});
 function render(){
   stopLoop();
   /* 명단이 처음 두 명이 된 순간 학생회 인증 바지가 풀립니다. 뒤에 줄어도 도로 잠기지 않습니다.
@@ -6095,6 +6316,7 @@ function render(){
   let S=G.scene;
   if(S!=="spidergame"&&S!=="stargame"&&S!=="huntgame")arcadeStop();
   if(S!=="title")titleStop();
+  bgmPlay(bgmFor());
   if(CAMPUS_SCENES.includes(S)){showUnlock();if(S==="campus")campusNotes()}
   const p=G.player;
 
@@ -6106,6 +6328,7 @@ function render(){
             <div class="cap"><b>UniverCityHunter</b>
             <span>대학 정문에 문이 열렸다. 남은 건 우리뿐이다.</span></div>`}
         <div class="tshade"></div>
+        <button class="snd tsnd" type="button" aria-label="소리"></button>
         <button id="play">게임 시작</button>
       </div>`;
     if(!TITLE_ART)titleStart();
@@ -7134,22 +7357,21 @@ function render(){
   }
   if(S==="arcade"){
     el.innerHTML=logo+`
-      <div class="bar"><span class="tag">게임장</span><span class="tag">골드 <b>${G.gold}</b></span></div>
+      <div class="bar"><span class="tag">게임장</span></div>
       ${npcBar("arcade")}
       <div class="card"><h2>지하 오락실</h2>
       <p>누군가 게이트 안의 것들을 본떠 만든 기계가 세 대 놓여 있습니다.
-      판마다 요금을 넣어야 하고, 상금은 잡은 만큼 나옵니다. 횟수 제한은 없습니다.</p></div>
-      <button class="fac" id="g1" ${G.gold<ARCADE_FEE.spider?"disabled":""}><span class="ic">🕷</span>
-        <span class="tx"><b>거미 잡기 · ${ARCADE_FEE.spider}골드</b><span>줄을 타고 내려오는 거미를 눌러 잡습니다 · 마리당 3골드 · 최고 ${G.arcadeBest}마리</span></span></button>
-      <button class="fac" id="g2" ${G.gold<ARCADE_FEE.star?"disabled":""}><span class="ic">⭐</span>
-        <span class="tx"><b>별 줍기 · ${ARCADE_FEE.star}골드</b><span>발판을 뛰어다니며 별을 모읍니다 · 개당 4골드 · 최고 ${G.starBest||0}개</span></span></button>
-      <button class="fac" id="g3" ${G.gold<ARCADE_FEE.hunt?"disabled":""}><span class="ic">🔫</span>
-        <span class="tx"><b>좀비 헌터 · ${ARCADE_FEE.hunt}골드</b><span>내려오는 좀비를 쏘아 막습니다 · 마리당 3골드 · 최고 ${G.huntBest||0}마리</span></span></button>
-      ${G.gold<ARCADE_FEE.spider?`<div class="tag" style="color:var(--bad)">골드가 모자라 기계를 돌릴 수 없습니다.</div>`:""}
+      돈은 들지도 나오지도 않습니다. 남는 것은 기록뿐입니다.</p></div>
+      <button class="fac" id="g1"><span class="ic">🕷</span>
+        <span class="tx"><b>거미 잡기</b><span>줄을 타고 내려오는 거미를 눌러 잡습니다 · 최고 ${G.arcadeBest}마리</span></span></button>
+      <button class="fac" id="g2"><span class="ic">⭐</span>
+        <span class="tx"><b>별 줍기</b><span>발판을 뛰어다니며 별을 모읍니다 · 최고 ${G.starBest||0}개</span></span></button>
+      <button class="fac" id="g3"><span class="ic">🔫</span>
+        <span class="tx"><b>좀비 헌터</b><span>내려오는 좀비를 쏘아 막습니다 · 최고 ${G.huntBest||0}마리</span></span></button>
       <div class="bar"><span class="tag"></span><button class="ghost" id="bk">캠퍼스로</button></div>`;
-    document.getElementById("g1").onclick=()=>{if(!payFee("spider"))return;AR=null;G.scene="spidergame";render()};
-    document.getElementById("g2").onclick=()=>{if(!payFee("star"))return;AR=null;G.scene="stargame";render()};
-    document.getElementById("g3").onclick=()=>{if(!payFee("hunt"))return;AR=null;G.scene="huntgame";render()};
+    document.getElementById("g1").onclick=()=>{AR=null;G.scene="spidergame";render()};
+    document.getElementById("g2").onclick=()=>{AR=null;G.scene="stargame";render()};
+    document.getElementById("g3").onclick=()=>{AR=null;G.scene="huntgame";render()};
     document.getElementById("bk").onclick=()=>{G.scene="campus";render()};
     return;
   }
@@ -7188,50 +7410,41 @@ function render(){
     return;
   }
   if(S==="huntend"){
-    const sc=AR?AR.score:0;
-    const prize=huntPrize(sc),fee=ARCADE_FEE.hunt;
-    if(sc>(G.huntBest||0))G.huntBest=sc;
-    if(prize>0&&AR&&!AR.paid){G.gold+=prize;G.goldEarned+=prize;AR.paid=true}
+    const sc=AR?AR.score:0, best=sc>(G.huntBest||0);
+    if(best)G.huntBest=sc;
     el.innerHTML=logo+`
       <div class="bar"><span class="tag">좀비 헌터</span><span class="tag">최고 <b>${G.huntBest||0}</b>마리</span></div>
       <div class="card"><h2>${sc>=20?"방어선을 지켰다":sc>=10?"그럭저럭 버텼다":"금방 뚫렸다"}</h2>
       <p>좀비 <b style="color:var(--mark)">${sc}</b>마리를 쓰러뜨렸습니다.</p>
-      <div class="derived">상금 <b>${prize}</b> 골드 · 요금 ${fee} 골드 ·
-        <b style="color:${prize-fee>=0?"var(--ok)":"var(--bad)"}">${prize-fee>=0?"+":""}${prize-fee}</b> 골드</div></div>
-      <div class="bar"><button class="ghost" id="again" ${G.gold<fee?"disabled":""}>한 판 더 · ${fee}골드</button><button id="bk">게임장으로</button></div>`;
-    document.getElementById("again").onclick=()=>{if(!payFee("hunt"))return;AR=null;G.scene="huntgame";render()};
+      ${best?`<div class="derived" style="color:var(--ok)">최고 기록을 갱신했습니다.</div>`:""}</div>
+      <div class="bar"><button class="ghost" id="again">한 판 더</button><button id="bk">게임장으로</button></div>`;
+    document.getElementById("again").onclick=()=>{AR=null;G.scene="huntgame";render()};
     document.getElementById("bk").onclick=()=>{AR=null;G.scene="arcade";render()};
     return;
   }
   if(S==="spiderend"||S==="arcadeend"){
-    const sc=AR?AR.score:0;
-    const prize=arcadePrize(sc),fee=ARCADE_FEE.spider;
-    if(sc>G.arcadeBest)G.arcadeBest=sc;
-    if(prize>0&&AR&&!AR.paid){G.gold+=prize;G.goldEarned+=prize;AR.paid=true}
+    const sc=AR?AR.score:0, best=sc>G.arcadeBest;
+    if(best)G.arcadeBest=sc;
     el.innerHTML=logo+`
       <div class="bar"><span class="tag">거미 잡기</span><span class="tag">최고 <b>${G.arcadeBest}</b>마리</span></div>
       <div class="card"><h2>${sc>=20?"기계가 삑삑거린다":sc>=10?"제법이다":"손이 느리다"}</h2>
       <p>거미 <b style="color:var(--mark)">${sc}</b>마리를 잡았습니다.</p>
-      <div class="derived">상금 <b>${prize}</b> 골드 · 요금 ${fee} 골드 ·
-        <b style="color:${prize-fee>=0?"var(--ok)":"var(--bad)"}">${prize-fee>=0?"+":""}${prize-fee}</b> 골드</div></div>
-      <div class="bar"><button class="ghost" id="again" ${G.gold<fee?"disabled":""}>한 판 더 · ${fee}골드</button><button id="bk">게임장으로</button></div>`;
-    document.getElementById("again").onclick=()=>{if(!payFee("spider"))return;AR=null;G.scene="spidergame";render()};
+      ${best?`<div class="derived" style="color:var(--ok)">최고 기록을 갱신했습니다.</div>`:""}</div>
+      <div class="bar"><button class="ghost" id="again">한 판 더</button><button id="bk">게임장으로</button></div>`;
+    document.getElementById("again").onclick=()=>{AR=null;G.scene="spidergame";render()};
     document.getElementById("bk").onclick=()=>{AR=null;G.scene="arcade";render()};
     return;
   }
   if(S==="starend"){
-    const sc=AR?AR.score:0;
-    const prize=starPrize(sc),fee=ARCADE_FEE.star;
-    if(sc>(G.starBest||0))G.starBest=sc;
-    if(prize>0&&AR&&!AR.paid){G.gold+=prize;G.goldEarned+=prize;AR.paid=true}
+    const sc=AR?AR.score:0, best=sc>(G.starBest||0);
+    if(best)G.starBest=sc;
     el.innerHTML=logo+`
       <div class="bar"><span class="tag">별 줍기</span><span class="tag">최고 <b>${G.starBest||0}</b>개</span></div>
       <div class="card"><h2>${sc>=14?"기계가 축포를 쏜다":sc>=7?"제법 뛰어다녔다":"발이 무겁다"}</h2>
       <p>별 <b style="color:var(--mark)">${sc}</b>개를 모았습니다.</p>
-      <div class="derived">상금 <b>${prize}</b> 골드 · 요금 ${fee} 골드 ·
-        <b style="color:${prize-fee>=0?"var(--ok)":"var(--bad)"}">${prize-fee>=0?"+":""}${prize-fee}</b> 골드</div></div>
-      <div class="bar"><button class="ghost" id="again" ${G.gold<fee?"disabled":""}>한 판 더 · ${fee}골드</button><button id="bk">게임장으로</button></div>`;
-    document.getElementById("again").onclick=()=>{if(!payFee("star"))return;AR=null;G.scene="stargame";render()};
+      ${best?`<div class="derived" style="color:var(--ok)">최고 기록을 갱신했습니다.</div>`:""}</div>
+      <div class="bar"><button class="ghost" id="again">한 판 더</button><button id="bk">게임장으로</button></div>`;
+    document.getElementById("again").onclick=()=>{AR=null;G.scene="stargame";render()};
     document.getElementById("bk").onclick=()=>{AR=null;G.scene="arcade";render()};
     return;
   }
