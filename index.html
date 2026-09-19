@@ -724,7 +724,7 @@ const ITEMS={
   bottle:{n:"깨진 소주병",slot:"rh",kind:"inst",atk:7,dmg:DMG.SLASH,style:"swing",d:"공격력 +7 · 베기"},
   cutter:{n:"커터칼",slot:"rh",kind:"inst",atk:6,aspdM:1.40,dmg:DMG.THRUST,style:"thrust",d:"공격력 +6, 공속 +40% · 찌르기"},
   tongs:{n:"연탄집게",slot:"rh",kind:"inst",atk:8,aspdM:1.10,rng:5,dmg:DMG.THRUST,style:"thrust",d:"공격력 +8, 공속 +10%, 사거리 +5 · 찌르기"},
-  mic:{n:"마이크",slot:"rh",kind:"inst",atk:4,aspdM:1.15,dmg:DMG.BLUNT,style:"swing",d:"공격력 +4, 공속 +15% · 타격"},
+  mic:{n:"마이크",slot:"rh",kind:"inst",atk:5,aspdM:1.15,dmg:DMG.BLUNT,style:"swing",d:"공격력 +5, 공속 +15% · 타격"},
   spray:{n:"헤어스프레이",slot:"rh",kind:"perm",atk:4,aspdM:1.25,rng:2,dmg:DMG.CHEM,style:"thrust",price:8,d:"공격력 +4, 공속 +25%, 사거리 +2 · 화학"},
   /* 헤어스프레이의 윗급. 화학과 Lv5 대원이 나오면 매점에 오릅니다(fkOpen) */
   fkiller:{n:"에프킬라",slot:"rh",kind:"perm",atk:7,aspdM:1.30,rng:4,dmg:DMG.CHEM,style:"thrust",price:40,req:CHEM_MAJORS,
@@ -782,7 +782,7 @@ const ITEMS={
   /* ══ 지하상가 게이트 (2026-09-17 추가) ══
      정문 게이트 것보다 조금씩 낫게 잡았습니다. 그림은 아직 없습니다. */
   /* ── 오른손 ── */
-  mop:{n:"대걸레",slot:"rh",kind:"inst",atk:5,rng:7,dmg:DMG.BLUNT,style:"swing",d:"공격력 +5, 사거리 +7 · 타격"},
+  mop:{n:"대걸레",slot:"rh",kind:"inst",atk:7,rng:7,dmg:DMG.BLUNT,style:"swing",d:"공격력 +7, 사거리 +7 · 타격"},
   plunger:{n:"뚫어뻥",slot:"rh",kind:"perm",atk:5,aspdM:1.35,dmg:DMG.THRUST,style:"thrust",price:15,d:"공격력 +5, 공속 +35% · 찌르기"},
   umbrella:{n:"장우산",slot:"rh",kind:"perm",atk:6,aspdM:1.10,rng:4,dmg:DMG.THRUST,style:"thrust",price:20,d:"공격력 +6, 공속 +10%, 사거리 +4 · 찌르기"},
   ftongs:{n:"튀김 젓가락",slot:"rh",kind:"inst",atk:9,aspdM:1.10,rng:5,dmg:DMG.THRUST,style:"thrust",d:"공격력 +9, 공속 +10%, 사거리 +5 · 찌르기"},
@@ -1000,6 +1000,11 @@ function darkDesc(it){
     if(it.aspdM&&it.aspdM!==1)p.push(`공속 ${pc(it.aspdM-1)}`);
     if(it.rng)p.push(`사거리 +${it.rng}`);
     if(it.miss)p.push(`${Math.round(it.miss*100)}% 확률로 빗나감`);
+    /* 무기가 지키는 몫까지 들고 있으면 뒤에 붙입니다 — 아이템목록.html 에서 얹을 수 있습니다 */
+    if(it.crit)p.push(`치명 +${it.crit}%`);
+    if(it.guard)p.push(`피해 −${it.guard}`);
+    if(it.hp)p.push(`체력 +${it.hp}`);
+    if(it.dodge)p.push(`회피 ${it.dodge<0?"−"+(-it.dodge):it.dodge}%`);
   }else{
     if(it.guard)p.push(`피해 −${it.guard}`);
     if(it.hp)p.push(`체력 +${it.hp}`);

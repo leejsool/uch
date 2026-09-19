@@ -119,6 +119,10 @@
   그리고 <b style="color:var(--ammo)">성능 설명(<code>d</code>)은 손으로 적은 글일 뿐, 수치를 읽어오지 않습니다.</b>
   그래서 수치를 고치면 설명 속의 같은 숫자(<code>팔면 45 골드</code>, <code>공격력 +8</code> 따위)도 자동으로 같이 고쳐 줍니다.
   못 찾으면 아래에 알려 주니 설명 칸에서 직접 고치세요.
+  <b style="color:var(--dark)">강화판(+)</b> 은 원본 표가 아니라 <code>DARK_UP</code>·<code>WORK_UP</code> 에 얹힙니다 —
+  <b>바뀌는 수치만 적는 표</b>라, 적혀 있지 않은 칸에는 원본 값이 그대로 보이고 고치면 그때 얹힙니다.
+  비우면 얹은 것을 걷어 다시 원본을 따릅니다. 강화판의 설명은 보통 수치에서 저절로 적히므로(<code>darkDesc</code>)
+  건드리지 않습니다 — 산탄총+·사마귀 낫+처럼 표에 직접 적어 둔 것만 같이 고칩니다.
 </div>
 
 <!-- index 의 render() 가 쓰는 자리. 여기서는 화면을 안 그리므로 숨겨 둡니다 -->
@@ -219,18 +223,31 @@ function scanObj(s,open){
 }
 /* id → {vs,ve, fields:{칸이름:{ks,vs,ve,raw}}, last:{…}} */
 let SRC={}, SRCOK=false;
-function scanItems(txt){
-  SRC={}; SRCOK=false;
-  const m=txt.match(/const\s+ITEMS\s*=\s*\{[\s\S]*?\n\};/);
-  if(!m)return false;
+/* 한 표(`const 이름={ id:{…}, … }`)를 훑어 SRC 에 얹습니다.
+   suffix 가 붙으면 그 표의 열쇠에 붙여 아이템 id 를 만듭니다 — DARK_UP.cutter → cutter+
+   up 이면 **바뀌는 수치만 적힌 표**입니다. 적히지 않은 칸은 원본에서 물려받습니다. */
+function scanTable(txt,name,suffix,up){
+  const m=txt.match(new RegExp("const\\s+"+name+"\\s*=\\s*\\{[\\s\\S]*?\\n\\};"));
+  if(!m)return 0;
   const open=txt.indexOf("{",m.index);
+  let n=0;
   for(const ent of scanObj(txt,open)){
     if(ent.raw[0]!=="{")continue;
     const fl=scanObj(txt,ent.vs), f={};
     for(const x of fl)f[x.key]=x;
-    SRC[ent.key]={vs:ent.vs,ve:ent.ve,fields:f,last:fl[fl.length-1]||null};
+    SRC[ent.key+(suffix||"")]={vs:ent.vs,ve:ent.ve,fields:f,last:fl[fl.length-1]||null,up:!!up,
+                               table:name,base:ent.key};
+    n++;
   }
-  SRCOK=Object.keys(SRC).length>0;
+  return n;
+}
+function scanItems(txt){
+  SRC={}; SRCOK=false;
+  const n=scanTable(txt,"ITEMS");
+  /* 강화판(+)도 고칠 수 있습니다 — 고친 값은 원본이 아니라 이 표에 얹힙니다 */
+  scanTable(txt,"DARK_UP","+",1);
+  scanTable(txt,"WORK_UP","+",1);
+  SRCOK=n>0;
   return SRCOK;
 }
 
@@ -423,13 +440,18 @@ function writeList(){
       const ov=E.get(it), nv=v===""?0:+v;
       if(!E.sel&&typeof ov!=="string")stat.push([E.f,ov===undefined?0:+ov,nv]);
     }
-    /* 설명 — 사람이 고친 것이 먼저, 그 위에 수치 변화를 얹습니다 */
+    /* 설명 — 사람이 고친 것이 먼저, 그 위에 수치 변화를 얹습니다.
+       강화판(+)의 설명은 보통 darkDesc() 가 만들어 냅니다. 그런 것은 손대지 않습니다 —
+       수치를 따라 저절로 다시 적히는데 여기서 굳혀 버리면 다음부터 안 따라옵니다.
+       표에 d 를 직접 적어 둔 것(산탄총+·사마귀 낫+)과, 사람이 설명 칸에 적은 것만 씁니다. */
+    const hand=EDITS[it.id+".d"]!==undefined;
     const {d,miss}=descAfter(it,stat);
     const dCur=s.fields.d?s.fields.d.raw:null;
     const dRaw=d.trim()?JSON.stringify(d):null;
-    if(dRaw!==dCur&&(stat.length||EDITS[it.id+".d"]!==undefined))
+    if(dRaw!==dCur&&(hand||(s.fields.d&&stat.length)))
       out.push({id:it.id,name:it.n,field:"d",from:dCur,to:dRaw,at:s.fields.d||null,last:s.last});
-    if(miss.length)notes.push(`${it.n}: 설명에서 ${miss.join("·")} 숫자를 못 찾았습니다 — 성능 칸에서 직접 고치세요`);
+    if(miss.length&&(hand||s.fields.d))
+      notes.push(`${it.n}: 설명에서 ${miss.join("·")} 숫자를 못 찾았습니다 — 성능 칸에서 직접 고치세요`);
   }
   return {out,notes};
 }
@@ -439,9 +461,11 @@ function drawDiff(){
   box.hidden=!EDITMODE;
   if(!EDITMODE)return;
   if(!out.length&&!notes.length){ box.innerHTML='<span class="none">고친 수치가 없습니다.</span>'; }
-  else box.innerHTML=out.map(x=>
-      `${esc(x.name)} <span class="none">(${x.id})</span> ${x.field}  `
-      +`<b>${x.from===null?"없음":esc(x.from)}</b> → <i>${x.to===null?"지움":esc(x.to)}</i>`).join("\n")
+  else box.innerHTML=out.map(x=>{
+      const up=SRC[x.id]&&SRC[x.id].up;
+      return `${esc(x.name)} <span class="none">(${up?SRC[x.id].table+"."+SRC[x.id].base:x.id})</span> ${x.field}  `
+      +`<b>${x.from===null?"원본 따름":esc(x.from)}</b> → `
+      +`<i>${x.to===null?(up?"원본 따름":"지움"):esc(x.to)}</i>`}).join("\n")
     +(notes.length?`\n<span class="warn">`+notes.map(esc).join("\n")+`</span>`:"");
   $("write").disabled=!out.length;
   $("undo").disabled=!out.length&&!Object.keys(EDITS).length;
@@ -541,12 +565,16 @@ const shown=c=>(EDITMODE&&EDS[c.id]) || !c.grp || (perfSel==="both")
 
 /* 한 칸을 입력칸으로 */
 function edHtml(r,col){
-  const it=r.it, E=EDS[col];
-  /* 강화판처럼 index 가 돌면서 만들어 내는 것은 소스에 적힌 자리가 없어 고칠 수 없습니다 */
-  if(!SRC[it.id])return `<span class="none" title="원본을 고치세요">원본 따름</span>`;
+  const it=r.it, E=EDS[col], s=SRC[it.id];
+  /* index 가 돌면서 만들어 내는 것 중 표에 자리가 없는 것은 고칠 수 없습니다 */
+  if(!s)return `<span class="none" title="원본을 고치세요">원본 따름</span>`;
   if(!E.show(it))return `<span class="none">—</span>`;
   const v=edVal(it,col), ch=edChanged(it,col)?" ch":"";
-  const at=`data-i="${it.id}" data-e="${col}"`;
+  /* 강화판(+)은 **바뀌는 수치만** 적는 표라, 적히지 않은 칸은 원본 값이 그대로 보입니다.
+     고치면 그 표에 얹히고, 비우면 얹은 것을 걷어 다시 원본을 따릅니다. */
+  const upTip=s.up?` title="${s.table}.${s.base} — ${s.fields[E.f]?"이 표에 적힌 값":"적혀 있지 않아 원본을 따르는 값"}${
+    E.f==="d"&&!s.fields.d?" · 설명은 수치에서 저절로 적힙니다(darkDesc)":""}"`:"";
+  const at=`data-i="${it.id}" data-e="${col}"${upTip}`;
   if(E.sel){
     const keys=Object.keys(DMG||{});
     return `<select class="ed${ch}" ${at}><option value=""></option>`
