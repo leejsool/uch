@@ -368,6 +368,18 @@ function buildRows(){
       prog:"판매대 칸 수만큼 무작위로 오름",
       st:evB(()=>shopOk&&shopPool().includes(id)), code:line?[line.trim()]:[]});
   }
+  /* 도감을 채운 장소의 반출 장비 — placeShopIds(). 같은 장비가 여러 곳에서 나오면 한 줄로 묶습니다 */
+  if(typeof placeShopGear==="function"){
+    const byId={};
+    for(const pl of PLACES)for(const id of placeShopGear(pl))(byId[id]=byId[id]||[]).push(pl);
+    for(const [id,pls] of Object.entries(byId)){
+      const it=ITEMS[id]||{n:id};
+      add("shop",{icon:itemImg(id),name:it.n,sub:`매점 · 장소 도감 · ${id}${it.price?` · ${it.price}골드`:""}`,
+        desc:`${esc(pls.map(p=>p.n).join(" · "))}${pls.length>1?" 중 한 곳":""}에서 나올 만한 것을 전부 손에 넣으면`,
+        prog:"판매대 칸 수만큼 무작위로 오름",
+        st:evB(()=>shopOk&&pls.some(placeDone)), code:[], fields:["itemSeen","shopPlaces"]});
+    }
+  }
   for(const id of (C("SHOP_AMMO",[])||[])){
     const it=ITEMS[id]||{n:id}, a=it.ammo;
     add("shop",{icon:itemImg(id),name:it.n,sub:`매점 · 탄약 · ${id}${it.price?` · ${it.price}골드`:""}`,
