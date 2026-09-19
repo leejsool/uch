@@ -220,7 +220,7 @@ const FAC_DESC={
   clinic:  ()=>"체력 절반 이하로 귀환한 대원이 생기면 · 열릴 때 신재혁이 무료로 합류",
   arcade:  ()=>"탐색 1회",
   tower:   ()=>"첫 사망자가 나오면",
-  deptArts:()=>`최고 Lv ${C("MAJOR_LV","?")} 대원`,
+  deptArts:()=>"예체능 전공이 하나라도 열리면",
   deptMed: ()=>`응급의학 실습실이 열림(체력 절반 이하 귀환자) + 최고 Lv ${C("MAJOR_LV","?")} 대원`,
   deptRotc:()=>`총기를 들고 살아 귀환 + 최고 Lv ${C("MAJOR_LV","?")} 대원`,
   deptSci: ()=>"이공계 전공이 하나라도 열리면 (게임 안에 조건 비공개)",
@@ -232,9 +232,10 @@ const FAC_DESC={
   __policeQ:()=>"게이트 장소 선택에 경찰 본부가 뜬 적 있음(고르지 않아도 됨, G.policeSeen) + 행정실 열림",
 };
 const MAJ_DESC={
-  tkd:    ()=>"학과사무실이 열리면 기본",
+  tkd:    ()=>`타격 무기 또는 맨손으로 적 ${C("TKD_KILLS","?")}체 격파`,
   archery:()=>`활로 적 ${C("BOW_MAJOR","?")}체 격파`,
   dance:  ()=>"체력이 가득한 채로 살아 귀환한 대원이 나오면 (귀환 회복 전 기준)",
+  pe:     ()=>`체력(vit)이 ${C("PE_VIT","?")} 이상인 대원이 명단에 있으면`,
   nurse:  ()=>"학과사무실이 열리면 기본",
   mil:    ()=>"학과사무실이 열리면 기본",
   soldier:()=>`총으로 적 ${C("SOLDIER_KILLS","?")}체 격파 (활 제외)`,
@@ -245,12 +246,14 @@ const MAJ_DESC={
   bio:    ()=>"정문 게이트를 닫으면",
   food:   ()=>"게이트 안에서 응급 키트가 아닌 것으로 회복",
   arch:   ()=>`게이트 안에서 서로 다른 장소 ${C("ARCH_PLACES","?")}곳에 들어가 봄 (밤 거리 포함)`,
+  cs:     ()=>`보조배터리·태블릿·이어폰·스마트워치·휴대용 게임기·무전기 중 ${C("CS_ITEMS_N","?")}가지를 손에 넣음 (잃어도 무관)`,
   lib:    ()=>"다이어리·볼펜을 모두 한 번씩 손에 넣음",
   med:    ()=>`Lv ${C("MED_OPEN_LV","?")} 이상 간호학과 대원 + 어느 게이트든 ${C("MED_OPEN_DAY","?")}일차 전투를 이긴 적 — 한 번 열리면 유지`,
   phil:   ()=>`소주를 마셔 봄 + 최고 Lv ${C("MAJOR_LV","?")} 대원`,
   elem:   ()=>`사범대학을 뺀 학과사무실들이 내놓는 전공이 ${C("ELEM_MAJORS","?")}개 이상`,
 };
-const MAJ_POPUP={food:1,phil:1,med:1};                    // campusNotes() 가 열린 것을 알려 주는 전공
+/* 2026-09-19 부터 **모든 전공**이 열린 것을 알립니다 — majorNote() 가 같은 문구로 띄웁니다 */
+const MAJ_POPUP=new Proxy({},{get:()=>1});
 const SHOP_DESC={
   cap:   ()=>"매점에서 처음 물건을 산 다음 탐색부터",
   upants:()=>"명단이 처음 2명이 된 뒤부터 (줄어도 안 잠김)",
@@ -286,6 +289,8 @@ function ownerOf(id){
       if(m) return {f,open:m};
     }
   }
+  /* 위의 어느 꼴도 아니면 시설이 스스로 적어 둔 all 을 믿습니다 — 새 표를 만들어도 따라옵니다 */
+  for(const f of FACILITIES) if((f.all||[]).includes(id)) return {f};
   return null;
 }
 const facOpen=id=>{ const f=facOf(id); return f?evB(()=>f.cond(G)):undefined; };

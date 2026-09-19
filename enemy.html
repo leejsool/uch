@@ -1,0 +1,501 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>적 도감 — 스테이터스 편집</title>
+<style>
+  :root{ --bg:#1b1a22; --panel:#26242f; --line:#3a3848; --ink:#eae6f2; --dim:#a79fbb;
+         --cy:#7fd7c4; --mark:#d8477e; --gold:#e3c76a; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.5 system-ui,"Segoe UI",sans-serif}
+  header{position:sticky;top:0;z-index:6;background:var(--bg);border-bottom:1px solid var(--line);
+         padding:10px 14px;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+  header h1{font-size:14px;margin:0 6px 0 0;font-weight:800}
+  label.f{display:flex;gap:6px;align-items:center;color:var(--dim)}
+  select,button,input[type=file],input[type=search]{font:inherit;background:var(--panel);color:var(--ink);
+    border:1px solid var(--line);border-radius:6px;padding:4px 8px}
+  button{cursor:pointer}
+  button.go{border-color:var(--cy);color:var(--cy)}
+  button.go:disabled{opacity:.35;cursor:default;border-color:var(--line);color:var(--dim)}
+  input[type=range]{accent-color:var(--mark)}
+  #status{padding:6px 14px;font-size:12px;color:var(--dim);border-bottom:1px solid var(--line)}
+
+  .wrap{padding:14px;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:14px;align-items:start}
+  @media(max-width:1100px){ .wrap{grid-template-columns:minmax(0,1fr)} }
+
+  table{border-collapse:collapse;width:100%;background:var(--panel);
+        border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  th,td{padding:5px 7px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+  th{position:sticky;top:var(--hh,41px);z-index:4;background:#2f2c3b;color:var(--dim);font-weight:600;
+     font-size:11px;cursor:pointer;user-select:none}
+  th.l,td.l{text-align:left}
+  tr.gate td{background:#1f1e28;color:var(--gold);font-weight:700;text-align:left;font-size:12px}
+  tr.foe{cursor:pointer}
+  tr.foe:hover td{background:#2d2a39}
+  tr.foe.sel td{background:#362f4a}
+  td.nm{font-weight:700}
+  td.nm .k{color:var(--dim);font-weight:400;font-size:11px;margin-left:5px}
+  .boss{color:var(--mark);font-size:11px;margin-left:5px}
+  input.n{width:62px;background:#15141b;color:var(--ink);border:1px solid var(--line);
+    border-radius:5px;padding:2px 4px;font:inherit;text-align:right;font-variant-numeric:tabular-nums}
+  input.n:focus{outline:1px solid var(--cy)}
+  input.n.ch{border-color:var(--mark);color:var(--mark);background:#2a1a23}
+  input.n.miss{opacity:.25}
+  td.scaled{color:var(--dim);font-variant-numeric:tabular-nums;font-size:11px}
+  td.tr{white-space:normal;color:var(--dim);font-size:11px;min-width:180px;text-align:left}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;
+        position:sticky;top:calc(var(--hh,41px) + 14px)}
+  .card h2{margin:0 0 2px;font-size:14px}
+  .card .sub{color:var(--dim);font-size:11px;margin-bottom:10px}
+  .card img{width:100%;max-height:190px;object-fit:contain;background:#12111a;
+            border:1px solid var(--line);border-radius:8px;margin-bottom:10px}
+  .kv{display:flex;justify-content:space-between;gap:8px;align-items:center;
+      border-bottom:1px solid #322f3e;padding:3px 0}
+  .kv .k{color:var(--dim)}
+  .kv .k small{opacity:.7;margin-left:4px}
+  .sec{margin-top:10px;color:var(--cy);font-size:11px;font-weight:700;letter-spacing:.04em}
+  .note{color:var(--dim);font-size:11px;margin-top:8px;white-space:pre-wrap}
+  .tok{background:#1f1e28;border:1px solid var(--line);border-radius:5px;padding:1px 6px;
+       font:11px ui-monospace,Consolas,monospace}
+  footer{padding:0 14px 20px}
+  textarea{width:100%;height:150px;background:#15141b;color:var(--ink);border:1px solid var(--line);
+           border-radius:8px;padding:10px;font:12px/1.5 ui-monospace,Consolas,monospace;resize:vertical}
+  .fbar{display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+  .hint{color:var(--dim);font-size:12px}
+  b.ch{color:var(--mark)}
+</style>
+
+<header>
+  <h1>적 도감</h1>
+  <label class="f">일차
+    <input type="range" id="day" min="1" max="20" value="1" style="width:130px">
+    <span id="dayv" style="width:56px;color:var(--ink)">1일차</span></label>
+  <label class="f">찾기 <input type="search" id="q" placeholder="이름·키" style="width:110px"></label>
+  <button class="go" id="reload">index.html 불러오기</button>
+  <button class="go" id="write" hidden disabled>▶ index.html 에 바로 쓰기</button>
+  <button id="revert" disabled>되돌리기</button>
+  <label class="f">직접 선택 <input type="file" id="pick" accept=".html,text/html"></label>
+</header>
+
+<div id="status">index.html 불러오는 중…</div>
+
+<div class="wrap">
+  <div><table id="tbl"></table></div>
+  <div id="side"></div>
+</div>
+
+<footer>
+  <div class="fbar">
+    <strong>바뀐 수치</strong>
+    <button id="copy">클립보드 복사</button>
+    <span class="hint">칸을 고치면 여기에 쌓입니다 · <b>'바로 쓰기'</b>(크롬·엣지)는 index.html 의 그 숫자만 제자리에서 바꿉니다 — 주석과 나머지 줄은 그대로입니다</span>
+  </div>
+  <textarea id="out" spellcheck="false" readonly></textarea>
+</footer>
+
+<script>
+"use strict";
+
+/* ══ 이 도구가 하는 일 ══════════════════════════════════════
+   index.html 의 ENEMIES 표를 통째로 읽어 적 하나하나를 보여 주고,
+   숫자 칸을 고치면 **원본의 그 숫자만** 제자리에서 갈아 끼웁니다.
+   표를 다시 만들어 내지 않으므로 주석·배치·안 읽는 칸이 그대로 남습니다.
+   숫자가 아닌 칸(lvm·dmg·색 이름 같은 상수)은 읽기 전용입니다 — 그건 코드를 고칠 일입니다.
+   ══════════════════════════════════════════════════════ */
+
+const $=id=>document.getElementById(id);
+const statusEl=$("status");
+function setStatus(t,ok){ statusEl.textContent=t;
+  statusEl.style.color = ok===true?"var(--cy)" : ok===false?"var(--mark)" : "var(--dim)"; }
+
+/* ─── 아주 작은 JS 오브젝트 스캐너 ───
+   { key:value , … } 를 한 겹만 훑어 값의 **원본 위치**를 기억합니다.
+   주석·문자열·중첩 괄호를 건너뛰므로 index.html 을 그대로 먹여도 됩니다. */
+function skipWs(s,i){
+  for(;;){
+    while(i<s.length && /\s/.test(s[i])) i++;
+    if(s[i]==="/"&&s[i+1]==="*"){ const e=s.indexOf("*/",i+2); i=e<0?s.length:e+2; continue }
+    if(s[i]==="/"&&s[i+1]==="/"){ const e=s.indexOf("\n",i);   i=e<0?s.length:e+1; continue }
+    return i;
+  }
+}
+/* 값의 끝 — 같은 깊이의 , 또는 닫는 괄호 바로 앞 */
+function endOfVal(s,i){
+  let d=0;
+  for(;i<s.length;i++){
+    const c=s[i];
+    if(c==='"'||c==="'"||c==="`"){ const q=c; i++; while(i<s.length&&s[i]!==q){ if(s[i]==="\\")i++; i++ } continue }
+    if(c==="/"&&s[i+1]==="*"){ const e=s.indexOf("*/",i+2); i=(e<0?s.length:e+1); continue }
+    if(c==="/"&&s[i+1]==="/"){ const e=s.indexOf("\n",i);   i=(e<0?s.length:e-1); continue }
+    if("{[(".includes(c)) d++;
+    else if("}])".includes(c)){ if(d===0)return i; d-- }
+    else if(c===","&&d===0) return i;
+  }
+  return i;
+}
+/* open = '{' 의 위치. [{key, vs, ve, raw}] 를 돌려줍니다(vs·ve 는 공백을 턴 값의 범위) */
+function scanObj(s,open){
+  const out=[]; let i=open+1;
+  for(;;){
+    i=skipWs(s,i);
+    if(i>=s.length||s[i]==="}") break;
+    let key,ks=i;
+    if(s[i]==='"'||s[i]==="'"){ const q=s[i]; i++; const a=i; while(i<s.length&&s[i]!==q)i++; key=s.slice(a,i); i++ }
+    else { while(i<s.length&&/[\w$]/.test(s[i]))i++; key=s.slice(ks,i) }
+    i=skipWs(s,i);
+    if(s[i]!==":"){ i=endOfVal(s,i); if(s[i]===",")i++; continue }   /* 못 읽는 꼴은 건너뜀 */
+    i=skipWs(s,i+1);
+    const vs=i; let ve=endOfVal(s,i);
+    let t=ve; while(t>vs&&/\s/.test(s[t-1]))t--;                      /* 뒤 공백·주석은 값에서 뺀다 */
+    out.push({key,vs,ve:t,raw:s.slice(vs,t)});
+    i=ve; if(s[i]===",")i++;
+  }
+  return out;
+}
+/* 블록 하나를 통째로 잘라 eval — 글자만 들어 있는 표(GATES·FOE_ART 등)에만 씁니다 */
+function evalBlock(src,re,args,vals){
+  const m=src.match(re); if(!m) return null;
+  const body="return ("+m[0].replace(/^[^=]*=\s*/,"").replace(/;\s*$/,"")+")";
+  try{ return new Function(...(args||[]),body)(...(vals||[])) }catch(e){ return null }
+}
+const grabNum=(src,re)=>{ const m=src.match(re); return m?+m[1]:null };
+const grabStr=(src,re)=>{ const m=src.match(re); return m?m[1]:null };
+
+/* ─── 칸 설명 ─── */
+const NUMF=["hp","atk","aspd","speed","range","r","exp","cap","push","dodge","pace","size"];
+const FIELD={
+  hp   :{n:"체력",   step:1,   grow:"hp"},
+  atk  :{n:"공격력", step:1,   grow:"atk"},
+  aspd :{n:"공속",   step:0.05,d:"초당 공격 횟수"},
+  speed:{n:"이동",   step:1,   d:"판 100 기준 초당"},
+  range:{n:"사거리", step:1,   d:"반지름을 뺀 거리"},
+  r    :{n:"덩치",   step:0.1, d:"판정 반지름"},
+  exp  :{n:"경험치", step:1},
+  cap  :{n:"한 판 최대", step:1, d:"이 수보다 많이 나오지 않는다"},
+  push :{n:"밀치기", step:1,   d:"맞은 대원이 밀리는 거리"},
+  dodge:{n:"회피",   step:1,   d:"%"},
+  pace :{n:"그림 박자", step:0.1, d:"들썩이는 빠르기"},
+  size :{n:"그림 크기", step:0.1, d:"판정 반지름의 배수"},
+  "slow.mul":{n:"둔화 배율", step:0.05},
+  "slow.sec":{n:"둔화 시간", step:0.1, d:"초"},
+  "flee.at"  :{n:"물러나는 체력", step:0.05, d:"최대체력 비율"},
+  "flee.to"  :{n:"돌아오는 체력", step:0.05, d:"최대체력 비율"},
+  "flee.rate":{n:"회복 속도",     step:0.01, d:"초당 최대체력 비율"},
+};
+/* 표에 세로로 세우는 칸 */
+const COLS=["hp","atk","aspd","speed","range","r","exp"];
+/* 몸높이(lvm) — 그 층의 지형에 걸립니다 */
+const LVM={
+  CRAWL  :"낮게 긴다 · 낮은 지형에만 걸림",
+  HOP    :"뛴다 · 낮은·중간 지형에 걸림",
+  HUMAN  :"사람 키 · 낮은·중간 지형에 걸림",
+  TALL   :"크다 · 모든 지형에 걸림",
+  FLY    :"난다 · 높은 것(벽)에만 걸림",
+  "L2|L3":"다리가 길다 · 낮은 것은 넘고 중간·높은 것에 걸림",
+};
+
+/* ─── 읽어 둔 것 ─── */
+let SRC="", FOES=[], GATES=[], ART={}, DROP={}, ITEMNAME={}, DMGN={};
+let HGROW=1.10, AGROW=1.08;
+let EDIT={};              /* "key.field" → 새 숫자 */
+let SEL=null, loadedOnce=false;
+
+const ENEM_RE=/const\s+ENEMIES\s*=\s*\{[\s\S]*?\n\};/;
+
+function parseSrc(txt){
+  const m=txt.match(ENEM_RE);
+  if(!m) throw new Error("ENEMIES 블록을 못 찾음");
+  SRC=txt;
+  const base=m.index, open=m[0].indexOf("{")+base;
+  FOES=scanObj(SRC,open).map(ent=>{
+    const f={key:ent.key, vs:ent.vs, ve:ent.ve, fields:{}, val:{}};
+    for(const fd of scanObj(SRC,ent.vs)){
+      f.fields[fd.key]={vs:fd.vs,ve:fd.ve,raw:fd.raw};
+      f.val[fd.key]=lit(fd.raw);
+      if(fd.raw[0]==="{") for(const sub of scanObj(SRC,fd.vs)){
+        f.fields[fd.key+"."+sub.key]={vs:sub.vs,ve:sub.ve,raw:sub.raw};
+        f.val[fd.key+"."+sub.key]=lit(sub.raw);
+      }
+    }
+    return f;
+  });
+  GATES  = evalBlock(SRC,/const\s+GATES\s*=\s*\[[\s\S]*?\n\];/) || [];
+  ART    = evalBlock(SRC,/const\s+FOE_ART\s*=\s*\{[\s\S]*?\};/) || {};
+  DMGN   = evalBlock(SRC,/const\s+DMG\s*=\s*\{[^}]*\};/) || {};
+  DROP   = evalBlock(SRC,/const\s+FOE_DROP\s*=\s*\{[^}]*\};/,
+             ["ARM","WING","HORN"],
+             [grabStr(SRC,/const\s+ARM\s*=\s*"([^"]+)"/)||"",
+              grabStr(SRC,/const\s+WING\s*=\s*"([^"]+)"/)||"",
+              grabStr(SRC,/const\s+HORN\s*=\s*"([^"]+)"/)||""]) || {};
+  HGROW  = grabNum(SRC,/const\s+MOB_HP_GROW\s*=\s*([\d.]+)/)  ?? 1.10;
+  AGROW  = grabNum(SRC,/MOB_ATK_GROW\s*=\s*([\d.]+)/)         ?? 1.08;
+  ITEMNAME={};
+  for(const ids of Object.values(DROP)) for(const id of ids)
+    ITEMNAME[id]=grabStr(SRC,new RegExp("\\b"+id+':\\s*\\{n:"([^"]+)"'))||id;
+  EDIT={}; loadedOnce=true;
+  if(!FOES.some(f=>f.key===SEL)) SEL=FOES.length?FOES[0].key:null;
+  return FOES.length;
+}
+/* 숫자만 값으로 읽습니다. 나머지(상수·문자열·true)는 원본 글자 그대로 둡니다 */
+function lit(raw){
+  if(/^-?(\d+\.?\d*|\.\d+)$/.test(raw)) return +raw;
+  if(raw==="true") return true;
+  if(raw==="false") return false;
+  if(/^"[^"]*"$/.test(raw)) return raw.slice(1,-1);
+  return {tok:raw};
+}
+const tokOf=v=>v&&typeof v==="object"&&v.tok!==undefined?v.tok:null;
+const foeOf=k=>FOES.find(f=>f.key===k);
+/* 지금 화면에 서 있는 값 — 고친 것이 있으면 그것 */
+const cur=(f,k)=>EDIT[f.key+"."+k]!==undefined?EDIT[f.key+"."+k]:f.val[k];
+const changed=(f,k)=>EDIT[f.key+"."+k]!==undefined;
+
+/* ─── 등장 자리 · 드랍 ─── */
+function spots(key){
+  const out=[];
+  for(const g of GATES){
+    for(const p of (g.pool||[])) if(p.k===key)
+      out.push({t:"pool",g,txt:`${g.n} ${p.from||1}일차부터 · 무게 ${p.w===undefined?1:p.w}`});
+    for(const [d,k] of Object.entries(g.boss||{})) if(k===key)
+      out.push({t:"boss",g,txt:`${g.n} ${d}일차 보스`});
+  }
+  return out;
+}
+const pct=v=>Math.round(v*100)+"%";
+/* 수치에서 읽어 낸 성질 — 글로 적지 않고 칸에서 끌어냅니다 */
+function traits(f){
+  const t=[], V=k=>cur(f,k);
+  if(V("boss")===true) t.push("보스 · 날짜 배율 없음");
+  else if(V("noScale")===true) t.push("날짜 배율 없음");
+  if(V("cap")) t.push(`한 판에 최대 ${V("cap")}마리`);
+  if(V("wave")===true) t.push("음파 — 멀리서 때린다");
+  if(V("push")) t.push(`들이받으면 ${V("push")}만큼 민다`);
+  if(f.val.slow) t.push(`맞으면 ${V("slow.sec")}초 동안 이동 ×${V("slow.mul")}`);
+  if(f.val.flee) t.push(`체력 ${pct(V("flee.at"))} 밑에서 물러나 초당 ${pct(V("flee.rate"))}씩 회복, ${pct(V("flee.to"))}에서 복귀`);
+  if(V("dodge")) t.push(`회피 ${V("dodge")}%`);
+  if(V("backstep")===true) t.push("맞기 직전에 뒤로 흘린다");
+  const lv=tokOf(f.val.lvm);
+  if(lv&&LVM[lv]) t.push(LVM[lv]);
+  if(DROP[f.key]) t.push("떨굼: "+DROP[f.key].map(id=>ITEMNAME[id]||id).join(", "));
+  return t;
+}
+/* 일차 배율을 먹인 값 — 보스는 그대로 */
+function scaled(f,k,day){
+  const g=FIELD[k]&&FIELD[k].grow; if(!g) return null;
+  const v=cur(f,k); if(typeof v!=="number") return null;
+  if(cur(f,"boss")===true||cur(f,"noScale")===true) return null;
+  const m=Math.pow(g==="hp"?HGROW:AGROW,day-1);
+  return g==="hp"?Math.round(v*m):+(v*m).toFixed(1);
+}
+
+/* ─── 표 ─── */
+let sortKey="", sortDir=1;
+function rows(){
+  const q=$("q").value.trim().toLowerCase();
+  let list=FOES.filter(f=>!q||f.key.toLowerCase().includes(q)||String(f.val.n||"").toLowerCase().includes(q));
+  if(sortKey) list=[...list].sort((a,b)=>{
+    const x=sortKey==="n"?String(a.val.n):cur(a,sortKey), y=sortKey==="n"?String(b.val.n):cur(b,sortKey);
+    return (x>y?1:x<y?-1:0)*sortDir;
+  });
+  else{   /* 기본 순서 — 게이트별로 묶고, 그 안에서는 index.html 에 적힌 차례 */
+    const ord={}; let i=0;
+    for(const g of GATES){
+      for(const p of (g.pool||[])) if(ord[p.k]===undefined) ord[p.k]=[i,(p.from||1),0,++i];
+      for(const [d,k] of Object.entries(g.boss||{})) if(ord[k]===undefined) ord[k]=[i,+d,1,++i];
+    }
+    list=[...list].sort((a,b)=>{
+      const A=ord[a.key]||[99,99,9,FOES.indexOf(a)], B=ord[b.key]||[99,99,9,FOES.indexOf(b)];
+      return A[0]-B[0]||A[1]-B[1]||A[2]-B[2]||A[3]-B[3];
+    });
+  }
+  return list;
+}
+function drawTable(){
+  const day=+$("day").value, t=$("tbl");
+  const head=`<tr><th class="l" data-s="n">이름</th>${
+    COLS.map(k=>`<th data-s="${k}" title="${FIELD[k].d||""}">${FIELD[k].n}</th>`).join("")
+  }<th>${day>1?day+"일차 체/공":""}</th><th class="l">특징</th></tr>`;
+  let lastG="";
+  const body=rows().map(f=>{
+    const sp=spots(f.key), gn=sp.length?sp[0].g.n:"어디에도 안 나옴";
+    let head2="";
+    if(!sortKey&&gn!==lastG){ lastG=gn; head2=`<tr class="gate"><td colspan="${COLS.length+3}">${gn}</td></tr>` }
+    const sh=scaled(f,"hp",day), sa=scaled(f,"atk",day);
+    return head2+`<tr class="foe${f.key===SEL?" sel":""}" data-k="${f.key}">
+      <td class="l nm">${f.val.n||f.key}${cur(f,"boss")===true?'<span class="boss">보스</span>':""}
+        <span class="k">${f.key}</span></td>
+      ${COLS.map(k=>`<td>${numCell(f,k)}</td>`).join("")}
+      <td class="scaled">${day>1&&sh!==null?`${sh} / ${sa}`:""}</td>
+      <td class="tr">${traits(f).join(" · ")}</td></tr>`;
+  }).join("");
+  t.innerHTML=head+body;
+}
+function numCell(f,k){
+  const has=f.fields[k]!==undefined;
+  const v=has?cur(f,k):"";
+  return `<input class="n${changed(f,k)?" ch":""}${has?"":" miss"}" type="number" step="${FIELD[k].step}"
+    value="${v}" data-k="${f.key}" data-f="${k}" ${has?"":"disabled title='이 적에게는 없는 칸'"}>`;
+}
+
+/* ─── 옆 카드 ─── */
+const EXTRA=["cap","push","dodge","pace","size","slow.mul","slow.sec","flee.at","flee.to","flee.rate"];
+function drawSide(){
+  const f=foeOf(SEL), box=$("side");
+  if(!f){ box.innerHTML=""; return }
+  const day=+$("day").value;
+  const art=ART[f.key];
+  const ex=EXTRA.filter(k=>f.fields[k]!==undefined);
+  const tokRow=(k,lbl)=>f.fields[k]?`<div class="kv"><span class="k">${lbl}</span>
+      <span class="tok">${f.fields[k].raw}</span></div>`:"";
+  box.innerHTML=`<div class="card">
+    <h2>${f.val.n||f.key}</h2>
+    <div class="sub">${f.key}${cur(f,"boss")===true?" · 보스":""}</div>
+    ${art?`<img src="art/${art}" alt="" onerror="this.style.display='none'">`:""}
+    <div class="sec">나오는 곳</div>
+    ${spots(f.key).map(s=>`<div class="kv"><span class="k">${s.t==="boss"?"보스":"잡몹"}</span><span>${s.txt}</span></div>`).join("")
+      ||'<div class="note">GATES 어디에도 올라 있지 않습니다.</div>'}
+    <div class="sec">성질</div>
+    ${tokRow("lvm","몸높이")}${tokRow("dmg","피해")}${tokRow("c","색")}
+    ${["boss","wave","backstep","noScale"].map(k=>tokRow(k,FIELDLBL(k))).join("")}
+    ${ex.length?`<div class="sec">그 밖의 수치</div>`+ex.map(k=>
+      `<div class="kv"><span class="k">${FIELD[k].n}${FIELD[k].d?`<small>${FIELD[k].d}</small>`:""}</span>
+       <input class="n${changed(f,k)?" ch":""}" type="number" step="${FIELD[k].step}"
+        value="${cur(f,k)}" data-k="${f.key}" data-f="${k}"></div>`).join(""):""}
+    <div class="sec">${day}일차에 실제로 서는 값</div>
+    <div class="kv"><span class="k">체력</span><span>${scaled(f,"hp",day)??cur(f,"hp")+" (배율 없음)"}</span></div>
+    <div class="kv"><span class="k">공격력</span><span>${scaled(f,"atk",day)??cur(f,"atk")+" (배율 없음)"}</span></div>
+    <div class="note">잡몹은 하루마다 체력 ×${HGROW}, 공격력 ×${AGROW} 로 붙습니다(복리). 보스는 등장 일차에 맞춰 이미 잡혀 있어 배율을 타지 않습니다.</div>
+    <div class="note">${traits(f).join("\n")}</div>
+  </div>`;
+}
+const FIELDLBL=k=>({boss:"보스",wave:"음파",backstep:"뒷걸음",noScale:"배율 없음"}[k]||k);
+
+/* ─── 바뀐 것 모으기 ─── */
+function diffList(){
+  const out=[];
+  for(const [path,v] of Object.entries(EDIT)){
+    const i=path.indexOf("."), key=path.slice(0,i), fld=path.slice(i+1);
+    const f=foeOf(key); if(!f||!f.fields[fld]) continue;
+    if(v===f.val[fld]) continue;
+    out.push({f,fld,from:f.val[fld],to:v,at:f.fields[fld]});
+  }
+  return out;
+}
+function drawDiff(){
+  const d=diffList();
+  $("out").value=d.length
+    ? d.map(x=>`${(x.f.val.n||x.f.key)} (${x.f.key}) ${FIELD[x.fld]?FIELD[x.fld].n:x.fld}  ${x.from} → ${x.to}`).join("\n")
+    : "";
+  $("write").disabled=!d.length;
+  $("revert").disabled=!d.length;
+}
+const redraw=()=>{ drawTable(); drawSide(); drawDiff() };
+
+/* ─── 입력 ─── */
+document.addEventListener("input",e=>{
+  const t=e.target;
+  if(t.classList.contains("n")&&t.dataset.f){
+    const path=t.dataset.k+"."+t.dataset.f, f=foeOf(t.dataset.k);
+    if(t.value===""){ delete EDIT[path] }
+    else{
+      const v=+t.value;
+      if(!Number.isFinite(v)) return;
+      if(v===f.val[t.dataset.f]) delete EDIT[path]; else EDIT[path]=v;
+    }
+    t.classList.toggle("ch",EDIT[path]!==undefined);
+    drawDiff();
+    if(t.closest("table")) drawSide(); else drawTable();
+    return;
+  }
+  if(t.id==="q"){ drawTable(); return }
+  if(t.id==="day"){ $("dayv").textContent=t.value+"일차"; drawTable(); drawSide(); return }
+});
+document.addEventListener("click",e=>{
+  const th=e.target.closest("th[data-s]");
+  if(th){ const k=th.dataset.s; sortDir=(sortKey===k)?-sortDir:1; sortKey=k; drawTable(); return }
+  const tr=e.target.closest("tr.foe");
+  if(tr&&!e.target.classList.contains("n")){ SEL=tr.dataset.k; redraw() }
+});
+$("revert").onclick=()=>{ EDIT={}; redraw() };
+$("copy").onclick=()=>{ navigator.clipboard.writeText($("out").value).then(
+  ()=>setStatus("바뀐 수치를 복사했습니다.",true),()=>setStatus("복사 실패",false)) };
+
+/* ─── index.html 읽기 / 쓰기 (다른 도구와 같은 방식) ───
+   File System Access API 로 고른 파일 손잡이를 IndexedDB 에 남겨 둡니다. 크롬·엣지 전용. */
+let idxHandle=null;
+const FS_OK=!!window.showOpenFilePicker;
+function hdb(){ return new Promise((res,rej)=>{ const r=indexedDB.open("uch-enemy-tool",1);
+  r.onupgradeneeded=()=>r.result.createObjectStore("h"); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error) }) }
+async function hget(){ try{ const d=await hdb(); return await new Promise((res,rej)=>{
+  const t=d.transaction("h").objectStore("h").get("index"); t.onsuccess=()=>res(t.result); t.onerror=()=>rej(t.error) }) }catch(e){ return null } }
+async function hset(v){ try{ const d=await hdb(); await new Promise((res,rej)=>{
+  const t=d.transaction("h","readwrite"); t.objectStore("h").put(v,"index"); t.oncomplete=()=>res(); t.onerror=()=>rej(t.error) }) }catch(e){} }
+async function perm(h,mode){
+  if(!h.queryPermission) return true;
+  if(await h.queryPermission({mode})==="granted") return true;
+  return (await h.requestPermission({mode}))==="granted";
+}
+async function pickIndex(){
+  const [h]=await window.showOpenFilePicker({types:[{description:"HTML",accept:{"text/html":[".html",".htm"]}}]});
+  idxHandle=h; await hset(h); return h;
+}
+async function fetchIndex(){
+  try{
+    if(diffList().length&&!confirm("고치던 수치가 있습니다. 다시 불러오면 버려집니다. 계속할까요?")) return;
+    let txt;
+    if(idxHandle&&await perm(idxHandle,"read")) txt=await (await idxHandle.getFile()).text();
+    else{
+      const res=await fetch("index.html",{cache:"no-store"});
+      if(!res.ok) throw new Error("HTTP "+res.status);
+      txt=await res.text();
+    }
+    const n=parseSrc(txt); redraw();
+    setStatus(`index.html 반영됨 — 적 ${n}종.`+(FS_OK?" 숫자를 고친 뒤 '바로 쓰기'.":" 파일 쓰기는 크롬·엣지에서만 됩니다."),true);
+  }catch(err){
+    setStatus("불러오기 실패("+err.message+"). "+(FS_OK?"'직접 선택' 으로 index.html 을 고르세요.":"로컬 파일이면 브라우저가 fetch 를 막습니다 — node serve.js 로 여세요."),false);
+  }
+}
+/* 바뀐 숫자만 제자리에서 갈아 끼웁니다 — 뒤에서부터 잘라 붙여야 앞쪽 위치가 안 밀립니다 */
+async function writeIndex(){
+  try{
+    if(!FS_OK) throw new Error("이 브라우저는 파일 쓰기를 지원하지 않음 (크롬·엣지 필요)");
+    if(!loadedOnce) throw new Error("먼저 index.html 을 불러오세요");
+    const d=diffList(); if(!d.length){ setStatus("바뀐 수치가 없습니다.",null); return }
+    if(!idxHandle) await pickIndex();
+    if(!await perm(idxHandle,"readwrite")) throw new Error("쓰기 권한이 없음");
+    const cur=await (await idxHandle.getFile()).text();
+    if(cur!==SRC) throw new Error("불러온 뒤로 index.html 이 바뀌었습니다 — 다시 불러오세요");
+    let next=cur;
+    for(const x of [...d].sort((a,b)=>b.at.vs-a.at.vs))
+      next=next.slice(0,x.at.vs)+String(x.to)+next.slice(x.at.ve);
+    const w=await idxHandle.createWritable(); await w.write(next); await w.close();
+    parseSrc(next); redraw();                  /* 쓴 결과를 그대로 다시 읽어 위치를 새로 잡습니다 */
+    setStatus(`index.html 에 ${d.length}칸 저장 완료. 게임을 새로고침하면 반영됩니다.`,true);
+  }catch(err){
+    if(err.name==="AbortError") return;
+    setStatus("바로 쓰기 실패: "+err.message,false);
+  }
+}
+$("reload").onclick=fetchIndex;
+if(FS_OK){ const w=$("write"); w.hidden=false; w.onclick=writeIndex }
+$("pick").onchange=e=>{
+  const file=e.target.files&&e.target.files[0]; if(!file) return;
+  const rd=new FileReader();
+  rd.onload=()=>{ try{ const n=parseSrc(rd.result); redraw();
+      setStatus(`고른 파일에서 적 ${n}종 읽음. '바로 쓰기'를 쓰려면 같은 파일을 다시 고르게 됩니다.`,true) }
+    catch(err){ setStatus("읽기 실패: "+err.message,false) } e.target.value="" };
+  rd.readAsText(file);
+};
+
+/* 붙박이 머리글이 표의 머리줄을 가리지 않게 — 실제 높이를 재서 CSS 에 넘깁니다 */
+function fitHead(){
+  /* 붙박이로 남는 것은 header 뿐입니다 — status 는 같이 밀려 올라갑니다 */
+  document.documentElement.style.setProperty("--hh",
+    document.querySelector("header").offsetHeight+"px");
+}
+addEventListener("resize",fitHead);
+
+(async()=>{ idxHandle=await hget(); await fetchIndex(); fitHead() })();
+</script>
+</html>

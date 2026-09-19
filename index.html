@@ -486,8 +486,12 @@ const SCI_MAJORS=[
   {id:"food", open:g=>!!g.foodHeal},
   /* 건축학과 — 게이트 안에서 서로 다른 장소 6곳에 들어가 봤을 때 (G.placesSeen, 방 id 기준) */
   {id:"arch", open:g=>(g.placesSeen||[]).length>=ARCH_PLACES},
+  /* 컴퓨터공학과 — 전자기기 여섯 가지 중 세 가지를 손에 넣어 본 적이 있을 때 (itemSeen) */
+  {id:"cs",   open:g=>CS_ITEMS.filter(k=>!!(g.itemSeen||{})[k]).length>=CS_ITEMS_N},
 ];
 const ARCH_PLACES=6;
+/* 컴퓨터공학과를 여는 전자기기 — 보조배터리 · 태블릿 · 이어폰 · 스마트워치 · 휴대용 게임기 · 무전기 */
+const CS_ITEMS=["battery","parcel3","earphone","swatch","gconsole","radio"], CS_ITEMS_N=3;
 const sciOpen=g=>SCI_MAJORS.filter(m=>m.open(g)).map(m=>m.id);
 /* 도서관 서가 — {n:제목, d:본문}. 한 권씩 채워 넣으면 도서관에 그대로 꽂힙니다 */
 const LIBRARY=[];
@@ -519,15 +523,19 @@ const EDU_MAJORS=[
   {id:"elem", open:g=>openMajorsElsewhere(g).length>=ELEM_MAJORS},
 ];
 const ELEM_MAJORS=4;
-/* 사범대학을 뺀, 문이 열린 학과사무실들이 지금 내놓는 전공 전부 */
-function openMajorsElsewhere(g){
-  const s=new Set();
+/* 문이 열린 학과사무실들이 지금 내놓는 전공 — [전공 id, 그 건물 이름]. 해금 알림도 이 표를 봅니다.
+   skip 은 cond 를 재기 **전에** 건너뛸 시설입니다 — 사범대학의 조건이 이 함수를 다시 부르기 때문입니다. */
+function openMajorAt(g,skip){
+  const out=[];
   for(const f of FACILITIES){
-    if(f.id==="deptEdu"||!(f.majors||f.major)||!f.cond(g))continue;
-    for(const m of (f.majors?f.majors(g):[f.major]))s.add(m);
+    if(f.id===skip||!(f.majors||f.major)||!f.cond(g))continue;
+    const b=BUILDINGS.find(x=>x.facs&&x.facs.includes(f.id));
+    for(const m of (f.majors?f.majors(g):[f.major]))out.push([m,b?b.n:f.n]);
   }
-  return [...s];
+  return out;
 }
+/* 사범대학을 뺀, 문이 열린 학과사무실들이 지금 내놓는 전공 전부 */
+const openMajorsElsewhere=g=>[...new Set(openMajorAt(g,"deptEdu").map(x=>x[0]))];
 const eduOpen=g=>EDU_MAJORS.filter(m=>m.open(g)).map(m=>m.id);
 /* 실습동은 이공계 전공을 실제로 **정한 대원**이 있어야 돌아갑니다 (열려 있기만 한 것과 다릅니다) */
 const hasSciMajor=g=>(g.roster||[]).some(r=>majorsOf(r).some(m=>SCI_IDS.includes(m)));
@@ -709,7 +717,7 @@ const DMG={THRUST:"찌르기",SLASH:"베기",PIERCE:"관통",CHEM:"화학",BITE:
 /* kind — perm: 살아서 나가야 지킨다 / inst: 게이트를 나가면 사라진다 / junk: 팔아서 골드 */
 const ITEMS={
   /* ── 오른손 ── */
-  ladle:{n:"국자",slot:"rh",kind:"perm",atk:4,dmg:DMG.SLASH,style:"swing",price:0,d:"공격력 +4 · 베기"},
+  ladle:{n:"국자",slot:"rh",kind:"perm",atk:3,dmg:DMG.SLASH,style:"swing",price:0,d:"공격력 +3 · 베기"},
   pen:{n:"만년필",slot:"rh",kind:"perm",atk:5,aspdM:1.30,dmg:DMG.THRUST,style:"thrust",price:5,d:"공격력 +5, 공속 +30% · 찌르기"},
   weight:{n:"벼려진 문진",slot:"rh",kind:"perm",price:15,atk:6,dmg:DMG.BLUNT,style:"swing",d:"공격력 +6 · 타격"},
   bat:{n:"야구 배트",slot:"rh",kind:"perm",price:25,atk:8,aspdM:0.86,dmg:DMG.BLUNT,style:"swing",d:"공격력 +8, 공속 −14% · 타격"},
@@ -722,7 +730,7 @@ const ITEMS={
   fkiller:{n:"에프킬라",slot:"rh",kind:"perm",atk:7,aspdM:1.30,rng:4,dmg:DMG.CHEM,style:"thrust",price:40,req:CHEM_MAJORS,
        d:"공격력 +7, 공속 +30%, 사거리 +4 · 화학 · 화학과 전용"},
   /* ── 왼손 ── */
-  lid:{n:"냄비뚜껑",slot:"lh",kind:"perm",guard:3,hp:6,price:0,frail:{[DMG.BLAST]:0.5},d:"피해 −3, 체력 +6 · 폭발에 약함"},
+  lid:{n:"냄비뚜껑",slot:"lh",kind:"perm",guard:2,hp:4,price:0,frail:{[DMG.BLAST]:0.5},d:"피해 −2, 체력 +4 · 폭발에 약함"},
   book:{n:"전공책",slot:"lh",kind:"perm",guard:4,hp:8,price:5,frail:{[DMG.SLASH]:0.05,[DMG.BLAST]:1.0},d:"피해 −4, 체력 +8"},
   tray:{n:"쟁반",slot:"lh",kind:"inst",guard:2,aspdM:1.05,d:"피해 −2, 공속 +5%"},
   signboard:{n:"입간판",slot:"lh",kind:"inst",guard:5,dodge:-4,d:"피해 −5, 회피 −4%"},
@@ -787,7 +795,7 @@ const ITEMS={
   /* ── 왼손 ── */
   toiletlid:{n:"변기 뚜껑",slot:"lh",kind:"perm",guard:4,hp:8,price:12,frail:{[DMG.BLAST]:0.4},d:"피해 −4, 체력 +8 · 폭발에 약함"},
   bench:{n:"벤치 판자",slot:"lh",kind:"inst",guard:6,hp:6,dodge:-5,d:"피해 −6, 체력 +6, 회피 −5%"},
-  laptop:{n:"노트북",slot:"lh",kind:"perm",guard:5,hp:8,price:35,frail:{[DMG.SLASH]:0.05,[DMG.BLAST]:0.8},d:"피해 −5, 체력 +8"},
+  laptop:{n:"노트북",slot:"lh",kind:"perm",guard:4,hp:8,price:35,frail:{[DMG.SLASH]:0.05,[DMG.BLAST]:0.8},d:"피해 −4, 체력 +8"},
   plywood:{n:"합판",slot:"lh",kind:"inst",guard:9,hp:10,dodge:-9,d:"피해 −9, 체력 +10, 회피 −9%"},
   /* ── 머리 ── */
   beanie:{n:"비니",slot:"head",kind:"perm",guard:2,hp:3,price:15,d:"피해 −2, 체력 +3"},
@@ -1547,27 +1555,27 @@ const SPAWN_DEF={a:[[36.5,90],[45.5,90],[54.5,90],[63.5,90]],
 const spawnAt=()=>(ROOM&&ROOM.spawn)||SPAWN_DEF;
 
 const ENEMIES={
-  worm:{n:"애벌레",lvm:CRAWL,hp:44,atk:8,aspd:.6,speed:20,range:6,r:2.8,c:"#9BC24A",exp:14,dmg:DMG.BITE},
+  worm:{n:"애벌레",lvm:CRAWL,hp:44,atk:9,aspd:.6,speed:20,range:6,r:2.8,c:"#9BC24A",exp:14,dmg:DMG.BITE},
   hopper:{n:"메뚜기",lvm:HOP,hp:36,atk:12,aspd:.8,speed:42,range:6,r:2.9,c:"#D9B84A",exp:22,dmg:DMG.BITE},
   /* 1게이트 7일차부터. 붙지 않고 멀리서 울어 댑니다. 사거리는 활(7+21)과 같은 28. 대신 한 대만 맞아도 크게 상합니다 */
-  cicada:{n:"매미",lvm:HOP,hp:26,atk:11,aspd:.5,speed:24,range:28,r:2.6,c:"#B9A46A",exp:28,
+  cicada:{n:"매미",lvm:HOP,hp:26,atk:13,aspd:.5,speed:24,range:28,r:2.6,c:"#B9A46A",exp:28,
           dmg:DMG.SONIC,wave:true},
   /* 1게이트 5일차부터, 한 판에 한 마리만(cap). 느리고 아프지 않지만 아주 단단합니다.
      들이받으면 대원이 뒤로 밀리고 한동안 다리가 무거워집니다. */
   /* 장수풍뎅이 체력·공격력은 200/14 에서 135/10 으로 낮췄습니다 — 5일차부터 판마다 섞여 너무 셌습니다.
-     공격력은 애벌레(8)보다 조금 위 */
-  beetle:{n:"장수풍뎅이",lvm:HUMAN,hp:135,atk:10,aspd:.55,speed:18,range:8,r:4.6,c:"#6B4A3A",exp:120,
+     공격력은 애벌레(9)보다 한 칸 위 */
+  beetle:{n:"장수풍뎅이",lvm:HUMAN,hp:145,atk:10,aspd:.55,speed:18,range:8,r:4.6,c:"#6B4A3A",exp:120,
           dmg:DMG.BLUNT,cap:1,push:5,slow:{mul:0.55,sec:2.6}},
   /* 1게이트 4일차부터. 먼저 벌이 섞여 나오고, 6일차에 그 우두머리인 장수말벌이 섭니다.
      날아다녀서 지형을 거의 다 넘고 빠르지만, 한 대에 잘 터집니다 */
   bee:{n:"벌",lvm:FLY,hp:30,atk:13,aspd:.95,speed:52,range:6,r:2.6,c:"#E8C24A",exp:30,dmg:DMG.PIERCE},
-  mantis:{n:"사마귀",lvm:TALL,hp:180,atk:16,aspd:.65,speed:13,range:9,r:5.2,c:"#5FC49A",exp:90,boss:true,dmg:DMG.SLASH},
+  mantis:{n:"사마귀",lvm:TALL,hp:180,atk:22,aspd:.65,speed:13,range:9,r:5.2,c:"#5FC49A",exp:90,boss:true,dmg:DMG.SLASH},
   /* 거미는 다리가 길어 낮은 지형(식탁·화단)을 넘어 다닙니다. 대신 의자와 벽에는 막힙니다. */
   /* 1게이트 마지막 보스. 6일차에 섰을 때보다 크게 불렸습니다.
      공격력 44 → 32 (2026-09-15) — 44 는 체력 75%로 들어간 Lv6 넷이 호위 둘과 함께 10%만 이겼습니다 */
-  spider:{n:"거미",lvm:L2|L3,hp:540,atk:32,aspd:.8,speed:28,range:16,r:5.8,c:"#8E6BD9",exp:380,boss:true,dmg:DMG.PIERCE},
+  spider:{n:"거미",lvm:L2|L3,hp:540,atk:33,aspd:.8,speed:28,range:16,r:5.8,c:"#8E6BD9",exp:380,boss:true,dmg:DMG.PIERCE},
   /* 1게이트 6일차 보스. 날아다녀서 지형을 거의 다 넘고, 빠르고 자주 찌릅니다. 대신 무릅니다 */
-  hornet:{n:"장수말벌",lvm:FLY,hp:240,atk:22,aspd:1.1,speed:58,range:8,r:4,c:"#E0A32F",exp:150,boss:true,dmg:DMG.PIERCE},
+  hornet:{n:"장수말벌",lvm:FLY,hp:240,atk:23,aspd:1.1,speed:58,range:8,r:4,c:"#E0A32F",exp:150,boss:true,dmg:DMG.PIERCE},
   /* 3게이트 보스. 눈알 덩어리. 매우 빠르고 시선이 닿은 자리가 터진다 */
   bloodeyes:{n:"Blood Eyes",lvm:TALL,hp:560,atk:50,aspd:2.857,speed:46,range:11,r:6.6,
              c:"#8E1F2E",exp:400,boss:true,dmg:DMG.BLAST},
@@ -2207,6 +2215,22 @@ const hasScythe=()=>hasItem(SCYTHE)||hasItem(workId(SCYTHE));
 const scytheOnSale=()=>G.scytheFrom!=null&&G.explores>=G.scytheFrom&&!G.scytheBought;
 /* 활로 이만큼 잡으면 예체능대학에서 양궁 전공이 열립니다 */
 const BOW_MAJOR=3;
+/* 체력(vit)이 이만큼인 대원이 명단에 있으면 예체능대학에서 체육교육과가 열립니다.
+   뽑을 때 굴러 나오기도 하고(rollStudent 는 6~15), 레벨업 포인트로 올려도 됩니다 */
+const PE_VIT=15;
+const peOpen=g=>(g.roster||[]).some(r=>((r.stats&&r.stats.vit)||0)>=PE_VIT);
+/* 태권도학과 — 타격으로 쓰러뜨린 수(G.blowKills). 맨손도 타격입니다(derive 가 빈손에 DMG.BLUNT 를 물립니다) */
+const TKD_KILLS=3;
+/* ── 예체능대학 계열 전공이 열리는 조건 ── 이공대학·인문사회대학과 같은 방식입니다.
+   하나라도 차면 학과사무실이 열리고, 열린 것만 배정할 수 있습니다.
+   전에는 태권도학과가 Lv2 만으로 늘 붙어 있었습니다(2026-09-19 에 갈랐습니다). */
+const ARTS_MAJORS=[
+  {id:"tkd",     open:g=>(g.blowKills||0)>=TKD_KILLS},
+  {id:"archery", open:g=>(g.bowKills||0)>=BOW_MAJOR},
+  {id:"dance",   open:g=>!!g.danceHome},
+  {id:"pe",      open:g=>peOpen(g)},
+];
+const artsOpen=g=>ARTS_MAJORS.filter(m=>m.open(g)).map(m=>m.id);
 /* 응급 키트 — 값, 다시 들어오기까지의 탐색 횟수, 전투 한 번마다 침식될 확률 */
 const KIT_COST=20, KIT_WAIT=2, KIT_ROT=0.05;
 /* ── 학생회의 세 번째 의뢰 · 매미의 날개 ──
@@ -2292,13 +2316,14 @@ const FACILITIES=[
    msg:"의학대학에 사망자를 기리는 공간을 마련했습니다.<br><br>돌아오지 못한 사람들의 기록이 여기 남습니다."},
   /* 학과사무실 — 건물마다 하나씩, 그 건물의 전공만 배정합니다.
      major 칸이 있는 시설은 전공 배정 화면으로 넘어갑니다. */
-  /* 예체능대학 — 태권도학과가 기본이고, 활로 세 마리를 잡아 본 뒤에 양궁이,
-     체력이 가득한 채로 귀환한 대원이 나온 뒤에 무용과가 붙습니다 */
+  /* 예체능대학 — 이공대학처럼 **계열 전공이 하나라도 열리면** 문이 열리고,
+     열린 것만 내놓습니다(ARTS_MAJORS). 전에는 Lv2 만으로 열리고 태권도학과가 늘 붙어 있었습니다 */
   {id:"deptArts",ic:"🥋",n:"학과사무실",d:"예체능 계열 전공 배정",
-   majors:g=>["tkd"].concat((g.bowKills||0)>=BOW_MAJOR?["archery"]:[],g.danceHome?["dance"]:[]),
-   all:["tkd","archery","dance"],          /* 도서관이 ??? 까지 보여 주려고 드는 전부 */
-   cond:g=>topLvl(g)>=MAJOR_LV,prog:g=>`Lv ${MAJOR_LV} 대원이 나오면 열림 (현재 최고 Lv ${topLvl(g)})`,
-   msg:"예체능대학 학과사무실이 문을 열었습니다.<br><br>도장은 비었지만 매트는 남아 있습니다. 태권도학과 전공을 정할 수 있습니다."},
+   majors:g=>artsOpen(g),
+   all:ARTS_MAJORS.map(m=>m.id),           /* 도서관이 ??? 까지 보여 주려고 드는 전부 */
+   cond:g=>artsOpen(g).length>0,
+   prog:g=>"잠겨 있다",
+   msg:"예체능대학 학과사무실이 문을 열었습니다.<br><br>도장은 비었지만 매트는 남아 있습니다. 열려 있는 전공만 배정할 수 있습니다."},
   /* 의학대학 — 간호학과가 기본이고, 의예과는 medOpen 이 서면 붙습니다.
      예체능대학과 같은 때(Lv2)에 몰리지 않도록, 응급의학 실습실이 열린 뒤(다친 채 귀환한 사람이 생긴 뒤)에 엽니다 */
   {id:"deptMed",ic:"💉",n:"학과사무실",d:"의학 계열 전공 배정",
@@ -2827,6 +2852,9 @@ const ITEM_ART={        /* 아이템 아이콘 — 만든 것부터 한 줄씩 �
   headset:"item/headset.png",
   hivis:"item/hivis.png",
   gconsole:"item/gconsole.png",
+  /* 워커 · 당근뱃지 (2026-09-19 추가) */
+  walker:"item/walker.png",
+  carrotbadge:"item/carrotbadge.png",
 };
 const artUrl=v=>v?ART+v:"";
 /* 그림이 아직 없는 아이템도 같은 크기의 빈 자리를 남깁니다.
@@ -3063,6 +3091,12 @@ function unpackSave(sv){
   if(!d.skillSeen)d.skillSeen={};
   if(d.libCat===undefined){d.libCat=null;d.libSub=null;d.libSel=null}
   if(!d.shopSold)d.shopSold=[];          /* 매점 재고 기록이 없던 저장본 */
+  /* 타격 격파 기록이 없던 저장본 — 예체능대학이 이미 열려 있었다면 태권도학과는 그때 이미 얻은 것이므로
+     조건을 채워 줍니다. 안 그러면 쓰던 저장본에서 학과사무실이 도로 잠깁니다 */
+  if(d.blowKills===undefined)
+    d.blowKills=(d.announced||[]).includes("deptArts")?TKD_KILLS:0;
+  /* 전공 해금 알림이 없던 저장본 — 이미 고를 수 있는 전공은 알린 것으로 칩니다(뒤늦게 몰려 뜨지 않게) */
+  if(!d.majSeen)d.majSeen=[...new Set(openMajorAt(d).map(x=>x[0]))];
   /* 판매대 해금이 '자주 주운 장비'이던 시절의 저장본 — 이미 다 모은 장소는 알림 없이 열어 둡니다 */
   if(!d.shopPlaces){
     const seen=d.itemSeen||{};
@@ -3174,11 +3208,13 @@ function newGame(slot){
      libCat:null,libSub:null,libSel:null,        /* 도서관에서 보던 자리 */
      gate:"front",cleared:[],gateClear:false,gateDay:{},bossKilled:{},
      bowKills:0,bowOpen:false,bowBought:false,   /* 학생회 제작 활 */
+     blowKills:0,                                /* 태권도학과 — 타격·맨손으로 쓰러뜨린 수 */
      cicadaKills:0,wingQ:0,                      /* 학생회 '매미의 날개' 의뢰 */
      beetleKills:0,hornQ:0,                      /* 학생회 '딱딱한 껍질' 의뢰 */
      gotN:{},carrotQ:0,carrotCall:false,carrotFirst:false,   /* 번개당근 — 같은 장비를 주운 횟수 · 의뢰 · 안내 · 첫 기부 */
      shopPlaces:[],                              /* 물건을 다 모아 판매대가 열린 장소(방 id) */
      medOpen:false,                              /* 의예과 · 회복스프레이 */
+     majSeen:[],                                 /* 해금을 이미 알린 전공(majorNote) */
      bedUsed:false,kitFrom:null,questDone:[],restOpen:null,chipSel:null,
      store:{},loot:{},ground:[],memorial:[],sel:null,invSel:null,rowSel:null,facesUsed:[],gunSeen:{pistol:false,shotgun:false,rifle:false,arrow:false},itemSeen:{},arcadeBest:0,starBest:0,huntBest:0,
      tips:{},shopDay:-1,shopSold:[],capFrom:null,shopStock:null,invest:0,unionOpen:false,
@@ -3878,6 +3914,9 @@ function tick(dt){
             hurt(o,dmg,rate<1?"#E9C46A":(cr?"#FF8A3D":"#F2D74E"),u.dmgType);
             /* 군인 해금 — 총으로 쓰러뜨린 수 (활은 bowKills 가 따로 셉니다) */
             if(u.style==="gun"&&!u.bow&&was>0&&o.hp<=0)G.gunKills=(G.gunKills||0)+1;
+            /* 태권도학과 해금 — 타격으로 쓰러뜨린 수.
+               맨손도 여기에 들어옵니다 — derive() 가 빈손에 DMG.BLUNT 를 물리기 때문입니다 */
+            if(bl&&was>0&&o.hp<=0)G.blowKills=(G.blowKills||0)+1;
             if(ch)o.chem=(o.chem||0)+1;
             if(bl)knockBack(u,o,rate<1?KNOCK*0.6:KNOCK);
           };
@@ -6070,6 +6109,25 @@ function showUnlock(){
   else popup(`${f.ic} ${f.n}`,f.msg,"확인",done,true);
   return true;
 }
+/* ── 전공 해금 알림 ──
+   학과사무실이 새로 내놓는 전공은 계열을 가리지 않고 모두 같은 한 줄로 알립니다.
+   이공계도 예외가 아닙니다 — 전에는 말없이 열렸습니다(2026-09-19).
+   G.majSeen 에 알린 전공을 쌓고, 한 번에 하나씩 띄워 닫을 때마다 다음 것이 이어집니다. */
+const josaEul=w=>{const c=w.charCodeAt(w.length-1);
+  return c>=0xAC00&&c<=0xD7A3?((c-0xAC00)%28?"을":"를"):"을(를)"};
+/* 전공과 함께 알릴 것이 있는 것만 — 문구 뒤에 한 줄로 붙습니다 */
+const MAJOR_NOTE={med:"매점에 회복스프레이가 들어오기 시작합니다."};
+function majorNote(){
+  G.majSeen=G.majSeen||[];
+  const fresh=openMajorAt(G).find(([m])=>!G.majSeen.includes(m));
+  if(!fresh)return false;
+  const [id,bld]=fresh;
+  G.majSeen.push(id);
+  const n=(majorOf(id)||{}).n||id;
+  popup(bld,`${bld}에서 ${n}${josaEul(n)} 선택할 수 있게 되었습니다.${
+    MAJOR_NOTE[id]?`<br><br>${MAJOR_NOTE[id]}`:""}`,"확인",render);
+  return true;
+}
 /* ── 캠퍼스로 돌아왔을 때 한 번씩 알리는 것들 ──
    조건은 게이트 안에서 차지만, 알림은 문을 나선 뒤에 뜹니다.
    해금 안내창이 떠 있으면 그것부터 닫게 두고 다음 그리기에서 다시 봅니다. */
@@ -6119,22 +6177,8 @@ function campusNotes(){
   /* 경찰 본부 의뢰 — 행정실이 열려 있어야 행정실장이 있습니다 */
   if(talkFree()&&facOf("office").cond(G)&&G.policeSeen&&!G.policeQ){policeQuest();return}
   if(talkFree()&&G.policeQ===1&&policeBeen()){policeQuestPay();return}
+  if(majorNote())return;                 /* 전공 해금 — 계열을 가리지 않고 같은 문구로 */
   G.tips=G.tips||{};
-  if(G.foodHeal&&!G.tips.majFood){
-    G.tips.majFood=true;
-    popup("이공대학","이공대학에서 식품공학과 전공을 고를 수 있게 되었습니다.");
-    return;
-  }
-  if(humOpen(G).includes("phil")&&!G.tips.majPhil){
-    G.tips.majPhil=true;
-    popup("인문사회대학","인문대학에 철학과 전공이 해금되었습니다.");
-    return;
-  }
-  if(medOpen(G)&&!G.tips.majMed){
-    G.tips.majMed=true;
-    popup("의학대학","의학대학에서 의예과 전공을 고를 수 있게 되었습니다.<br><br>매점에 회복스프레이가 들어오기 시작합니다.");
-    return;
-  }
   if(fkOpen(G)&&!G.tips.fkShop){
     G.tips.fkShop=true;
     popup("소문","화학과 학생이 헤어스프레이를 보더니 혀를 찼다고 합니다. 학생회가 더 독한 것을 구해 왔다는 소문이 들립니다.<br><br>매점에 에프킬라가 들어오기 시작합니다. 화학과만 다룰 수 있습니다.");
