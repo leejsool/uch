@@ -123,6 +123,7 @@
   <b>바뀌는 수치만 적는 표</b>라, 적혀 있지 않은 칸에는 원본 값이 그대로 보이고 고치면 그때 얹힙니다.
   비우면 얹은 것을 걷어 다시 원본을 따릅니다. 강화판의 설명은 보통 수치에서 저절로 적히므로(<code>darkDesc</code>)
   건드리지 않습니다 — 산탄총+·사마귀 낫+처럼 표에 직접 적어 둔 것만 같이 고칩니다.
+  <b>강화비용</b> 열은 실습동 강화판이 드는 골드(<code>WORK_UP</code> 의 <code>g</code>)입니다 — 어둠 강화판은 결정으로 키우므로 값이 없습니다.
 </div>
 
 <!-- index 의 render() 가 쓰는 자리. 여기서는 화면을 안 그리므로 숨겨 둡니다 -->
@@ -343,6 +344,12 @@ function memoOf(it){
      put  입력칸 값 → index 에 적을 원본 글자 (null 이면 그 칸을 지움)
      show 이 물건에 이 칸을 보일지 */
 const MELEE_BASE=7;      /* 근접 기본 사거리 — index 의 derive()/swapToBagWeapon 에 박혀 있는 7 */
+/* 실습동 강화판이 드는 골드 — 물건에는 안 남고(`delete it.g`) WORK_UP 표에만 있습니다.
+   어둠 강화판(dark)은 결정으로 키우므로 값이 없습니다. */
+const workG=it=>{
+  const t=(typeof WORK_UP!=="undefined")&&it.base&&WORK_UP[it.base];
+  return t?(t.g||0):null;
+};
 const r4=v=>+v.toFixed(4);
 const EDS={
   d:    {f:"d", text:1, show:()=>true,
@@ -365,6 +372,8 @@ const EDS={
   /* 구매·판매는 index 에서 price 한 칸입니다 — 둘 다 같은 값을 건드립니다 */
   buy:  {f:"price", step:1, show:()=>true, get:it=>it.price, put:v=>v===""?null:String(v)},
   sell: {f:"price", step:1, show:()=>true, get:it=>it.price, put:v=>v===""?null:String(v)},
+  /* 실습동 강화 비용 — 강화판 줄에서만 보이고 WORK_UP 의 g 를 건드립니다 */
+  gcost:{f:"g", step:5, show:it=>workG(it)!==null, get:workG, put:v=>v?String(v):null},
 };
 let EDITMODE=false;
 /* EDITS["아이템id.칸"] = 입력칸에 들어간 값("" 이면 지움) */
@@ -492,6 +501,9 @@ function makeCols(){
      h:r=>r.buy===null?dash():`<span class="gold">${r.buy}</span>`},
     {id:"sell",  t:"판매",  w:r=>r.sellS,  num:1,
      h:r=>r.sell===null?dash():`<span class="gold">${esc(r.sell)}</span>`},
+    /* 실습동 강화판이 드는 골드(WORK_UP 의 g). 어둠 강화판은 결정으로 키우므로 값이 없습니다 */
+    {id:"gcost", t:"강화비용", w:r=>r.gcost===null?-1:r.gcost, num:1,
+     h:r=>r.gcost===null?dash():`<span class="gold">${r.gcost}</span>`},
     {id:"src",   t:"획득처",w:r=>r.src.join(", "), cls:"src", h:r=>r.src.length?esc(r.src.join(", ")):dash()},
     {id:"memo",  t:"비고",  w:r=>r.memo.join(", "), cls:"memo", h:r=>r.memo.length?esc(r.memo.join(", ")):dash()},
   ];
@@ -530,7 +542,7 @@ function buildRows(){
       slotN:sl?sl.n:(it.kind==="ammo"?"탄약":""),
       /* 근접 기본 사거리 7 — 무기만 값을 적습니다 */
       range:(it.slot==="rh"&&(it.atk||it.style))?7+(it.rng||0):0,
-      buy, sell, sellS,
+      buy, sell, sellS, gcost:workG(it),
       src:sourcesOf(it,tut,appr), memo:memoOf(it),
     };
   });
