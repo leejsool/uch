@@ -493,8 +493,61 @@ const ARCH_PLACES=6;
 /* 컴퓨터공학과를 여는 전자기기 — 보조배터리 · 태블릿 · 이어폰 · 스마트워치 · 휴대용 게임기 · 무전기 */
 const CS_ITEMS=["battery","parcel3","earphone","swatch","gconsole","radio"], CS_ITEMS_N=3;
 const sciOpen=g=>SCI_MAJORS.filter(m=>m.open(g)).map(m=>m.id);
-/* 도서관 서가 — {n:제목, d:본문}. 한 권씩 채워 넣으면 도서관에 그대로 꽂힙니다 */
-const LIBRARY=[];
+/* ═══════════ 도서관 서가 — 지식 ═══════════
+   한 번에 한 조각만 뽑아서 보여 줍니다. [다음] 을 누르면 다시 뽑습니다.
+   k  저장본에 남는 이름표 — 한 번 정하면 바꾸지 마십시오(G.loreSeen 이 이걸로 기억합니다)
+   d  본문
+   on 해금 조건. 없으면 처음부터 열려 있습니다. G 를 받습니다
+   아직 안 읽은 것이 먼저 뽑히고, 다 읽은 뒤에는 전부에서 고루 뽑힙니다(pickLore). */
+const sawItem=f=>Object.keys((G&&G.itemSeen)||{}).some(id=>ITEMS[id]&&f(ITEMS[id]));
+const heldDmg=d=>!!(G&&G.dmgSeen&&G.dmgSeen[d]);
+const LORE=[
+  {k:"major_lv2", d:"새내기는 험한 세상을 헤쳐나가기 힘듭니다. Lv2 가 되면 전공을 선택할 수 있습니다."},
+  {k:"major_where",d:"각 대학 건물의 학과사무실에서 전공을 고를 수 있습니다."},
+  {k:"death",     d:"한 번 사망하면 끝입니다. 떠나간 사람은 다시는 돌아올 수 없습니다."},
+  {k:"slash",     d:"'베기' 타입의 무기는 크게 휘둘러 주변의 적들에게까지 피해를 입힙니다."},
+  {k:"wear",      d:"반출 장비들은 게이트 안의 에너지로 인해 낮은 확률로 파손될 수 있습니다. "
+                   +"이공대학에서 파손을 막을 방법을 연구중이라는 소문이 있습니다."},
+  {k:"daygrow",   d:"게이트 안의 적들은 각 게이트 안에서 보내는 시간이 길어질수록 강해집니다. "
+                   +"1일차보다 2일차가, 2일차보다 3일차가 더 강합니다."},
+  {k:"boss",      d:"게이트 안에는 특정한 시기가 되면 나오는 보스가 있습니다. 일반 적들보다도 강력하니 조심하세요."},
+  {k:"survive",   d:"게이트 안에서 오래 버티려면 데미지 감소와 체력 회복이 중요합니다. 소모품도 적극적으로 사용하세요."},
+  /* ── 여기부터 해금 ── */
+  {k:"inst",      on:()=>sawItem(it=>it.kind==="inst"),
+   d:"현장 아이템은 게이트 안에서만 사용할 수 있습니다. 게이트를 나오면 사라집니다."},
+  {k:"gunmajor",  on:()=>sawItem(it=>it.ammo&&!it.bow),
+   d:"총기류는 적합한 전공을 가진 사람만이 사용할 수 있습니다."},
+  {k:"ammo",      on:()=>sawItem(it=>!!it.ammo),
+   d:"총이나 활을 쓰기 위해서는 그에 맞는 탄약이 필요합니다. 탄약이 없을 경우 배낭에 있는 무기로 싸웁니다. "
+    +"무기가 없으면 맨손으로라도."},
+  {k:"tkd",       on:()=>openMajors().includes("tkd"),
+   d:"태권도학과는 양손이 모두 빈손일 때 더욱 그 능력이 빛을 발합니다."},
+  {k:"blunt",     on:()=>heldDmg(DMG.BLUNT),
+   d:"타격 무기는 적을 뒤로 밀어냅니다. 다만 보스는 밀리지 않습니다."},
+  {k:"chem",      on:()=>heldDmg(DMG.CHEM),
+   d:"화학 무기는 같은 적을 여러번 공격할수록 더 많은 데미지를 줍니다."},
+  {k:"thrust",    on:()=>heldDmg(DMG.THRUST),
+   d:"찌르기 무기는 일정 확률로 연속으로 공격할 수 있습니다."},
+  {k:"crystal",   on:g=>!!((g.itemSeen||{}).crystal||(g.itemSeen||{})["crystal+"]),
+   d:"어둠 에너지 결정은 게이트 내의 에너지의 집약체입니다. 현장 아이템을 강화할 수 있습니다. "
+    +"물론 어둠 에너지 결정도 현장 아이템입니다."},
+];
+/* 지금 열려 있는 지식 */
+const loreOpen=()=>LORE.filter(b=>!b.on||b.on(G));
+/* 한 조각 뽑습니다 — 아직 안 읽은 것이 있으면 그중에서만, 다 읽었으면 전부에서.
+   고를 것이 둘 이상이면 방금 본 것은 뺍니다(같은 것이 연달아 나오지 않게).
+   뽑은 순간 읽은 것으로 칩니다. */
+function pickLore(){
+  const all=loreOpen();
+  if(!all.length){G.loreNow=null;return}
+  const seen=G.loreSeen||(G.loreSeen=[]);
+  let pool=all.filter(b=>!seen.includes(b.k));
+  if(!pool.length)pool=all;
+  if(pool.length>1)pool=pool.filter(b=>b.k!==G.loreNow);
+  const b=pool[(Math.random()*pool.length)|0];
+  G.loreNow=b.k;
+  if(!seen.includes(b.k))seen.push(b.k);
+}
 const SCI_IDS=SCI_MAJORS.map(m=>m.id);
 /* ── 인문사회대학 계열 전공이 열리는 조건 ── 이공대학과 같은 방식입니다.
    하나라도 차면 건물이 열리고, 학과사무실과 도서관이 같이 켜집니다. */
@@ -1073,6 +1126,17 @@ for(const [base,up] of Object.entries(WORK_UP)){
   if(!up.d)it.d=darkDesc(it);               /* 직접 적어 둔 설명이 있으면 그것을 씁니다 */
   ITEMS[workId(base)]=it;
 }
+/* ═══════════ 장비 마모 ═══════════
+   차고 나간 **강화 안 된 반출 장비**는 한 판을 치를 때마다 이 확률로 못 쓰게 됩니다.
+   굴리는 자리는 finishBattle — 살아 돌아온 사람의 여섯 칸만 보고, 배낭 속 여분은 세지 않습니다.
+   빠지는 것 둘:
+     현장품(inst)  게이트를 나서면 어차피 사라지므로 겹쳐서 빼앗지 않습니다
+     실습동 강화판  골드를 들인 것이라 지켜 줍니다 (base 가 붙어 있습니다)
+   어둠 강화판(dark)은 애초에 현장품만 대상이라 kind 검사에서 이미 걸러집니다.
+   4인이 여섯 칸을 다 채우면 24개 × 0.005 = 한 판에 0.12개, 한 게이트(15판)에 1.8개꼴입니다. */
+const WEAR_BREAK=0.005;
+const wearBreakable=id=>{const it=ITEMS[id];
+  return !!(it&&it.kind==="perm"&&it.slot&&!it.base)};
 /* 강화판은 그림·배치를 원본 것에서 가져옵니다 (어둠은 dark, 실습동은 base) */
 const baseOf=id=>(ITEMS[id]&&(ITEMS[id].dark||ITEMS[id].base))||id;
 Object.keys(ITEMS).forEach(k=>ITEMS[k].id=k);
@@ -1590,9 +1654,10 @@ const ENEMIES={
   dogzomb:{n:"강아지 좀비",lvm:CRAWL,hp:300,atk:22,aspd:1.3,speed:66,range:6,r:3.6,
            c:"#7A8C3E",exp:170,boss:true,dmg:DMG.BITE,
            flee:{at:0.25,to:0.5,rate:0.05}},
-  /* 2게이트 10일차 보스. 다리가 부러져 거의 못 걷는 대신 팔이 길고 한 대가 무겁다 */
+  /* 2게이트 10일차 보스. 다리가 부러져 거의 못 걷는 대신 팔이 길고 한 대가 무겁다.
+     그림은 정면(FOE_FRONT)이지만 걸음은 절뚝갈래(ZOMB_WALK)를 그대로 씁니다 */
   crawlzomb:{n:"다리가 부러진 좀비",lvm:HUMAN,hp:760,atk:66,aspd:.55,speed:8,range:14,r:5.6,
-             c:"#3E6B47",exp:330,boss:true,dmg:DMG.SLASH},
+             c:"#3E6B47",exp:330,boss:true,dmg:DMG.SLASH,size:3.7},
   /* 2게이트 15일차 보스. 쿵쿵 걸어와 두 팔을 들고, 힘을 모아 내려찍는다(zbossStep · ZBOSS_SLAM).
      한 번 내려찍는 데 약 2.4초라 aspd 는 쓰지 않습니다(시뮬레이션 표기용 값).
      이것에게 죽은 사람은 일어나 적이 된다. */
@@ -2626,7 +2691,8 @@ const faceTag=p=>p&&p.face
 const FOE_ART={worm:"foe/worm.webp",hopper:"foe/hopper.webp",mantis:"foe/mantis.webp",spider:"foe/spider.webp",
                cicada:"foe/cicada.webp",beetle:"foe/beetle.webp",hornet:"foe/hornet.webp",
                bee:"foe/bee.webp",
-               bloodeyes:"",dogzomb:"foe/dogzomb.webp",zombie:"foe/zombBoss.webp",zomb:"foe/zomb.webp",crawlzomb:"foe/zomb.webp",
+               bloodeyes:"",dogzomb:"foe/dogzomb.webp",zombie:"foe/zombBoss.webp",zomb:"foe/zomb.webp",
+               crawlzomb:"foe/crawlzomb.webp",
                sqzomb:"foe/sqzomb.webp",fzomb:"foe/fzomb.webp",pgzomb:"foe/pgzomb.webp"};
 /* "○○Fly"는 그 몬스터가 날아오를 때 쓰는 그림입니다.
    메뚜기 두 장은 눈을 한가운데 두고 같은 배율로 맞춰 두었으므로,
@@ -3095,6 +3161,16 @@ function unpackSave(sv){
   if(!d.foeKilled)d.foeKilled={};        /* 도서관 기록이 없던 저장본 — 다시 만나며 채웁니다 */
   if(!d.skillSeen)d.skillSeen={};
   if(d.libCat===undefined){d.libCat=null;d.libSub=null;d.libSel=null}
+  /* 도서관 지식 — 옛 저장본에는 없습니다. 지금 차고 있는 무기 갈래는 그대로 열어 줍니다 */
+  if(!d.loreSeen)d.loreSeen=[];
+  if(d.loreNow===undefined)d.loreNow=null;
+  if(!d.dmgSeen){
+    d.dmgSeen={};
+    for(const r of [...(d.roster||[]),d.playerRaw].filter(Boolean)){
+      const it=r.gear&&ITEMS[r.gear.rh];
+      if(it&&it.dmg)d.dmgSeen[it.dmg]=true;
+    }
+  }
   if(!d.shopSold)d.shopSold=[];          /* 매점 재고 기록이 없던 저장본 */
   /* 타격 격파 기록이 없던 저장본 — 예체능대학이 이미 열려 있었다면 태권도학과는 그때 이미 얻은 것이므로
      조건을 채워 줍니다. 안 그러면 쓰던 저장본에서 학과사무실이 도로 잠깁니다 */
@@ -3211,6 +3287,8 @@ function newGame(slot){
      placesSeen:[],                              /* 건축학과 — 게이트 안에서 들어가 본 장소(방 id) */
      foeKilled:{},skillSeen:{},                  /* 도서관 — 쓰러뜨려 본 적 · 골라 본 힘 */
      libCat:null,libSub:null,libSel:null,        /* 도서관에서 보던 자리 */
+     loreSeen:[],loreNow:null,                   /* 읽어 본 지식 · 지금 펼친 지식 */
+     dmgSeen:{},                                 /* 한 번이라도 손에 쥐어 본 무기 갈래(DMG) */
      gate:"front",cleared:[],gateClear:false,gateDay:{},bossKilled:{},
      bowKills:0,bowOpen:false,bowBought:false,   /* 학생회 제작 활 */
      blowKills:0,                                /* 태권도학과 — 타격·맨손으로 쓰러뜨린 수 */
@@ -4300,8 +4378,10 @@ function faceFoe(g,ang,extra){
 }
 const ZBOSS_SIZE=4.6;                            /* 좀비 보스 그림 크기(판정 반지름 배수) */
 const KEEP_RATIO=new Set(["cicada"]);            /* 그림 비율대로 그리는 몬스터 */
-/* 정면을 보는 그림 — 방향대로 돌리지 않고 좌우만 뒤집습니다(좀비 보스와 같은 방식) */
-const FOE_FRONT=new Set(["sqzomb","fzomb","pgzomb"]);
+/* 정면을 보는 그림 — 방향대로 돌리지 않고 좌우만 뒤집습니다(좀비 보스와 같은 방식).
+   다리가 부러진 좀비는 여기서 그려지고 걸음만 ZOMB_WALK(절뚝임)를 씁니다 —
+   움직임 갈래에서 ZOMB_WALK 를 먼저 보므로 둘 다 들어 있어도 섞이지 않습니다 */
+const FOE_FRONT=new Set(["sqzomb","fzomb","pgzomb","crawlzomb"]);
 /* 뒤로 흘리는 동작 — 훌쩍 뛰어 물러나고(out) → 자세를 고르며 멈췄다가(hold) → 걸어 돌아옵니다(in).
    그림만 움직입니다. 판정 자리는 그대로여서 전투 계산은 달라지지 않습니다 */
 const BSTEP_OUT=0.24, BSTEP_HOLD=0.30, BSTEP_IN=0.36;
@@ -4496,6 +4576,9 @@ function drawFoe(f){
     if(f.flash>0)ctx.filter="brightness(0) invert(1)";
     ctx.drawImage(sp,-S/2,-S,S,S);
     ctx.restore();
+    /* 그림이 판정 원보다 훨씬 위로 솟으므로 이름표는 그림 위에 답니다(좀비 보스와 같게) */
+    if(f.boss){ctx.fillStyle="rgba(242,215,78,.9)";ctx.font="800 9px system-ui";
+      ctx.textAlign="center";ctx.fillText("BOSS",x,y+r-S-8-bs.hop*r*BSTEP_HOP)}
   }else if(ZOMB_WALK.has(f.key)){
     const lp=f.limp||0, tilt=lp*0.20;
     ctx.save();ctx.translate(x,y);faceFoe(ctx,f.face,tilt);
@@ -4606,7 +4689,9 @@ function drawFoe(f){
   }
   const lift=(f.key==="hopper"&&f.air>0)?Math.sin((1-f.air/HOP_AIR)*Math.PI)*r*1.6
     /* 좀비 보스는 서 있는 그림 위로 — 팔을 들면 이름표와 막대도 그만큼 비켜 줍니다 */
-    :(f.key==="zombie"&&sprite("zombie"))?r*(ZBOSS_SIZE-2+zbossPose(f).lift*ZBOSS_ARMUP):0;
+    :(f.key==="zombie"&&sprite("zombie"))?r*(ZBOSS_SIZE-2+zbossPose(f).lift*ZBOSS_ARMUP)
+    /* 정면 그림 보스도 그림 위로 — 잡몹은 지금까지처럼 판정 원 위에 답니다 */
+    :(f.boss&&FOE_FRONT.has(f.key)&&sprite(f.key))?r*(((ENEMIES[f.key]||{}).size||4)-2):0;
   /* 뒤로 흘리는 동안에는 막대도 그림을 따라 물러나고 같이 떠오릅니다 */
   const bs=(FOE_FRONT.has(f.key)&&f.bstepT>0)?bstepPose(f):null, bk=bs?bs.bp*f.r*BSTEP_DIST:0;
   bar(f, x-(bs?Math.cos(f.face)*bk*SX:0),
@@ -4848,9 +4933,23 @@ function finishBattle(){
   for(const a of alive){
     hp0.set(a.ref,a.ref.hp);
     a.ref.hp=Math.round(a.hp);
+    /* 한 판을 치르는 동안 못 쓰게 된 것 — 전투 중 부서진 자리(broken)는 빼고 굴립니다.
+       튜토리얼에서는 굴리지 않습니다: 그날 받은 국자·냄비뚜껑이 전부입니다 */
+    if(G.mode==="run")for(const s of SLOTS){
+      if(a.broken.includes(s.k))continue;
+      if(wearBreakable(a.ref.gear[s.k])&&Math.random()<WEAR_BREAK)a.broken.push(s.k);
+    }
+    /* 벗을 때와 같은 규칙으로 비웁니다(tryGear) — 최대 체력이 줄어든 만큼 현재 체력도 같이 내려갑니다.
+       이걸 안 하면 체력 +8 짜리가 깨진 순간 88/80 처럼 최대치를 넘긴 채로 남습니다.
+       파손은 무를 수 없으므로 tryGear 와 달리 되돌리지 않고 1 밑으로만 막습니다 */
     for(const slot of a.broken){
       const it=ITEMS[a.ref.gear[slot]];
-      if(it){broke.push(`${a.ref.name}의 ${it.n}`);logAdd(a.ref,`${it.n} 파손`);a.ref.gear[slot]=null}
+      if(!it)continue;
+      const m0=derive(a.ref).maxHp;
+      a.ref.gear[slot]=null;
+      const m1=derive(a.ref).maxHp;
+      a.ref.hp=Math.max(1,Math.min(a.ref.hp+(m1-m0),m1));
+      broke.push(`${a.ref.name}의 ${it.n}`);logAdd(a.ref,`${it.n} 파손`);
     }
     /* 전공 패시브의 전투 뒤 회복(식품공학과) — 게이트 안에서만. 부서진 장비를 뺀 최대 체력까지 */
     if(G.mode==="run"){
@@ -5072,7 +5171,14 @@ function tryGear(p,fn){
   const after=derive(p).maxHp,nhp=hp0+(after-before);
   if(nhp<1){p.gear=g;p.bag=bag;p.hp=hp0;return false}
   p.hp=Math.min(nhp,after);
+  noteWeapon(p.gear.rh);
   return true;
+}
+/* 한 번이라도 손에 쥐어 본 무기 갈래를 적어 둡니다 — 도서관의 지식이 이 장부를 보고 열립니다.
+   장비를 바꾸는 길은 전부 tryGear 를 지나므로 여기 한 곳이면 됩니다. */
+function noteWeapon(id){
+  const it=ITEMS[id];
+  if(it&&it.dmg&&G&&G.dmgSeen)G.dmgSeen[it.dmg]=true;
 }
 const GEAR_LOW="체력이 적어 아이템을 해제할 수 없습니다";
 const GEAR_MAJ="전공이 적합하지 않습니다";
@@ -5745,6 +5851,8 @@ function barRows(p){
 const pctOf=(e,l)=>l>=MAX_LV?100:Math.max(0,Math.min(100,e/nextExp(l)*100));
 function hpLineGain(p,hp0){
   const m=derive(p).maxHp;
+  /* 장비가 깨져 최대 체력이 줄면 '전' 값이 새 최대치를 넘습니다 — 96/88 로 뜨지 않게 눌러 둡니다 */
+  hp0=Math.min(hp0,m);
   const a=Math.max(0,Math.min(100,hp0/m*100)), b=Math.max(0,Math.min(100,p.hp/m*100));
   return `<div class="barwrap"><div class="hpb ${b<35?"low":""}">
       <i data-anim style="width:${a}%" data-from="${a}" data-to="${b}"></i></div>
@@ -6638,9 +6746,18 @@ const LIB_CATS=[
    rows:sub=>PLACES.filter(p=>(p.gate||"front")===sub.k)
      .map(p=>({k:p.room,n:p.n,on:(G.placesSeen||[]).includes(p.room)})),
    page:r=>libPlacePage(r.k)},
-  {k:"story",n:"스토리",subN:"",subs:()=>[],
-   body:()=>LIBRARY.length?LIBRARY.map(b=>`<p><b>${b.n}</b><br>${b.d}</p>`).join("")
-     :`<p>아직 아무것도 꽂혀 있지 않습니다.</p>`,
+  /* 지식 — 열려 있는 것 중 하나를 뽑아 한 조각만 보여 줍니다. [다음] 으로 다시 뽑습니다 */
+  {k:"lore",n:"지식",subN:"",subs:()=>[],
+   body:()=>{
+     const all=loreOpen();
+     if(!all.length)return `<p>아직 아무것도 꽂혀 있지 않습니다.</p>`;
+     if(!all.some(b=>b.k===G.loreNow))pickLore();       /* 처음 들어왔거나 보던 것이 사라졌을 때 */
+     const b=LORE.find(x=>x.k===G.loreNow)||all[0];
+     const read=all.filter(x=>(G.loreSeen||[]).includes(x.k)).length;
+     return `<p>${b.d}</p>
+       <div class="bar" style="margin-top:12px"><span class="tag">읽은 것 ${read} / ${all.length}</span>
+       <button class="pickb" id="lorenext">다음</button></div>`;
+   },
    page:()=>""},
 ];
 /* ── 도감의 적 그림 ──
@@ -6665,10 +6782,14 @@ function libFoeStart(key){
   /* 판정 반지름(E.r)에 견줘 그림이 얼마나 큰지가 적마다 달라, 덩치에 맞춰 화면을 잡습니다.
      서서 위로 뻗는 것(좀비 보스)은 넓게 잡고 아래쪽에 세웁니다 — 안 그러면 머리가 잘립니다 */
   const tall=key==="zombie";
+  /* 정면 그림 보스(다리가 부러진 좀비)도 판정 원 아래쪽에 발을 딛고 위로 크게 솟습니다 —
+     발을 화면 바닥에 붙여 세워야 머리와 BOSS 글씨가 안 잘립니다 */
+  const front=FOE_FRONT.has(key)&&E.boss;
   const VW=Math.max(16,E.r*(tall?12:E.size?E.size+3:7.6));
+  const SC=w/VW;
   /* 도감에서는 이쪽을 보고 섭니다(face=아래). 정면 그림(좀비 계열)은 원래 정면이라 그대로입니다 */
   libFoe={f:{key,name:E.n,boss:!!E.boss,color:E.c,r:E.r,
-             x:VW/2,y:(h/(w/VW))*(tall?0.86:0.50),face:Math.PI/2,
+             x:VW/2,y:front?(h-6)/SC-E.r:(h/SC)*(tall?0.86:0.50),face:Math.PI/2,
              hp:E.hp,maxHp:E.hp,flash:0,strike:0,wig:0,cp:0,surge:0,limp:0,
              air:0,hopCd:0,bstepT:0,vspeed:E.speed},
            w,h,VW};
@@ -7462,6 +7583,7 @@ function render(){
       const r=G.roster[+ri],c=cost(r);
       if(G.gold<c||hasMaj(r,id)||majorRoom(id)<=0)return;
       G.gold-=c;
+      const m0=derive(r).maxHp;        /* 전공 패시브의 체력(철학과 +12 등)이 바뀝니다 */
       if(dm){
         if(majorsOf(r).length!==1)return;
         r.major2=id;logAdd(r,`${majorOf(id).n} 복수전공`);
@@ -7472,6 +7594,10 @@ function render(){
         logAdd(r,`${majorOf(id).n} 전과`);
         G.appraisal=`${r.name} · ${was?was.n:"새내기"} → ${majorOf(id).n}. 다음 전과는 ${transferCost(r)} 골드입니다.`;
       }
+      /* 장비를 바꿀 때와 같이 현재 체력도 같이 오르내립니다 —
+         철학과(+12)에서 문헌정보학과로 전과하면 92/92 가 80/80 이 됩니다(92/80 이 아니라) */
+      const m1=derive(r).maxHp;
+      r.hp=Math.max(1,Math.min(r.hp+(m1-m0),m1));
       if(id==="police")policeMajorIntro(r);
       render()});
     document.getElementById("bk").onclick=()=>{G.appraisal=null;G.scene="office";render()};
@@ -8050,7 +8176,11 @@ function render(){
       ${sel?cat.page(sel):""}
       <div class="bar"><span class="tag"></span><button class="ghost" id="bk">캠퍼스로</button></div>`;
     el.querySelectorAll("[data-lc]").forEach(b=>b.onclick=()=>{
-      G.libCat=(G.libCat===b.dataset.lc?null:b.dataset.lc);G.libSub=null;G.libSel=null;render()});
+      G.libCat=(G.libCat===b.dataset.lc?null:b.dataset.lc);G.libSub=null;G.libSel=null;
+      if(G.libCat==="lore")G.loreNow=null;      /* 들어올 때마다 새로 뽑습니다 */
+      render()});
+    const lnx=document.getElementById("lorenext");
+    if(lnx)lnx.onclick=()=>{pickLore();render()};
     el.querySelectorAll("[data-ls]").forEach(b=>b.onclick=()=>{
       G.libSub=b.dataset.ls;G.libSel=null;render()});
     el.querySelectorAll("[data-li]").forEach(b=>b.onclick=()=>{
