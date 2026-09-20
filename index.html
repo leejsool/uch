@@ -524,6 +524,11 @@ const LORE=[
    d:"태권도학과는 양손이 모두 빈손일 때 더욱 그 능력이 빛을 발합니다."},
   {k:"blunt",     on:()=>heldDmg(DMG.BLUNT),
    d:"타격 무기는 적을 뒤로 밀어냅니다. 다만 보스는 밀리지 않습니다."},
+  /* 타격에 기절을 얹은 뒤 새로 낸 조각(2026-09-20). 이름표를 따로 둔 까닭은,
+     'blunt' 를 이미 읽은 판에서도 **안 읽은 지식으로 새로 뜨게** 하려는 것입니다 */
+  {k:"blunt_stun",on:()=>heldDmg(DMG.BLUNT),
+   d:"타격 무기는 낮은 확률로 적을 잠시 기절시킵니다. 기절한 적은 풀릴 때까지 움직이지도 공격하지도 못합니다. "
+    +"보스는 몸집이 커 잘 넘어가지 않습니다."},
   {k:"chem",      on:()=>heldDmg(DMG.CHEM),
    d:"화학 무기는 같은 적을 여러번 공격할수록 더 많은 데미지를 줍니다."},
   {k:"thrust",    on:()=>heldDmg(DMG.THRUST),
@@ -1035,6 +1040,16 @@ const DARK_UP={
   apron:    {guard:4,hp:10,dodge:8},         /* 앞치마 */
   workpants:{guard:9,spdM:0.95},             /* 작업복 바지 — 더 막고, 덜 무겁다 */
   slippers: {dodge:9,crit:6},                /* 삼선 슬리퍼 */
+  /* ── 지하상가 것 ── 정문 것보다 한 뼘씩 위로 잡았습니다 */
+  mop:      {atk:11,rng:8},                  /* 대걸레 — 길이로 먹고 산다 */
+  ftongs:   {atk:13,aspdM:1.25,rng:6},       /* 튀김 젓가락 — 연탄집게+ 의 윗급 */
+  candlestick:{atk:12,crit:6},               /* 촛대 */
+  hammer:   {atk:15,aspdM:1.0},              /* 망치 — 제일 세게 때리고, 무게도 덜 걸린다 */
+  mannequin:{atk:11,aspdM:1.25},             /* 마네킹 팔 */
+  bench:    {guard:10,hp:11,dodge:-3},       /* 벤치 판자 */
+  plywood:  {guard:14,hp:17,dodge:-6},       /* 합판 — 현장 방패 중 가장 두껍다 */
+  cvest:    {guard:4,hp:12,dodge:7},         /* 편의점 조끼 */
+  sapron:   {guard:5,hp:11,dodge:8},         /* 분식집 앞치마 */
   medkitD:  {use:{pct:0.75}},                /* 침식된 응급 키트 */
   crystal:  {skill:true},                    /* 어둠 에너지 결정 — 결정으로 키우면 힘이 된다 */
 };
@@ -1067,6 +1082,9 @@ function darkDesc(it){
     if(it.spdM&&it.spdM!==1)p.push(`이동 ${pc(it.spdM-1)}`);
   }
   let s=p.join(", ")+(it.dmg?` · ${it.dmg}`:"");
+  /* 수치가 아닌 재주 — 원본 설명과 같은 말로 적습니다 (뿔 방패·풍뎅이 투구) */
+  if(it.thorns)s+=` · 맞으면 때린 적에게 ${it.thorns} 피해를 돌려준다`;
+  if(it.keepDodge)s+=" · 다른 장비의 회피 감소를 없앤다";
   if(it.frail)s+=` · ${Object.keys(it.frail).join("·")}에 약함`;
   return s;
 }
@@ -1104,6 +1122,34 @@ const WORK_UP={
   upants:  {hp:6,dodge:4,guard:1,g:50},
   boots:   {guard:2,dodge:7,g:60},
   sneakers:{dodge:13,g:75},
+  /* ── 지하상가 · 오른손 ── */
+  plunger: {atk:8,aspdM:1.45,g:75},
+  umbrella:{atk:10,aspdM:1.20,rng:5,g:95},
+  selfie:  {atk:9,aspdM:1.25,rng:7,g:95},
+  pipe:    {atk:14,aspdM:0.94,g:120},          /* 쇠파이프 — 배트+ 의 윗급 */
+  rollpin: {atk:11,aspdM:1.15,g:90},
+  /* ── 지하상가 · 왼손 ── 손보면 덜 부서집니다 */
+  toiletlid:{guard:6,hp:13,frail:{[DMG.BLAST]:0.2},g:60},
+  laptop:  {guard:6,hp:13,frail:{[DMG.SLASH]:0.02,[DMG.BLAST]:0.4},g:85},
+  /* ── 지하상가 · 머리·상의·하의·신발 ── */
+  beanie:  {guard:3,hp:7,g:45},
+  headset: {guard:2,aspdM:1.16,g:60},
+  hood:    {dodge:6,crit:8,g:75},
+  bakerhat:{guard:2,hp:11,g:45},
+  goggles: {guard:3,crit:7,g:80},
+  pcoat:   {guard:4,hp:16,g:70},
+  leather: {guard:5,hp:16,g:95},
+  hivis:   {guard:5,hp:11,dodge:4,g:80},
+  svest:   {guard:8,hp:15,g:130},
+  cargo:   {guard:3,hp:9,g:50},
+  runner:  {dodge:14,g:85},
+  walker:  {guard:3,dodge:9,g:80},
+  /* ── 재주가 붙은 것 ── 수치만 키우고 재주는 원본 그대로 물려받습니다 */
+  hshield: {guard:5,hp:8,thorns:7,g:130},      /* 뿔 방패 — 돌려주는 몫도 같이 큽니다 */
+  bhelm:   {guard:5,hp:9,g:120},               /* 풍뎅이 투구 — keepDodge 는 그대로 */
+  /* 회복스프레이 — 재주가 수치 자리에 없어 설명을 직접 적습니다 */
+  healspray:{heal:{every:3,r:12,hp:16},g:110,
+            d:"공격 3번마다 곁(12 이내) 아군 중 체력이 가장 낮은 사람의 체력 +16 · 의학대학 계열 전용"},
   /* ── 총기 ── 값이 비싼 대신 한 단계가 큽니다 */
   pistol:  {atk:12,aspdM:1.35,rng:27,g:160},   /* 사거리는 전체(7+rng)로 2배 — 17→34 */
   seized:  {atk:15,aspdM:1.35,rng:27,g:170},   /* 압수 권총 — 원본이 한 단계 세서 강화도 한 발 앞섭니다 */
@@ -1643,6 +1689,13 @@ const ENEMIES={
   /* 1게이트 마지막 보스. 6일차에 섰을 때보다 크게 불렸습니다.
      공격력 44 → 32 (2026-09-15) — 44 는 체력 75%로 들어간 Lv6 넷이 호위 둘과 함께 10%만 이겼습니다 */
   spider:{n:"거미",lvm:L2|L3,hp:540,atk:33,aspd:.8,speed:28,range:16,r:5.8,c:"#8E6BD9",exp:380,boss:true,dmg:DMG.PIERCE},
+  /* 새끼 거미 — 거미 보스가 반 넘게 다쳤을 때 줄을 타고 같이 내려옵니다(spiderReturn).
+     **보스가 부르는 것이라 날짜 배율을 태우지 않고(noScale) 경험치도 없습니다** — 보스 한 마리 몫이 전부입니다.
+     사거리는 따로 정한 값이 없어 몸집에 맞춰 짧게(9) 잡았습니다. 어미처럼 줄을 쏘지는 않습니다. */
+  /* **다리가 짧아 대원과 같은 지형을 탑니다(HUMAN)** — 어미처럼 L2|L3 로 두면 낮은 지형 위에 올라서서
+     대원이 닿지 못하는 자리를 잡고 버팁니다. 사거리는 대원(7)보다 길어 그대로 두면 전투가 끝나지 않습니다. */
+  babyspider:{n:"새끼 거미",lvm:HUMAN,hp:60,atk:26,aspd:.5,speed:30,range:9,r:2.2,
+              c:"#B79BEA",exp:0,noScale:true,dmg:DMG.PIERCE},
   /* 1게이트 6일차 보스. 날아다녀서 지형을 거의 다 넘고, 빠르고 자주 찌릅니다. 대신 무릅니다 */
   hornet:{n:"장수말벌",lvm:FLY,hp:400,atk:23,aspd:1.1,speed:58,range:8,r:4,c:"#E0A32F",exp:150,boss:true,dmg:DMG.PIERCE},
   /* 3게이트 보스. 눈알 덩어리. 매우 빠르고 시선이 닿은 자리가 터진다 */
@@ -1656,7 +1709,7 @@ const ENEMIES={
            flee:{at:0.25,to:0.5,rate:0.05}},
   /* 2게이트 10일차 보스. 다리가 부러져 거의 못 걷는 대신 팔이 길고 한 대가 무겁다.
      그림은 정면(FOE_FRONT)이지만 걸음은 절뚝갈래(ZOMB_WALK)를 그대로 씁니다 */
-  crawlzomb:{n:"다리가 부러진 좀비",lvm:HUMAN,hp:760,atk:66,aspd:.55,speed:8,range:14,r:5.6,
+  crawlzomb:{n:"다리가 부러진 좀비",lvm:HUMAN,hp:760,atk:44,aspd:.55,speed:8,range:14,r:5.6,
              c:"#3E6B47",exp:330,boss:true,dmg:DMG.SLASH,size:3.7},
   /* 2게이트 15일차 보스. 쿵쿵 걸어와 두 팔을 들고, 힘을 모아 내려찍는다(zbossStep · ZBOSS_SLAM).
      한 번 내려찍는 데 약 2.4초라 aspd 는 쓰지 않습니다(시뮬레이션 표기용 값).
@@ -1702,7 +1755,8 @@ const GATES=[
 const gateOf=()=>GATES.find(g=>g.id===G.gate)||GATES[0];
 const gateOpen=g=>!g.need||(G.cleared||[]).includes(g.need);
 /* 좀비 계열 갈래. 걸음(절뚝)과 그림을 같이 쓰는 것들 — 강아지 좀비는 네 발이라 뺍니다. */
-const ZOMB_WALK=new Set(["zombie","zomb","crawlzomb"]);
+/* 절뚝이며 걷는 갈래. 다리가 부러진 좀비는 2026-09-20 에 **한 발 뛰기**(czStep)로 옮겼습니다 */
+const ZOMB_WALK=new Set(["zombie","zomb"]);
 /* 좀비 그림(320 기준)에서 잘라 낼 팔다리. px,py 는 돌리는 축(어깨·엉덩이),
    rot 은 흔드는 각도, dx 는 앞뒤로 뻗는 거리, ph 는 박자 — 대각선 팔다리가 함께 움직입니다 */
 const ZOMB_BASE=320;
@@ -1757,6 +1811,91 @@ function cutParts(img,LIMBS,BASE,rim){
     img._cut.set(LIMBS,{body,limbs});
   }catch(e){img._cut.set(LIMBS,null)}
   return img._cut.get(LIMBS);
+}
+/* ═══════════ 다리가 부러진 좀비 (2026-09-20) ═══════════
+   2게이트 10일차 보스. 다리 하나가 없어 **성한 다리로 콩 콩 뛰어** 다가오고,
+   붙으면 **오른팔에 쥔 제 다리를 크게 휘둘러 둘레의 대원을 한꺼번에** 칩니다.
+
+   뛰기: 떠 있는 동안(CZ_HOP_AIR)만 앞으로 나가고 CZ_HOP_GAP 만큼 쉽니다.
+         뜬 동안에만 움직이므로 그만큼 빠르게 밀어 **평균 속도는 ENEMIES 의 speed 그대로**입니다.
+   휘두르기: wind(머리 위로 치켜듦) → arc(내리침 · 중간에 맞음) → rec(자세를 되돌림).
+             aspd 가 다음 차례를 잽니다. */
+const CZ_HOP_AIR=0.30, CZ_HOP_GAP=0.42, CZ_HOP_H=0.55;   /* 뜸 · 쉼 · 뜨는 높이(판정 반지름 배수) */
+const CZ_SWING={wind:.42,arc:.26,rec:.5};
+/* 쉴 때 팔은 어깨에서 **왼쪽 위**로 다리를 들고 있습니다(각 0).
+   캔버스의 양수 회전은 시계 방향이라, **양수가 머리 위로 치켜드는 쪽**이고 음수가 내리치는 쪽입니다.
+   그래서 치켜들 때가 +CZ_WIND, 내리칠 때가 −CZ_ARC 입니다 — 부호를 뒤집으면 거꾸로 휘두릅니다. */
+const CZ_WIND=0.85, CZ_ARC=-1.50;          /* 치켜드는 각 · 내리치는 각(라디안) */
+const CZ_BASE=384;
+/* 오른팔 — 어깨에서 손, 손에 쥔 제 다리와 신발까지 한 덩어리로 떼어 냅니다(그림에서는 왼쪽).
+   px,py 는 도는 축(어깨). 오른쪽 변은 머리카락을 물지 않게 소매 실루엣을 따라 들어옵니다. */
+const CZ_LIMBS=[
+  {poly:[[178,136],[150,127],[122,125],[96,104],[108,64],[98,26],[52,12],[0,50],[4,102],
+         [32,122],[44,124],[54,164],[74,204],[96,216],[122,210],[146,202],[174,204],[168,190],
+         [165,176],[170,164],[176,150]],
+   px:166,py:170,dir:1,
+   root:[[178,136],[152,130],[150,206],[176,206]]},
+];
+/* 팔이 도는 각 — 0 늘어뜨린 자세 · 음수는 뒤로 젖힘 · 양수는 앞으로 넘김 */
+function czArmPose(f){
+  const S=f.sw,C=CZ_SWING;
+  if(!S)return 0;
+  if(S.ph==="wind"){const e=Math.min(1,S.t/C.wind);return CZ_WIND*(1-(1-e)*(1-e))}
+  if(S.ph==="arc"){const e=Math.min(1,S.t/C.arc);return CZ_WIND+(CZ_ARC-CZ_WIND)*e*e}
+  const e=Math.min(1,S.t/C.rec);return CZ_ARC*(1-e)*(1-e);
+}
+/* 뛰어오른 정도 — 떠 있는 동안 0 → 1 → 0 */
+const czHop=f=>f.air>0?Math.sin((1-f.air/CZ_HOP_AIR)*Math.PI):0;
+/* 휘두르기 차례를 한 프레임 굴립니다. 맞는 순간에 onHit 이 한 번 돕니다(도감에서는 안 넘깁니다) */
+function czSwingAdvance(f,dt,onHit){
+  const S=f.sw,C=CZ_SWING;
+  S.t+=dt;
+  if(S.ht!==undefined)S.ht+=dt;          /* 맞은 뒤로 흐른 시간 — 바닥 고리가 이걸로 퍼집니다 */
+  if(S.ph==="wind"){if(S.t>=C.wind){S.ph="arc";S.t=0;S.hit=false}return}
+  if(S.ph==="arc"){
+    if(!S.hit&&S.t>=C.arc*0.55){S.hit=true;S.ht=0;f.strike=.24;if(onHit)onHit()}
+    if(S.t>=C.arc){S.ph="rec";S.t=0}
+    return;
+  }
+  if(S.t>=C.rec)f.sw=null;
+}
+/* 둘레의 대원을 한꺼번에 — **제 사거리 안이면 등 뒤에 있어도 같이 맞습니다** */
+function czHitAll(f,lifeA){
+  sfx(f.dmgType||"베기",.86);
+  let n=0;
+  for(const a of lifeA){
+    if(a.hp<=0||D(f,a)>f.range+a.r)continue;
+    hurt(a,f.atk,"#F25C5C",f.dmgType,f);n++;
+  }
+  B.shake=Math.max(B.shake||0,.18);
+  say(n?`${f.name}이(가) 다리를 내리쳤다. ${n}명이 한꺼번에 맞았다.`
+       :`${f.name}이(가) 내리친 다리가 빈 바닥을 때렸다.`);
+}
+/* 이 적의 한 차례를 통째로 맡습니다 — 참을 돌려주면 바깥의 걷기·때리기는 건너뜁니다 */
+function czStep(f,lifeA,dt){
+  /* live 는 이 판이 시작될 때 걸러 둔 것이라 이번 판에 쓰러진 것도 남아 있습니다 —
+     안 보면 쓰러진 뒤에도 휘두르기가 이어져 시체가 한 대를 칩니다(flee 쪽과 같은 함정) */
+  if(f.hp<=0){f.sw=null;return true}
+  if(f.sw){czSwingAdvance(f,dt,()=>czHitAll(f,lifeA));return true}
+  const t=lifeA.reduce((b,o)=>D(f,o)<D(f,b)?o:b);
+  f.face=Math.atan2(t.y-f.y,t.x-f.x);
+  if(D(f,t)>f.range+t.r){
+    if(f.air>0){
+      f.air-=dt;
+      const base=f.vspeed;
+      f.vspeed=base*(CZ_HOP_AIR+CZ_HOP_GAP)/CZ_HOP_AIR;   /* 뜬 동안만 가므로 그만큼 빠르게 */
+      moveTo(f,t.x,t.y,dt);
+      f.vspeed=base;
+    }else{
+      f.hopCd=(f.hopCd||0)-dt;
+      if(f.hopCd<=0){f.air=CZ_HOP_AIR;f.hopCd=CZ_HOP_AIR+CZ_HOP_GAP}
+    }
+    return true;
+  }
+  f.air=0;
+  f.cool-=dt*f.aspd;
+  if(f.cool<=0){f.cool=1;f.sw={ph:"wind",t:0};say(`${f.name}이(가) 들고 있던 다리를 머리 위로 치켜든다.`)}
+  return true;
 }
 /* ── 좀비 보스 ──
    천천히 쿵쿵 걸어옵니다(반 바퀴마다 한 걸음, 발이 닿을 때 화면이 울립니다).
@@ -1855,6 +1994,30 @@ function zbossStep(f,lifeA,dt){
     say(hitN?`${f.name}이(가) 땅을 내려찍었다. 바닥이 갈라진다.`:`${f.name}의 주먹이 빈 바닥을 내려찍었다.`);
   }else if(S.ph==="rec"&&S.t>=Z.rec){f.slam=null;f.cool=Z.rest}
   return true;
+}
+/* 다리를 휘두를 자리 — **제 둘레 range 안이 전부 맞습니다.**
+   젖히는 동안 안쪽 원이 차오르고, 맞는 순간부터 고리가 퍼지며 사라집니다.
+   좀비 보스의 drawSlamMark 와 같은 말씨로 그립니다 — 붉은 원은 '비켜야 할 곳'이라는 뜻입니다.
+   반지름은 판정과 같은 f.range 입니다(몸이 원에 닿으면 맞습니다 — czHitAll 이 a.r 을 더해 봅니다). */
+function drawCzMark(f){
+  const S=f.sw, C=CZ_SWING;
+  const x=f.x*SX, y=f.y*SY, rx=f.range*SX, ry=f.range*SY;
+  ctx.save();
+  if(S.ht===undefined){                                  /* 아직 안 맞았습니다 — 차오르는 경고 */
+    const p=S.ph==="arc"?1:Math.min(1,S.t/C.wind);
+    ctx.fillStyle=`rgba(242,60,60,${.10+.12*p})`;
+    ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,7);ctx.fill();
+    ctx.fillStyle=`rgba(242,60,60,${.18+.2*p})`;
+    ctx.beginPath();ctx.ellipse(x,y,rx*p,ry*p,0,0,7);ctx.fill();
+    ctx.strokeStyle=`rgba(255,90,90,${.55+.4*Math.abs(Math.sin(S.t*14))})`;ctx.lineWidth=2;
+    ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,7);ctx.stroke();
+  }else{                                                 /* 맞은 뒤 — 퍼지며 스러지는 고리 */
+    const e=Math.min(1,S.ht/(C.arc*0.45+C.rec));
+    ctx.globalAlpha=1-e;
+    ctx.strokeStyle="#F2E2C4";ctx.lineWidth=4*(1-e)+1;
+    ctx.beginPath();ctx.ellipse(x,y,rx*(1+e*.28),ry*(1+e*.28),0,0,7);ctx.stroke();
+  }
+  ctx.restore();
 }
 /* 바닥의 경고 원과 내려찍은 뒤의 충격파 */
 function drawSlamMark(f){
@@ -2698,6 +2861,7 @@ const FOE_ART={worm:"foe/worm.webp",hopper:"foe/hopper.webp",mantis:"foe/mantis.
    메뚜기 두 장은 눈을 한가운데 두고 같은 배율로 맞춰 두었으므로,
    같은 자리에 같은 크기로 그리면 몸은 그대로 있고 날개만 펴집니다. */
 FOE_ART.hopperFly="foe/hopperFly.webp";
+FOE_ART.babyspider=FOE_ART.spider;        /* 새끼 거미 — 어미 그림을 덩치만 줄여 씁니다 */
 const SPR={};
 /* 다 읽히기 전에는 null을 돌려주고, 그동안은 도형으로 그립니다 */
 function sprite(key){
@@ -3327,10 +3491,27 @@ const SWING={up:.30,down:.10,rec:.22};
 const SWING_TOTAL=SWING.up+SWING.down+SWING.rec;
 /* ── 피해 종류마다 붙는 성질 ──
    찌르기: 20% 확률로 뜸을 90% 줄여 곧바로 한 번 더 찌른다
-   타격  : 보스가 아닌 적을 살짝 밀어낸다
+   타격  : 보스가 아닌 적을 살짝 밀어내고, 낮은 확률로 잠깐 기절시킨다
    화학  : 같은 적에게 쌓일수록 잘 듣는다 */
 const THRUST_AGAIN=0.20, THRUST_AGAIN_CUT=0.90;
 const KNOCK=2.2;                        // 타격이 미는 거리 (전투 판은 100×100)
+/* ── 타격의 기절 (2026-09-20) ──
+   타격 무기가 셋 중 가장 밋밋해서(미는 것 말고는 없었습니다) 한 가지를 더 얹었습니다.
+   기절한 적은 풀릴 때까지 걷지도 때리지도 못하고 머리 위로 별이 돕니다(대원이 맞았을 때와 같습니다).
+   보스는 BLUNT_STUN_BOSS 배율만큼만 걸립니다 — 안 그러면 빠른 타격 무기 하나로 묶어 놓을 수 있습니다.
+   휩쓸려 맞은 것(rate<1)은 절반입니다. 미는 거리를 KNOCK*0.6 으로 깎는 것과 같은 뜻입니다.
+   **적이 휘두르는 타격에는 걸리지 않습니다** — 무기에 붙인 몫이라 대원 쪽 공격에서만 굴립니다. */
+const BLUNT_STUN=0.12, BLUNT_STUN_T=0.6, BLUNT_STUN_BOSS=0.35;
+/* 한 대가 기절을 남기는지 굴립니다. 남기면 그 자리에서 걸고 참을 돌려줍니다 */
+function blowStun(o,rate){
+  if(!o||o.hp<=0)return false;
+  const p=BLUNT_STUN*(rate<1?0.5:1)*(o.boss?BLUNT_STUN_BOSS:1);
+  if(Math.random()>=p)return false;
+  o.stunT=Math.max(o.stunT||0,BLUNT_STUN_T);
+  o.anim=null;
+  B.fx.push({x:o.x,y:o.y-3,t:"기절",c:"#F2D74E",life:1,off:0});
+  return true;
+}
 const CHEM_STACK=0.15, CHEM_MAX=8;      // 화학 — 한 번 맞을 때마다 +15%, 여덟 번까지
 const THRUST={up:.18,go:.07,rec:.20};
 const THRUST_TOTAL=THRUST.up+THRUST.go+THRUST.rec;
@@ -3357,11 +3538,11 @@ const BATTLE_RIG = {
   mic:       { ne:{ x:1.28, y:-0.93, rot:0.50, scale:1.00, z:-1, mir:false }, nw:{ x:1.09, y:-0.99, rot:0.50, scale:1.00, z:-1, mir:false }, se:{ x:0.28, y:-0.89, rot:0.50, scale:1.00, z:1, mir:false }, sw:{ x:-1.32, y:-1.20, rot:-1.33, scale:1.00, z:1, mir:false } },
   spray:     { ne:{ x:0.96, y:-1.02, rot:0.50, scale:0.60, z:-1, mir:false }, nw:{ x:0.83, y:-0.93, rot:0.50, scale:0.60, z:-1, mir:false }, se:{ x:-0.06, y:-0.76, rot:0.50, scale:0.60, z:1, mir:false }, sw:{ x:-0.98, y:-1.01, rot:-0.82, scale:0.61, z:1, mir:false } },
   pistol:    { ne:{ x:0.91, y:-0.69, rot:0.50, scale:0.63, z:-1, mir:false }, nw:{ x:0.69, y:-0.76, rot:0.50, scale:0.61, z:-1, mir:false }, se:{ x:-0.02, y:-0.64, rot:0.50, scale:0.63, z:1, mir:false }, sw:{ x:-1.04, y:-0.87, rot:-0.50, scale:0.64, z:1, mir:true } },
-  shotgun:   { ne:{ x:0.30, y:-1.50, rot:0.50, scale:1.00, z:-1, mir:false }, nw:{ x:-0.30, y:-1.50, rot:-0.50, scale:1.00, z:-1, mir:true }, se:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, z:1, mir:false }, sw:{ x:-1.05, y:-1.55, rot:0.50, scale:1.00, z:1, mir:false } },
-  rifle:     { ne:{ x:0.30, y:-1.50, rot:0.50, scale:1.00, z:-1, mir:false }, nw:{ x:-0.30, y:-1.50, rot:-0.50, scale:1.00, z:-1, mir:true }, se:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, z:1, mir:false }, sw:{ x:-1.05, y:-1.55, rot:0.50, scale:1.00, z:1, mir:false } },
-  baton:     { ne:{ x:0.30, y:-1.50, rot:0.50, scale:1.00, z:-1, mir:false }, nw:{ x:-0.30, y:-1.50, rot:-0.50, scale:1.00, z:-1, mir:true }, se:{ x:1.05, y:-1.55, rot:0.50, scale:1.00, z:1, mir:false }, sw:{ x:-1.05, y:-1.55, rot:0.50, scale:1.00, z:1, mir:false } },
+  shotgun:   { ne:{ x:1.29, y:-0.87, rot:0.50, scale:1.00, z:-1, mir:false }, nw:{ x:-0.32, y:-0.96, rot:-0.50, scale:1.00, z:-1, mir:true }, se:{ x:-0.23, y:-0.60, rot:0.50, scale:0.84, z:1, mir:false }, sw:{ x:-1.01, y:-0.67, rot:-0.95, scale:1.00, z:-1, mir:true } },
+  rifle:     { ne:{ x:0.89, y:-0.48, rot:0.50, scale:0.89, z:1, mir:false }, nw:{ x:-0.12, y:-1.08, rot:-0.50, scale:1.00, z:-1, mir:true }, se:{ x:-0.30, y:-0.70, rot:0.50, scale:1.00, z:1, mir:false }, sw:{ x:-0.80, y:-0.91, rot:-0.91, scale:1.00, z:-1, mir:true } },
+  baton:     { ne:{ x:0.80, y:-0.71, rot:0.50, scale:1.00, z:1, mir:false }, nw:{ x:-0.12, y:-0.92, rot:-0.50, scale:1.00, z:-1, mir:true }, se:{ x:0.26, y:-0.74, rot:0.50, scale:1.00, z:1, mir:false }, sw:{ x:-0.98, y:-1.00, rot:-0.75, scale:1.00, z:-1, mir:true } },
   /* ── 왼손(방패) ── */
-  lid:       { ne:{ x:-0.28, y:-0.73, rot:-1.33, scale:1.00, z:-1, mir:false }, nw:{ x:-0.63, y:-0.51, rot:-1.33, scale:1.00, z:1, mir:false }, se:{ x:0.70, y:-0.70, rot:2.39, scale:1.00, z:-1, mir:false }, sw:{ x:0.41, y:-0.61, rot:2.40, scale:1.00, z:1, mir:false } },
+  lid:       { ne:{ x:-0.28, y:-0.73, rot:-1.33, scale:1.12, z:-1, mir:false }, nw:{ x:-0.63, y:-0.51, rot:-1.33, scale:1.00, z:1, mir:false }, se:{ x:0.70, y:-0.70, rot:2.39, scale:0.67, z:-1, mir:false }, sw:{ x:0.41, y:-0.61, rot:2.40, scale:1.00, z:1, mir:false } },
   book:      { ne:{ x:0.01, y:-0.52, rot:0.34, scale:1.00, z:-1, mir:false }, nw:{ x:-0.29, y:-0.78, rot:-0.21, scale:1.00, z:-1, mir:false }, se:{ x:0.53, y:-0.61, rot:0.70, scale:1.00, z:1, mir:false }, sw:{ x:-0.40, y:-0.59, rot:0.42, scale:1.00, z:1, mir:false } },
   tray:      { ne:{ x:-0.34, y:-1.75, rot:-1.63, scale:1.00, z:-1, mir:false }, nw:{ x:-1.08, y:-1.60, rot:1.39, scale:1.00, z:1, mir:false }, se:{ x:1.17, y:-1.87, rot:-1.26, scale:1.00, z:-1, mir:false }, sw:{ x:1.05, y:-1.40, rot:-1.27, scale:1.00, z:1, mir:false } },
   signboard: { ne:{ x:-0.48, y:-0.88, rot:-0.40, scale:1.00, z:-1, mir:false }, nw:{ x:-0.55, y:-1.14, rot:-0.40, scale:1.00, z:-1, mir:false }, se:{ x:0.72, y:-1.26, rot:-0.40, scale:1.00, z:-1, mir:false }, sw:{ x:0.32, y:-0.89, rot:0.14, scale:1.00, z:1, mir:false } },
@@ -3748,6 +3929,156 @@ function makeEnemy(key,i,day){
   u.x=sp.x;u.y=sp.y;
   return u;
 }
+/* ═══════════ 거미 보스 — 줄을 타고 사라졌다 돌아오기 (2026-09-20) ═══════════
+   1게이트 10일차 보스. 체력이 SPIDER_ESC_AT 밑으로 떨어지면 **한 판에 한 번**(f.escDone)
+   꽁무니에서 **12시 방향**으로 줄을 뿜고 그 줄을 타고 천장 너머로 사라집니다.
+
+   사라져 있는 동안에도 **B.foes 에 hp>0 인 채로 남아 있으므로 전투가 끝나지 않습니다.**
+   대신 `f.away` 가 붙어 아무도 노리지 못하고(대원 표적·휩쓸기·멀티샷에서 빠짐),
+   저도 때리지 못합니다(제 차례를 esc 갈래가 통째로 가져갑니다).
+
+   차례: shoot(줄을 뿜음) → up(타고 오름) → wait(사라진 채 한 박자) → talk(대사)
+         → drop(대원에게서 가장 먼 자리로 새끼들과 함께 내려옴)
+   대사가 도는 동안은 `B.talk` 가 tick 만 멈춥니다 — 그림은 그대로 그립니다(일시정지 화면과 다릅니다). */
+const SPIDER_ESC={shoot:.36,up:.9,wait:1.0,drop:.9}, SPIDER_ESC_AT=0.5, SPIDER_KIDS=3;
+/* 지금 어디쯤인지 — p 0 바닥 ~ 1 하늘, rope 는 줄이 그려진 몫 */
+function escPose(f){
+  const S=f.esc; if(!S)return null;
+  if(S.ph==="shoot")return {p:0,rope:Math.min(1,S.t/SPIDER_ESC.shoot)};
+  if(S.ph==="up")   return {p:Math.min(1,S.t/SPIDER_ESC.up),rope:1};
+  if(S.ph==="drop") return {p:1-Math.min(1,Math.max(0,S.t)/SPIDER_ESC.drop),rope:1};
+  return {p:1,rope:0};                    /* wait·talk — 하늘에 있어 줄도 몸도 안 보입니다 */
+}
+/* 화면 위로 완전히 빠져나가는 데 드는 픽셀 — 몸이 어디 서 있든 천장 너머까지 갑니다 */
+const escRise=f=>f.y*SY+f.r*Math.min(SX,SY)*6+40;
+/* 한 마리의 esc 차례. 이 줄을 타면 그 프레임의 다른 행동은 하지 않습니다 */
+function spiderEscStep(f,dt){
+  const S=f.esc, E=SPIDER_ESC;
+  S.t+=dt;
+  if(S.ph==="shoot"){ if(S.t>=E.shoot){S.ph="up";S.t=0;sfx("물러남")} return }
+  if(S.ph==="up"){ if(S.t>=E.up){S.ph="wait";S.t=0;say(`${f.name}이(가) 천장 너머로 사라졌다.`)} return }
+  if(S.ph==="wait"){ if(S.t>=E.wait)spiderEscTalk(f); return }
+  if(S.ph==="talk")return;                /* 대사가 끝날 때까지 가만히 있습니다 */
+  if(S.ph==="drop"&&S.t>=E.drop){f.esc=null;f.away=false;f.anim=null;f.cool=1}
+}
+/* 사라진 뒤의 대사. 두 번째 줄은 곁에 사람이 더 있을 때만 나옵니다 */
+function spiderEscTalk(f){
+  const av=B.allies.filter(a=>a.hp>0);
+  f.esc.ph="talk";f.esc.t=0;
+  if(!av.length||B.over){spiderReturn(f);return}
+  const a=av[0].ref, b=av[1]&&av[1].ref;
+  const lines=[[{p:a},"거미가 도망쳤어!"],
+               b&&[{p:b},"아직 방심하면 안돼."],
+               [{p:a},"사각거리는 소리가 아직 들린다. 온다!"]].filter(Boolean);
+  B.talk=true;
+  popupTalk(lines,()=>{B.talk=false;spiderReturn(f)});
+}
+/* 대원들에게서 가장 먼 자리로 줄을 타고 내려옵니다. 새끼 SPIDER_KIDS 마리도 그 둘레에 같이 매달립니다. */
+function spiderReturn(f){
+  if(!B||B.over||f.hp<=0){if(f.esc){f.esc=null;f.away=false}return}
+  const den=fleeDen(f), sp=reachSpot(den.x,den.y,f.r,f.lvm);
+  f.x=sp.x;f.y=sp.y;f._px=f.x;f._py=f.y;
+  f.esc={ph:"drop",t:0};
+  preloadFoes(["babyspider"]);
+  const E=ENEMIES.babyspider;
+  for(let i=0;i<SPIDER_KIDS;i++){
+    const k=makeEnemy("babyspider",i,battleDay());
+    const a=i/SPIDER_KIDS*6.283+0.4, d=f.r+E.r+2;
+    const ks=reachSpot(Math.max(E.r,Math.min(100-E.r,f.x+Math.cos(a)*d)),
+                       Math.max(E.r,Math.min(100-E.r,f.y+Math.sin(a)*d*0.7)),E.r,E.lvm);
+    k.x=ks.x;k.y=ks.y;k._px=k.x;k._py=k.y;
+    k.away=true;k.esc={ph:"drop",t:-i*0.14};   /* 조금씩 늦게 내려옵니다 */
+    B.foes.push(k);
+  }
+  sfx("물러남");
+  say(`${f.name}이(가) 새끼 ${SPIDER_KIDS}마리와 함께 줄을 타고 내려온다.`);
+}
+/* ─── 회복 십자가 ───
+   물러나 상처를 핥는 동안(flee==="heal") 몸 둘레에서 작은 녹색 십자가가 피어올랐다 사라집니다.
+   HEAL_FX_GAP 초마다 하나씩, 몸 반지름 안쪽 아무 데서나 돋습니다. 눈에 보이기만 할 뿐
+   회복량과는 아무 상관이 없습니다 — 체력은 FL.rate 가 따로 채웁니다.
+   x 는 몸 반지름 그대로, y 는 그 절반만 씁니다 — 화면이 탑뷰라 세로로 퍼지면 몸에서 떨어져 보입니다. */
+const HEAL_FX_GAP=0.24;
+function healFx(f,dt){
+  f.hfx=(f.hfx||0)+dt;
+  while(f.hfx>=HEAL_FX_GAP){
+    f.hfx-=HEAL_FX_GAP;
+    const a=Math.random()*6.283, d=f.r*(0.2+Math.random()*0.9);
+    B.fx.push({x:f.x+Math.cos(a)*d, y:f.y+Math.sin(a)*d*0.5, mark:"cross",
+               s:1.7+Math.random()*1.2, sw:Math.random()*6.283, vy:15,
+               c:"#6BD98F", life:1.0+Math.random()*0.4, off:0});
+  }
+}
+/* ═══════════ 대원이 물러나 숨 돌리기 ═══════════
+   체력이 ALLY_FLEE_AT 밑으로 떨어지면 **한 판에 한 번**(u.fled) 뒤로 빠집니다.
+   자리에 닿으면 배낭에 회복할 것이 있으면 꺼내 먹고(EAT_TIME 초), 없으면 숨만 고릅니다(REST_TIME 초).
+   그동안은 움직이지도 때리지도 않습니다 — 적은 그대로 쫓아오므로 공짜 시간이 아닙니다.
+   강아지 좀비의 flee 와 달리 **무적이 아니고 회복량도 먹은 것만큼**입니다. */
+const ALLY_FLEE_AT=0.25, EAT_TIME=2, REST_TIME=1, ALLY_BACK=14, ALLY_RUN_MAX=5;
+/* 전투 중에 먹는 것의 회복량 — useItem 과 같은 셈입니다(kit 은 식품공학과 배율을 안 받습니다).
+   기운(buff)·나눠 마시기(share)는 전투 중에 얹을 자리가 없어 회복만 봅니다. */
+function healAmount(it,max){
+  const us=it.use||{};
+  if(us.pct)return Math.round(max*us.pct);
+  return Math.round((us.hp||0)*(it.kit?1:1+(FOOD_HEAL[foodLv()]-1)*foodRate()));
+}
+/* 배낭에서 꺼내 먹을 것 하나 — 모자란 만큼을 채우는 **가장 작은 것**, 그것이 없으면 가장 큰 것.
+   급할 때 상한 것을 씹을 이유는 없으므로 risky 는 뺍니다. 없으면 −1 */
+function bestHealIdx(u){
+  const bag=u.ref&&u.ref.bag; if(!bag||!bag.length)return -1;
+  const need=u.maxHp-u.hp;
+  let fit=-1,fitV=Infinity,big=-1,bigV=0;
+  bag.forEach((id,i)=>{
+    const it=ITEMS[id], us=it&&it.use;
+    if(!us||us.risky||!(us.hp>0||us.pct))return;
+    const v=healAmount(it,u.maxHp);
+    if(v<=0)return;
+    if(v>=need&&v<fitV){fitV=v;fit=i}
+    if(v>bigV){bigV=v;big=i}
+  });
+  return fit>=0?fit:big;
+}
+/* 물러설 자리 — **아군들 뒤, 적에게서 먼 곳**.
+   적 무리의 한가운데에서 아군 무리 쪽으로 뻗은 선을 ALLY_BACK 만큼 더 늘린 자리입니다.
+   그 언저리 열 곳을 재 보고 **가장 가까운 적이 가장 먼** 자리를 고릅니다 —
+   뒤쪽에 적이 돌아 들어와 있으면 곧이곧대로 물러나 봐야 소용이 없어서입니다. */
+function allyDen(u,lifeA,live){
+  const mid=(arr,k)=>arr.reduce((t,o)=>t+o[k],0)/arr.length;
+  const ex=mid(live,"x"), ey=mid(live,"y");
+  const mates=lifeA.filter(o=>o!==u);
+  const ax=mates.length?mid(mates,"x"):u.x, ay=mates.length?mid(mates,"y"):u.y;
+  let dx=ax-ex, dy=ay-ey, L=Math.hypot(dx,dy);
+  if(L<0.001){dx=u.x-ex;dy=u.y-ey;L=Math.hypot(dx,dy)||1}   /* 겹쳐 서 있으면 제 몸을 기준으로 */
+  dx/=L;dy/=L;
+  let best=null,bd=-1;
+  for(const ang of [0,0.6,-0.6,1.2,-1.2])for(const far of [ALLY_BACK,ALLY_BACK*0.6]){
+    const c=Math.cos(ang),sn=Math.sin(ang);
+    const tx=Math.max(6,Math.min(94,ax+(dx*c-dy*sn)*far));
+    const ty=Math.max(6,Math.min(94,ay+(dx*sn+dy*c)*far));
+    const sp=freeSpot(tx,ty,u.r,u.lvm);
+    const d=live.reduce((b,o)=>Math.min(b,Math.hypot(sp.x-o.x,sp.y-o.y)),1e9);
+    if(d>bd){bd=d;best=sp}
+  }
+  return best;
+}
+/* 자리에 닿았습니다. 먹을 것을 **그 자리에서 배낭에서 덜어내고**(즉시 소모),
+   회복량은 EAT_TIME 초에 걸쳐 나눠 들어갑니다. 먹을 것이 없으면 REST_TIME 초만 쉽니다.
+   무엇을 먹을지는 여기서 고릅니다 — 달려가는 사이에 탄약이 떨어져 배낭이 바뀔 수 있어서입니다. */
+function startBreath(u){
+  const bi=bestHealIdx(u);
+  if(bi<0){
+    u.retreat="rest";u.eatT=REST_TIME;
+    say(`${u.name}이(가) 숨을 고른다. 배낭에 먹을 것이 없다.`);
+    return;
+  }
+  const p=u.ref, it=ITEMS[p.bag[bi]];
+  p.bag.splice(bi,1);
+  const amt=Math.min(healAmount(it,u.maxHp),u.maxHp-u.hp);
+  u.retreat="eat";u.eatT=EAT_TIME;u.healRate=amt/EAT_TIME;
+  if(it.use.soju)G.sojuDrunk=true;          /* 철학과 해금 기록은 그대로 남깁니다 */
+  sfx("회복");
+  say(`${u.name}이(가) ${it.n}을(를) 꺼내 든다. 체력 ${Math.round(amt)} 회복.`);
+}
 /* 도망칠 구석 — 살아 있는 대원들의 한가운데에서 가장 먼 모서리.
    그 자리가 막혀 있으면 freeSpot 이 근처의 설 수 있는 곳으로 밀어 준다. */
 function fleeDen(f){
@@ -3975,6 +4306,30 @@ function tick(dt){
         dropGun(u);swapToBagWeapon(u);drawShield(u);
       }
     }
+    /* ─── 물러나 숨 돌리기 ─── 때리던 중이라도 손을 놓고 빠집니다 */
+    if(!u.fled&&live.length&&u.hp>0&&u.hp<=u.maxHp*ALLY_FLEE_AT){
+      u.fled=true;u.retreat="run";u.den=allyDen(u,lifeA,live);u.runT=0;u.anim=null;
+      say(`${u.name}이(가) 뒤로 빠진다.`);
+    }
+    if(u.retreat==="run"){
+      u.face=Math.atan2(u.den.y-u.y,u.den.x-u.x);
+      moveTo(u,u.den.x,u.den.y,dt);
+      u.runT+=dt;
+      /* 길이 막혀 자리에 못 닿는 일이 있습니다 — ALLY_RUN_MAX 초가 지나면 선 자리에서 숨을 돌립니다 */
+      if(D(u,u.den)<u.r+1.5||u.runT>=ALLY_RUN_MAX)startBreath(u);
+      continue;
+    }
+    if(u.retreat){                                   /* "eat" 또는 "rest" — 멈춰 선 채로 */
+      u.eatT-=dt;
+      if(u.retreat==="eat"){
+        u.hp=Math.min(u.maxHp,u.hp+u.healRate*dt);
+        healFx(u,dt);                                /* 강아지 좀비와 같은 녹색 십자가 */
+      }
+      if(live.length){const n=live.reduce((b,o)=>D(u,o)<D(u,b)?o:b);
+        u.face=Math.atan2(n.y-u.y,n.x-u.x)}          /* 노려보기만 합니다 */
+      if(u.eatT<=0){u.retreat=null;say(`${u.name}이(가) 다시 전열에 선다.`)}
+      continue;
+    }
     if(u.anim){
       const a=u.anim,prev=a.t;a.t+=dt;
       const th=u.style==="thrust",gn=u.style==="gun";
@@ -4008,7 +4363,10 @@ function tick(dt){
                맨손도 여기에 들어옵니다 — derive() 가 빈손에 DMG.BLUNT 를 물리기 때문입니다 */
             if(bl&&was>0&&o.hp<=0)G.blowKills=(G.blowKills||0)+1;
             if(ch)o.chem=(o.chem||0)+1;
-            if(bl)knockBack(u,o,rate<1?KNOCK*0.6:KNOCK);
+            if(bl){
+              knockBack(u,o,rate<1?KNOCK*0.6:KNOCK);
+              if(blowStun(o,rate))say(`${u.name}의 한 방에 ${o.name}이(가) 휘청인다.`);
+            }
           };
           let swept=0;
           if(u.bow){
@@ -4026,7 +4384,7 @@ function tick(dt){
               if(u.boomP>0&&Math.random()<u.boomP){
                 B.fx.push({x:tg.x,y:tg.y-3,t:"폭발",c:"#FF8A3D",life:.8,off:0});
                 for(const o of B.foes){
-                  if(o===tg||o.hp<=0)continue;
+                  if(o===tg||o.hp<=0||o.away)continue;
                   if(D(tg,o)<o.r+BOOM_PAD){const w2=o.hp;hit(o,BOOM_RATE);swept++;
                     if(w2>0&&o.hp<=0)G.bowKills=(G.bowKills||0)+1}
                 }
@@ -4035,7 +4393,7 @@ function tick(dt){
             shoot(a.tgt);
             /* 멀티샷 — 화살 한 발로 둘을 뚫습니다. 하나뿐이면 상위만 두 번 쏩니다 */
             if(u.multi){
-              const rest=B.foes.filter(o=>o.hp>0&&o!==a.tgt);
+              const rest=B.foes.filter(o=>o.hp>0&&o!==a.tgt&&!o.away);
               if(rest.length)shoot(rest.reduce((b,o)=>D(u,o)<D(u,b)?o:b));
               else if(u.multi>=2)shoot(a.tgt);
             }
@@ -4045,7 +4403,7 @@ function tick(dt){
             const sr=Math.max(u.style==="swing"?SPLASH_RATE:0,u.splash||0);
             if(sr>0){
               for(const o of B.foes){
-                if(o===a.tgt||o.hp<=0)continue;
+                if(o===a.tgt||o.hp<=0||o.away)continue;
                 if(D(u,o)<u.range+o.r+SPLASH_PAD){hit(o,sr);swept++}
               }
             }
@@ -4058,8 +4416,10 @@ function tick(dt){
       if(a.t>=total)u.anim=null;
       continue;
     }
-    if(!live.length)continue;
-    const t=live.reduce((b,o)=>D(u,o)<D(u,b)?o:b);
+    /* 줄을 타고 사라진 것(f.away)은 노릴 수 없습니다 — 목록이 비면 그 자리에 서서 기다립니다 */
+    const tgts=live.filter(o=>!o.away);
+    if(!tgts.length)continue;
+    const t=tgts.reduce((b,o)=>D(u,o)<D(u,b)?o:b);
     if(D(u,t)>u.range+t.r-1)moveTo(u,t.x,t.y,dt);
     else{u.face=Math.atan2(t.y-u.y,t.x-u.x);u.cool-=dt*u.aspd;
       if(u.cool<=0){
@@ -4074,6 +4434,17 @@ function tick(dt){
   }
   for(const f of live){
     f.wig+=dt*3;
+    /* 기절 — 풀릴 때까지 걷지도 때리지도 못합니다(대원 쪽과 같은 규칙).
+       휘두르던 몸짓도 그 자리에서 멈춥니다 — f.slam·f.sw 를 건드리지 않고 시간만 세웁니다 */
+    if(f.stunT>0){f.stunT-=dt;continue}
+    /* 거미 보스 — 절반 밑으로 떨어지면 한 판에 한 번 줄을 타고 사라집니다.
+       사라져 있는 동안에도 B.foes 에 남으므로 전투는 끝나지 않습니다(f.away). */
+    if(f.key==="spider"&&!f.escDone&&f.hp>0&&f.hp<=f.maxHp*SPIDER_ESC_AT&&lifeA.length){
+      f.escDone=true;f.away=true;f.anim=null;
+      f.esc={ph:"shoot",t:0};
+      say(`${f.name}이(가) 꽁무니에서 줄을 뿜는다.`);
+    }
+    if(f.esc){spiderEscStep(f,dt);continue}
     if(!lifeA.length)continue;
     /* 물러났다 돌아오는 패턴. 한 판에 한 번만(f.fled) 쓴다. */
     const FL=(ENEMIES[f.key]||{}).flee;
@@ -4091,11 +4462,13 @@ function tick(dt){
       /* live 는 이 판이 시작될 때 걸러 둔 것이라, 이번 판에 쓰러진 것도 여기 남아 있습니다.
          hp>0 을 보지 않으면 0 이 된 것을 도로 채워 놓아 영영 죽지 않습니다 */
       if(f.hp>0)f.hp=Math.min(f.maxHp,f.hp+f.maxHp*FL.rate*dt);
+      if(f.hp>0&&f.hp<f.maxHp)healFx(f,dt);        /* 몸 둘레의 녹색 십자가 */
       const n=lifeA.reduce((b,o)=>D(f,o)<D(f,b)?o:b);
       f.face=Math.atan2(n.y-f.y,n.x-f.x);          // 노려보기만 한다
       if(f.hp>0&&f.hp>=f.maxHp*FL.to){f.flee=null;say(`${f.name}이(가) 다시 달려든다.`)}
       continue;
     }
+    if(f.key==="crawlzomb"&&czStep(f,lifeA,dt))continue;
     if(f.key==="zombie"&&zbossStep(f,lifeA,dt))continue;
     const t=lifeA.reduce((b,o)=>D(f,o)<D(f,b)?o:b);
     // 서로 밀어내는 거리(반지름 합)보다 사거리가 짧으면 영영 못 때린다. 상대 덩치를 더해준다.
@@ -4153,7 +4526,7 @@ function tick(dt){
   }
   for(const u of [...B.allies,...B.foes]){if(u.flash>0)u.flash-=dt;if(u.strike>0)u.strike-=dt;
     if(u.slowT>0)u.slowT-=dt;if(u.bstepT>0)u.bstepT-=dt}
-  B.fx=B.fx.filter(p=>{p.life-=dt;p.off+=26*dt;return p.life>0});
+  B.fx=B.fx.filter(p=>{p.life-=dt;p.off+=(p.vy||26)*dt;return p.life>0});
   if(B.shake>0)B.shake=Math.max(0,B.shake-dt);
   if(B.shots)B.shots=B.shots.filter(w=>{w.life-=dt;return w.life>0});
   if(!B.over){
@@ -4164,6 +4537,19 @@ function tick(dt){
 
 /* ═══════════ 그리기 ═══════════ */
 let SX=4,SY=4;
+/* 회복 십자가 하나 — 글꼴에 있는 글자가 아니라 네모 둘로 직접 그립니다.
+   떠오르면서(off) 좌우로 살짝 흔들리고(sw), 사라질 무렵에는 조금 커집니다. */
+function drawCrossFx(p){
+  const g=1-Math.min(1,p.life/1.4);                    /* 0 갓 돋음 ~ 1 스러지기 직전 */
+  const x=p.x*SX+Math.sin(p.sw+p.off*0.07)*2.2, y=p.y*SY-p.off;
+  const s=p.s*SX*(1+g*0.35), t=s*0.36;                 /* s 십자 한 변, t 팔 두께 */
+  ctx.save();
+  ctx.shadowColor="rgba(107,217,143,.85)";ctx.shadowBlur=6;
+  ctx.fillStyle=p.c;
+  ctx.fillRect(x-s/2,y-t/2,s,t);
+  ctx.fillRect(x-t/2,y-s/2,t,s);
+  ctx.restore();
+}
 /* 화면 흔들림(B.shake, 초) — 좀비 보스의 걸음과 내려찍기 */
 function paint(){
   const sh=B&&B.shake>0?Math.min(1,B.shake*2.5):0;
@@ -4211,13 +4597,24 @@ function paintScene(){
         ctx.fillText(o.l,px(o.x+o.w/2),py(o.y+o.h/2)+3.5)}
     }
   }
+  for(const f of B.foes)if(f.hp>0&&f.esc)drawSpiderRope(f);
+  for(const f of B.foes)if(f.hp>0&&f.sw)drawCzMark(f);
   for(const f of B.foes)if(f.hp>0&&f.slam)drawSlamMark(f);
-  for(const f of B.foes)if(f.hp>0)drawFoe(f);
+  for(const f of B.foes)if(f.hp>0){
+    const ep=f.esc?escPose(f):null;
+    if(ep)ctx.globalAlpha=Math.max(0,1-ep.p*0.9);   /* 오를수록 옅어집니다 */
+    drawFoe(f);
+    if(ep)ctx.globalAlpha=1;
+  }
   for(const a of B.allies)if(a.hp>0)drawAlly(a);
   if(B.shots)for(const w of B.shots)drawWeb(w);
   ctx.textAlign="center";ctx.font="800 13px system-ui";
-  for(const p of B.fx){ctx.globalAlpha=Math.min(1,p.life*1.6);ctx.fillStyle=p.c;
-    ctx.fillText(p.t,px(p.x),py(p.y)-10-p.off)}
+  for(const p of B.fx){
+    ctx.globalAlpha=Math.min(1,p.life*1.6);
+    if(p.mark==="cross"){drawCrossFx(p);continue}      /* 회복 십자가는 글자가 아니라 그림입니다 */
+    ctx.fillStyle=p.c;
+    ctx.fillText(p.t,px(p.x),py(p.y)-10-p.off);
+  }
   ctx.globalAlpha=1;
 }
 /* 공격 시 몸통을 앞뒤로 미는 양(−준비 뒤로 ~ +타격 앞으로 ~ 0 복귀). 총은 호출부에서 부호를 뒤집어 반동으로 쓴다 */
@@ -4407,8 +4804,26 @@ function bstepPose(u){
   const k=Math.min(1,(e-BSTEP_OUT-BSTEP_HOLD)/BSTEP_IN);
   return{bp:1-ease(k),hop:0,ret:1-k};
 }
+/* 꽁무니에서 12시 방향으로 뻗은 줄. 화면 위 끝까지 그리므로 끝이 보이지 않습니다 */
+function drawSpiderRope(f){
+  const ep=escPose(f); if(!ep||ep.rope<=0)return;
+  const bx=f.x*SX, by=f.y*SY-ep.p*escRise(f), top=by+(-10-by)*ep.rope;
+  ctx.save();
+  ctx.strokeStyle="rgba(236,236,250,.85)";ctx.lineWidth=1.6;ctx.lineCap="round";
+  ctx.beginPath();
+  for(let i=0;i<=12;i++){
+    const q=i/12, yy=by+(top-by)*q;
+    const wob=Math.sin(q*9+(f.wig||0)*2)*1.5*(1-q*0.7);
+    i?ctx.lineTo(bx+wob,yy):ctx.moveTo(bx+wob,yy);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
 function drawFoe(f){
-  const x=f.x*SX,y=f.y*SY,r=f.r*Math.min(SX,SY);
+  /* 줄을 타고 오르내리는 중이면 몸을 그만큼 위로 들어 올립니다. 다 올랐으면 그리지 않습니다 */
+  const ep=f.esc?escPose(f):null;
+  if(ep&&ep.p>=1)return;
+  const x=f.x*SX,y=f.y*SY-(ep?ep.p*escRise(f):0),r=f.r*Math.min(SX,SY);
   const bx=Math.cos(f.face),by=Math.sin(f.face);
   const col=f.flash>0?"#fff":f.color;
   if(f.key==="worm"){
@@ -4485,8 +4900,8 @@ function drawFoe(f){
       ctx.beginPath();ctx.arc(r*.8,0,r*.3,0,7);ctx.fillStyle=f.flash>0?"#fff":"#EFD98A";ctx.fill();
       ctx.restore();
     }
-  }else if(f.key==="spider"){
-    const spd=sprite("spider");
+  }else if(f.key==="spider"||f.key==="babyspider"){
+    const spd=sprite(f.key);
     if(spd){
       /* 그림은 머리가 오른쪽을 보게 잘라 두었습니다 — faceFoe 만 태우면 방향이 맞습니다.
          가로로 긴 그림이라 긴 쪽을 몸 방향에 맞춰 폭부터 잡습니다. */
@@ -4502,9 +4917,11 @@ function drawFoe(f){
       if(f.flash>0)ctx.filter="brightness(0) invert(1)";
       ctx.drawImage(spd,-Wd/2,-Ht/2,Wd,Ht);
       ctx.restore();
-      ctx.fillStyle="rgba(242,215,78,.9)";ctx.font="800 9px system-ui";ctx.textAlign="center";
-      ctx.fillText("BOSS",x,y-r-12);
-      bar(f,x,y-r-6,"#F25C5C",r);
+      if(f.boss){                                  /* 새끼는 이름표도 막대도 달지 않습니다 */
+        ctx.fillStyle="rgba(242,215,78,.9)";ctx.font="800 9px system-ui";ctx.textAlign="center";
+        ctx.fillText("BOSS",x,y-r-12);
+        bar(f,x,y-r-6,"#F25C5C",r);
+      }
       return;
     }
     ctx.save();ctx.translate(x,y);faceFoe(ctx,f.face);
@@ -4530,8 +4947,8 @@ function drawFoe(f){
     ctx.fillStyle="#2A2A30";
     for(const e of [-.28,-.1,.1,.28]){ctx.beginPath();ctx.arc(r*.85,e*r,r*.1,0,7);ctx.fill()}
     ctx.restore();
-    ctx.fillStyle="rgba(242,215,78,.9)";ctx.font="800 9px system-ui";ctx.textAlign="center";
-    ctx.fillText("BOSS",x,y-r-12);
+    if(f.boss){ctx.fillStyle="rgba(242,215,78,.9)";ctx.font="800 9px system-ui";
+      ctx.textAlign="center";ctx.fillText("BOSS",x,y-r-12)}
   }else if(f.key==="zombie"&&sprite("zombie")){
     /* 좀비 보스 — 정면을 보는 그림이라 돌리지 않고 좌우만 뒤집습니다.
        걸음마다 몸이 들렸다 쿵 내려앉고, 어깨가 좌우로 기웁니다. 발이 판정 원의 아래쪽에 닿습니다 */
@@ -4573,21 +4990,33 @@ function drawFoe(f){
     const c=f.cp||0, step=Math.abs(Math.sin(c));
     const bs=bstepPose(f), bp=bs.bp, bk=bp*f.r*BSTEP_DIST;
     const st=f.strike>0?Math.sin((1-Math.max(0,f.strike)/.24)*Math.PI):0;
+    const cz=f.key==="crawlzomb"?czHop(f):0;       /* 한 발 뛰기 — 뜬 높이 */
     ctx.save();
     ctx.translate(x-Math.cos(f.face)*bk*SX, y+r-Math.sin(f.face)*bk*SY);
     if(Math.cos(f.face)<0)ctx.scale(-1,1);
-    /* 걸음마다 들썩이고, 덤빌 때 솟고, 뛰어 물러나는 동안 공중에 뜹니다 */
-    ctx.translate(0,-step*r*0.16-st*r*0.10-bs.hop*r*BSTEP_HOP);
+    /* 걸음마다 들썩이고, 덤빌 때 솟고, 뛰어 물러나거나 콩 뛰는 동안 공중에 뜹니다 */
+    ctx.translate(0,-step*r*0.16-st*r*0.10-bs.hop*r*BSTEP_HOP-cz*r*CZ_HOP_H);
     /* 뛰는 동안은 뒤로 젖히고, 돌아오는 동안은 앞으로 기웁니다 */
     ctx.rotate(Math.sin(c)*0.05-bp*0.20+bs.ret*0.10);
-    ctx.scale(1+(1-step)*0.045+st*0.08-bs.hop*0.05,
-              1-(1-step)*0.045-st*0.04+bs.hop*0.10);   // 뜰 때는 세로로 늘어납니다
+    ctx.scale(1+(1-step)*0.045+st*0.08-bs.hop*0.05-cz*0.05,
+              1-(1-step)*0.045-st*0.04+bs.hop*0.10+cz*0.09);   // 뜰 때는 세로로 늘어납니다
     if(f.flash>0)ctx.filter="brightness(0) invert(1)";
-    ctx.drawImage(sp,-S/2,-S,S,S);
+    /* 다리가 부러진 좀비 — 제 다리를 쥔 오른팔만 떼어 어깨를 축으로 돌립니다.
+       자르기에 실패하면(캔버스를 못 쓰는 곳) 원래 그림 한 장을 그대로 그립니다 */
+    const czp=f.key==="crawlzomb"?cutParts(sp,CZ_LIMBS,CZ_BASE,1):null;
+    if(czp){
+      const L=CZ_LIMBS[0], k=S/CZ_BASE;
+      ctx.drawImage(czp.body,-S/2,-S,S,S);
+      ctx.save();
+      ctx.translate(L.px*k-S/2,L.py*k-S);
+      ctx.rotate(czArmPose(f));
+      ctx.drawImage(czp.limbs[0],-L.px*k,-L.py*k,S,S);
+      ctx.restore();
+    }else ctx.drawImage(sp,-S/2,-S,S,S);
     ctx.restore();
     /* 그림이 판정 원보다 훨씬 위로 솟으므로 이름표는 그림 위에 답니다(좀비 보스와 같게) */
     if(f.boss){ctx.fillStyle="rgba(242,215,78,.9)";ctx.font="800 9px system-ui";
-      ctx.textAlign="center";ctx.fillText("BOSS",x,y+r-S-8-bs.hop*r*BSTEP_HOP)}
+      ctx.textAlign="center";ctx.fillText("BOSS",x,y+r-S-8-bs.hop*r*BSTEP_HOP-cz*r*CZ_HOP_H)}
   }else if(ZOMB_WALK.has(f.key)){
     const lp=f.limp||0, tilt=lp*0.20;
     ctx.save();ctx.translate(x,y);faceFoe(ctx,f.face,tilt);
@@ -4703,8 +5132,11 @@ function drawFoe(f){
     :(f.boss&&FOE_FRONT.has(f.key)&&sprite(f.key))?r*(((ENEMIES[f.key]||{}).size||4)-2):0;
   /* 뒤로 흘리는 동안에는 막대도 그림을 따라 물러나고 같이 떠오릅니다 */
   const bs=(FOE_FRONT.has(f.key)&&f.bstepT>0)?bstepPose(f):null, bk=bs?bs.bp*f.r*BSTEP_DIST:0;
-  bar(f, x-(bs?Math.cos(f.face)*bk*SX:0),
-       y-r-6-lift-(bs?Math.sin(f.face)*bk*SY+bs.hop*r*BSTEP_HOP:0), "#F25C5C", r);
+  const czl=f.key==="crawlzomb"?czHop(f)*r*CZ_HOP_H:0;      /* 콩 뛴 만큼 막대도 같이 뜹니다 */
+  const bx2=x-(bs?Math.cos(f.face)*bk*SX:0);
+  const by2=y-r-6-lift-czl-(bs?Math.sin(f.face)*bk*SY+bs.hop*r*BSTEP_HOP:0);
+  bar(f, bx2, by2, "#F25C5C", r);
+  if(f.stunT>0)drawStunStars(bx2,by2-r*.9,r);              /* 타격에 기절한 적 */
 }
 /* 음파 — 우는 쪽에서 대상 쪽으로 고리 세 겹이 벌어지며 나아간다 */
 function drawWave(w){
@@ -4805,7 +5237,7 @@ function bar(u,x,y,c,r){
 function loop(ts){
   if(!last)last=ts;
   const dt=Math.min(.05,(ts-last)/1000);last=ts;
-  if(B&&!B.over&&!B.paused)tick(dt);
+  if(B&&!B.over&&!B.paused&&!B.talk)tick(dt);
   if(B)paint();
   if(B&&B.paused)paintPause();
   raf=requestAnimationFrame(loop);
@@ -6213,17 +6645,55 @@ function bindChips(){
 const talkFree=()=>G.talkAt!==(G.visit||0);
 const talkUse=()=>{G.talkAt=G.visit||0};
 function pendingUnlock(){return FACILITIES.find(f=>f.cond(G)&&!G.announced.includes(f.id)&&(!f.intro||talkFree()))}
+/* ─── 신재혁 합류 (2026-09-20) ───
+   다친 채 처음 돌아온 날, 응급의학 실습실이 열리면서 신재혁이 말없이 따라붙습니다.
+   전에는 '대신 들어가겠다는 사람'이라는 화면 한 장으로 끝냈는데 팝업 대사로 바꿨습니다.
+   대사가 끝나면 응급의학과 전임교수가 그대로 실습실로 끌고 갑니다 — 화면이 저절로 바뀝니다.
+   화자 "pc" 는 이경호, {p:v} 는 갓 들어온 신재혁, "office"·"clinic" 은 시설 담당자입니다. */
+function shinJoinTalk(){
+  const v=G.freeRecruit;
+  G.freeRecruit=null;
+  if(!v){render();return}                 /* 저장본이 꼬여 사람이 없으면 조용히 넘깁니다 */
+  popupTalk([
+    ["pc","아 위험했어. 까딱하면 죽을 뻔."],
+    [{p:v},"..."],
+    ["pc","(처음 보는 학생이 걱정스러운 눈빛으로 나를 바라보고 있다.)"],
+    ["pc","날 걱정해 주는 거야?"],
+    [{p:v},"...(고개를 끄덕인다.)"],
+    ["office","자네가 회복하는 동안 이 학생이 대신해서 게이트를 조사하겠다고 하는군."],
+    ["pc","아 그랬구나. 고마워. 마침 힘든 참이었어."],
+    [{p:v},"(웃으며 믿음직스러운 눈빛을 보낸다. 자신에게 모두 맡기라는 듯한 자신감 있는 표정이다.)"],
+    ["clinic","(웃으며 탐욕스러운 눈빛을 보낸다. 자신에게 모두 맡기라는 듯한 자신감 있는 표정이다.)"],
+    ["pc","으악! 언제 왔어요!"],
+    ["clinic","이렇게 다쳤으면 바로 나한테 튀어와야지. 가자!"],
+    ["pc","맞긴한데, 잠.. 잠깐만요. 으아..."],
+  ],()=>{
+    /* 실습실로 끌려갑니다. openFacility 를 타지 않으므로 첫 방문 대사는 여기서 만난 것으로 칩니다 —
+       안 그러면 다음에 제 발로 들어갈 때 "어쩌다 이렇게 된 거야"를 또 듣습니다 */
+    G.metNpc.clinic=true;
+    G.hallId="med";G.soonName="clinic";
+    G.stripMsg=null;G.appraisal=null;G.mapMsg=null;
+    unlockHold=true;                      /* 실습실 화면도 캠퍼스라 render 가 다음 해금 안내를 띄웁니다 */
+    G.scene="clinic";render();
+    popupTalk([["clinic","무기를 가진 채로 침대에 누울 껀 아니지? 사실 나는 상관없지만 '장비를 전부 벗긴다' 버튼이 있으니 편하게 이용하도록 해."]],
+      ()=>{unlockHold=false;render()});
+  });
+}
 /* ── 해금 안내 ──
    화면을 통째로 가로채지 않고 팝업으로 띄웁니다. 본진 화면에 닿는 순간에만 도므로
    게이트 안에서 조건이 차도 캠퍼스로 돌아온 뒤에야 뜹니다(입학처·응급의학 실습실). */
+/* 대사가 도는 동안에는 해금 안내를 미룹니다.
+   popup() 은 앞 팝업을 지우고 들어서므로, 대사 팝업 위에 안내가 겹치면 한쪽이 사라집니다.
+   미뤄 둔 것은 대사가 끝난 뒤의 render() 에서 그대로 뜹니다. */
+let unlockHold=false;
 function showUnlock(){
+  if(unlockHold)return false;
   const f=pendingUnlock();
   if(!f)return false;
   G.announced.push(f.id);
-  G.unlockFrom=G.scene;
   if(f.onUnlock)f.onUnlock();          /* 안내를 닫기 전에 효과부터 겁니다 */
   const done=()=>{
-    if(G.freeRecruit){G.scene="volunteer";render();return}
+    if(G.freeRecruit){shinJoinTalk();return}
     if(f.introTo){G.hallId=f.introTo;G.scene="hall"}
     render();
   };
@@ -6625,7 +7095,7 @@ function bgmFor(){
      instant("오늘의 힘")는 게이트 안에서 고르므로 캠퍼스가 아니라 gate 입니다 */
   /* library 를 따로 적는 까닭 — CAMPUS_SCENES 에 빠져 있습니다. 빼면 도서관에서 게이트 곡이 흐릅니다 */
   if(CAMPUS_SCENES.includes(S)||S==="library"||S==="confirm"||S==="arcadeend"
-     ||S==="volunteer"||S==="talk"){
+     ||S==="talk"){
     if(BGM_ART["sc."+S])return "sc."+S;                  /* 시설 하나에만 붙인 곡이 먼저 */
     const b=bldOfScene(S);
     return (b&&BGM_ART["bld."+b])?"bld."+b:"campus";     /* 곡 없는 건물은 campus */
@@ -7054,7 +7524,10 @@ function libFoeStart(key){
              hp:E.hp,maxHp:E.hp,flash:0,strike:0,wig:0,cp:0,surge:0,limp:0,
              air:0,hopCd:0,bstepT:0,vspeed:E.speed},
            w,h,VW};
-  c.onclick=()=>{if(libFoe)libFoe.f.strike=0.24};   /* 누르면 한 번 덤빕니다 */
+  /* 누르면 한 번 덤빕니다. 다리가 부러진 좀비만 휘두르기 몸짓을 처음부터 돌립니다 */
+  c.onclick=()=>{if(!libFoe)return;
+    if(libFoe.f.key==="crawlzomb"){if(!libFoe.f.sw)libFoe.f.sw={ph:"wind",t:0};return}
+    libFoe.f.strike=0.24};
   libLast=0;
   const frame=ts=>{
     if(!libFoe||!libCtx){libRaf=null;return}
@@ -7078,6 +7551,10 @@ function libStep(f,dt){
   if(f.strike>0)f.strike-=dt;
   if(f.key==="worm"){
     f.cp+=dt*3.1;const s=Math.max(0,Math.sin(f.cp));f.surge=s*s;
+  }else if(f.key==="crawlzomb"){
+    if(f.sw)czSwingAdvance(f,dt,null);        /* 도감에서는 맞히지 않고 몸짓만 돌립니다 */
+    if(f.air>0)f.air-=dt;
+    else{f.hopCd-=dt;if(f.hopCd<=0){f.air=CZ_HOP_AIR;f.hopCd=CZ_HOP_AIR+CZ_HOP_GAP}}
   }else if(ZOMB_WALK.has(f.key)){
     f.cp+=dt*ZOMB_PACE;f.limp=Math.sin(f.cp);
   }else if(FOE_FRONT.has(f.key)){
@@ -7161,21 +7638,6 @@ function render(){
   }
   if(SAVE_SCENES.indexOf(S)>=0)saveGame();   // 안전한 화면에 닿을 때마다 기록한다
 
-  if(S==="volunteer"){
-    const v=G.freeRecruit;
-    el.innerHTML=logo+`
-      <div class="bar"><span class="tag">정문 앞</span><span class="tag">지원자</span></div>
-      <div class="card" style="border-color:var(--ok)"><h2>대신 들어가겠다는 사람</h2>
-      <p>소문을 듣고 왔다며 한 명이 정문 앞에 서 있었습니다.
-      다친 친구를 대신해 게이트에 들어가겠다고 합니다.<br><br>
-      돈은 필요 없다더군요. 이름만 적고 들어왔습니다.</p></div>
-      <div class="app">${faceTag(v)}<div class="hd"><b>${v.name}</b><span>새내기 · Lv 1</span></div>
-      ${statGrid(v)}${hpLine(v)}</div>
-      <div class="bar"><span class="tag">명단 ${G.roster.length}명</span><button id="ok">고맙다고 한다</button></div>`;
-    document.getElementById("ok").onclick=()=>{
-      G.freeRecruit=null;G.scene=G.unlockFrom||"campus";render()};
-    return;
-  }
   if(S==="intro"){
     const cur=INTRO[G.introLine],art=INTRO_ART[cur.bg]||INTRO_ART._default||"";
     el.innerHTML=logo+`<div id="intro" style="${art?`background-image:url('${artUrl(art)}')`:""}">
