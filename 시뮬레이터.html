@@ -1,0 +1,889 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시뮬레이터 — 맵을 그리고 붙여 본다</title>
+<style>
+  :root{ --bg:#1b1a22; --panel:#26242f; --line:#3a3848; --ink:#eae6f2; --dim:#a79fbb;
+         --cy:#7fd7c4; --mark:#d8477e; --ok:#6BD98F; --bad:#F25C5C; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.5 system-ui,"Segoe UI",sans-serif;overflow-x:hidden}
+  header{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);
+         padding:10px 14px;display:flex;flex-wrap:wrap;gap:9px 16px;align-items:center}
+  header h1{font-size:14px;margin:0 6px 0 0;font-weight:800}
+  label.f{display:flex;gap:6px;align-items:center;color:var(--dim)}
+  select,button,input[type=text],input[type=number]{font:inherit;background:var(--panel);
+    color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:4px 8px}
+  input[type=number]{width:58px} input[type=text]{width:90px}
+  button{cursor:pointer}
+  button.go{border-color:var(--cy);color:var(--cy);font-weight:700}
+  button.sm{padding:1px 7px;font-size:12px}
+  button.on{border-color:var(--cy);color:var(--cy);background:#2f2c3e}
+  #status{padding:6px 14px;font-size:12px;color:var(--dim);border-bottom:1px solid var(--line)}
+  main{display:flex;gap:14px;padding:14px;align-items:flex-start}
+  #side{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:12px}
+  #game{flex:0 0 440px;position:sticky;top:60px}
+  iframe{width:440px;height:calc(100vh - 80px);border:1px solid var(--line);border-radius:8px;background:#000}
+  @media (max-width:980px){main{flex-direction:column}#game{position:static;flex-basis:auto}iframe{width:100%;height:760px}}
+  .box{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px;overflow-x:auto}
+  .box h2{font-size:13px;margin:0 0 8px;font-weight:800;display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center}
+  .row{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+  .row+.row{margin-top:8px}
+  .hint{color:var(--dim);font-size:12px}
+  .warn{color:var(--bad)}
+  canvas{width:100%;max-width:640px;height:auto;background:#000;border:1px solid var(--line);border-radius:8px;
+         display:block;touch-action:none;cursor:crosshair;margin:8px 0}
+  .props{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;background:#1f1d27;
+         border:1px solid var(--line);border-radius:8px;padding:8px}
+  .props.off{opacity:.4;pointer-events:none}
+  .chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+  .chip{background:#1f1d27;border:1px solid var(--line);border-radius:12px;padding:1px 8px;font-size:12px}
+  .chip b{color:var(--cy)}
+  .chip button{background:none;border:0;color:var(--dim);padding:0 0 0 4px;cursor:pointer}
+  .members{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:10px}
+  .mem{background:#1f1d27;border:1px solid var(--line);border-radius:8px;padding:9px}
+  .mem h3{margin:0 0 6px;font-size:13px}
+  .grid{display:grid;grid-template-columns:auto 1fr;gap:4px 8px;align-items:center}
+  .grid>span{color:var(--dim);font-size:12px}
+  .grid>div{min-width:0}
+  .grid select{width:100%;min-width:0}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:4px 6px;margin:6px 0}
+  .stats label{display:flex;justify-content:space-between;align-items:center;gap:4px;color:var(--dim);font-size:12px}
+  .stats input{width:48px}
+  .derived{font-size:12px;color:var(--dim);margin-top:4px}
+  .derived b{color:var(--ink)}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{border-bottom:1px solid var(--line);padding:4px 6px;text-align:left;vertical-align:top}
+  th{color:var(--dim);font-weight:600}
+  td.win{color:var(--ok);font-weight:700} td.lose{color:var(--bad);font-weight:700}
+  td.num{text-align:right;font-variant-numeric:tabular-nums}
+  tr.best td{background:rgba(127,215,196,.10)}
+  .bar{height:6px;background:#1f1d27;border:1px solid var(--line);border-radius:4px;overflow:hidden;flex:1 1 120px;min-width:90px}
+  .bar i{display:block;height:100%;background:var(--cy);width:0}
+  /* 아이템 아이콘 — 게임의 .ico 와 같은 모양 */
+  .ico{width:22px;height:22px;object-fit:contain;vertical-align:-6px;margin-right:5px;flex:0 0 auto;
+    filter:drop-shadow(0 1px 2px rgba(0,0,0,.55))}
+  .ico.none{display:inline-block;border:1px dashed var(--line);border-radius:3px;filter:none}
+  .ico.crys{display:inline-block;background:radial-gradient(circle at 38% 32%,#C89BFA 0%,#6B2CAE 44%,#170B29 100%);
+    clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+  .ico.dk{filter:brightness(.88) contrast(1.12) saturate(.8) drop-shadow(0 0 2px #000) drop-shadow(0 0 4px rgba(122,44,200,.9))}
+  .ico.wk{filter:brightness(1.06) saturate(1.1) drop-shadow(0 0 2px rgba(0,30,50,.9)) drop-shadow(0 0 4px rgba(60,190,240,.9))}
+  button.pick{width:100%;display:flex;align-items:center;text-align:left;min-height:30px;padding:2px 6px;overflow:hidden;white-space:nowrap}
+  button.pick .nm{overflow:hidden;text-overflow:ellipsis}
+  button.pick.empty{color:var(--dim)}
+  #picker{position:fixed;z-index:50;width:300px;max-height:360px;display:none;flex-direction:column;
+    background:var(--panel);border:1px solid var(--cy);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.6)}
+  #picker.on{display:flex}
+  #picker input{margin:6px;width:auto}
+  #picker .list{overflow:auto;padding:0 4px 6px}
+  #picker .pi{display:flex;align-items:center;gap:2px;padding:3px 6px;border-radius:5px;cursor:pointer}
+  #picker .pi:hover,#picker .pi.cur{background:#34304a}
+  #picker .pi small{color:var(--dim);margin-left:auto;padding-left:6px;white-space:nowrap}
+  .chip .ico{width:18px;height:18px;vertical-align:-4px;margin-right:3px}
+</style>
+
+<header>
+  <h1>시뮬레이터</h1>
+  <label class="f">장소 <select id="place"></select></label>
+  <label class="f">일차 <input id="day" type="number" min="1" value="1"></label>
+  <label class="f"><input id="night" type="checkbox"> 야간</label>
+  <label class="f"><input id="usebg" type="checkbox"> 장소 배경 쓰기</label>
+  <label class="f">배속 <select id="spd"><option>1</option><option>2</option><option>4</option><option>8</option></select></label>
+  <button class="go" id="run">▶ 전투 시작</button>
+  <button id="again">↺ 같은 적으로 다시</button>
+  <button id="pause">⏯ 일시정지</button>
+</header>
+<div id="status">게임을 불러오는 중…</div>
+
+<main>
+  <div id="side">
+
+    <div class="box">
+      <h2>맵 만들기 <span class="hint" style="font-weight:400">끌어서 그리고, 잡아서 옮깁니다</span></h2>
+      <div class="row">
+        <span class="hint">도구</span>
+        <button class="sm tool on" data-tool="sel">고르기 · 옮기기</button>
+        <button class="sm tool" data-tool="wall">벽 그리기</button>
+        <button class="sm tool" data-tool="slow">감속 지대</button>
+        <button class="sm tool" data-tool="erase">지우개</button>
+        <label class="f">새 벽의 층 <select id="newlv">
+          <option value="7">전층 (벽)</option>
+          <option value="3">사람 높이</option>
+          <option value="1">낮음 (기는 것만)</option>
+          <option value="4">높음 (나는 것만)</option></select></label>
+        <label class="f"><input id="snap" type="checkbox" checked> 0.5 스냅</label>
+      </div>
+      <canvas id="cv" width="640" height="589"></canvas>
+      <div class="props off" id="props">
+        <strong id="ptitle">고른 것 없음</strong>
+        <label class="f">x <input type="number" id="px" step="0.5"></label>
+        <label class="f">y <input type="number" id="py" step="0.5"></label>
+        <span id="wrapWH"><label class="f">w <input type="number" id="pw" step="0.5"></label>
+        <label class="f">h <input type="number" id="ph" step="0.5"></label>
+        <label class="f">층 <select id="plv">
+          <option value="7">전층 (벽)</option>
+          <option value="3">사람 높이</option>
+          <option value="1">낮음</option>
+          <option value="2">중간</option>
+          <option value="4">높음</option></select></label>
+        <label class="f" id="pmulw">감속 배율 <input type="number" id="pmul" step="0.05" min="0.05" max="3"></label></span>
+        <button class="sm" id="dup">복제</button>
+        <button class="sm" id="del" style="border-color:var(--mark);color:var(--mark)">삭제</button>
+      </div>
+      <div class="row">
+        <button class="sm" id="clrMap">전부 비우기</button>
+        <button class="sm" id="addEsp">+ 적 자리</button>
+        <label class="f">가져오기 <select id="fromRoom"></select></label>
+        <button class="sm" id="grab">그 장소 지형 그대로</button>
+      </div>
+      <div class="row">
+        <span class="hint">무작위</span>
+        <button class="sm" id="rndPillar">기둥</button>
+        <button class="sm" id="rndRoom">칸막이</button>
+        <button class="sm" id="rndMaze">미로</button>
+        <button class="sm" id="rndOpen">허허벌판</button>
+      </div>
+      <div class="row">
+        <label class="f">이름 <input type="text" id="mapName" value="내 맵"></label>
+        <button class="sm" id="saveMap">저장</button>
+        <select id="myMaps"></select>
+        <button class="sm" id="loadMap">불러오기</button>
+        <button class="sm" id="delMap">삭제</button>
+        <button class="sm" id="copyMap">ROOMS 조각 복사</button>
+      </div>
+      <div class="hint" style="margin-top:6px">좌표는 전투 필드 % (가로·세로 0–100, 화면 비율 100:92).
+        <b>대</b>1–4 는 대원 자리, <b>적</b>1–n 은 적 자리 — 적이 더 많으면 앞에서부터 다시 씁니다.
+        벽은 <b>모서리까지의 거리 &lt; 유닛 반지름(약 3)</b> 이면 막으므로 실제로 막히는 폭은 그림보다 조금 넓습니다.
+        '장소 배경 쓰기'를 끄면 전투 화면에도 이 사각형이 그대로 보입니다.</div>
+    </div>
+
+    <div class="box">
+      <h2>적</h2>
+      <div class="row">
+        <label class="f"><input type="radio" name="emode" value="roll" checked> 게임처럼 뽑기</label>
+        <label class="f"><input type="radio" name="emode" value="pick"> 직접 지정</label>
+        <label class="f"><input id="noboss" type="checkbox"> 보스 빼기</label>
+        <button id="preview" class="sm">뽑아 보기</button>
+        <span id="rolled" class="hint"></span>
+      </div>
+      <div class="row">
+        <select id="foe"></select>
+        <input id="foeN" type="number" min="1" max="12" value="1">
+        <button id="addFoe" class="sm">추가</button>
+        <button id="clrFoe" class="sm">비우기</button>
+      </div>
+      <div id="foeList" class="chips"></div>
+    </div>
+
+    <div class="box">
+      <h2>대원
+        <label class="f" style="margin-left:6px">인원 <select id="pn"><option>1</option><option>2</option><option>3</option><option selected>4</option></select></label>
+        <button id="eqAll" class="sm">1번을 모두에게 복사</button>
+        <button id="lvAll" class="sm">레벨만큼 스탯 채우기</button></h2>
+      <div id="members" class="members"></div>
+    </div>
+
+    <div class="box">
+      <h2>무기 시험대 <span class="hint" style="font-weight:400">같은 맵·같은 적으로 무기만 바꿔 여러 판 돌립니다</span></h2>
+      <div class="row">
+        <select id="wsel"></select>
+        <button class="sm" id="addW">추가</button>
+        <button class="sm" id="clrW">비우기</button>
+        <label class="f">기준 대원 <select id="wwho"></select></label>
+        <label class="f">반복 <input id="wn" type="number" min="1" max="200" value="20"></label>
+        <label class="f">한 판 제한 <input id="wlim" type="number" min="10" max="600" value="90">초</label>
+      </div>
+      <div class="row">
+        <label class="f"><input id="wsolo" type="checkbox" checked> 혼자 싸우게 하기</label>
+        <label class="f"><input id="wammo" type="checkbox" checked> 탄약 넉넉히</label>
+        <button class="go" id="runW">▶ 시험 시작</button>
+        <button class="sm" id="stopW">멈추기</button>
+        <div class="bar"><i id="wbar"></i></div>
+        <span id="wmsg" class="hint"></span>
+      </div>
+      <div id="wList" class="chips"></div>
+      <table style="margin-top:8px"><thead><tr><th>무기</th><th>공격력</th><th>공속</th><th>사거리</th>
+        <th>승률</th><th>평균 시간</th><th>초당 피해</th><th>받은 피해</th><th>남은 체력</th></tr></thead>
+      <tbody id="wTable"></tbody></table>
+      <div class="hint" style="margin-top:6px">화면에 그리지 않고 전투 계산만 돌립니다. 판마다 적을 똑같이 세우므로
+        무기끼리 견주기 좋습니다. '혼자 싸우게 하기'를 끄면 파티 전체로 싸웁니다.</div>
+    </div>
+
+    <div class="box">
+      <h2>결과 <button id="clrLog" class="sm">지우기</button> <button id="copyLog" class="sm">표 복사</button></h2>
+      <table><thead><tr><th>#</th><th>맵 · 일차</th><th>대원</th><th>적</th><th>결과</th><th>시간</th><th>남은 체력</th></tr></thead>
+      <tbody id="log"></tbody></table>
+      <div class="hint" style="margin-top:6px">시간은 게임 안 시간(배속과 무관)입니다. 이 도구는 저장 슬롯에 쓰지 않습니다.</div>
+    </div>
+
+  </div>
+  <div id="game"><iframe id="fr" src="index.html"></iframe></div>
+</main>
+<div id="picker"><input type="text" placeholder="이름으로 찾기"><div class="list"></div></div>
+
+<script>
+"use strict";
+/* ── 시뮬레이터 ──
+   index.html 을 iframe 에 띄워 두고, 여기서 그린 맵을 ROOM 으로 밀어 넣어 실제 전투를 돌립니다.
+   전투 계산은 게임 것 그대로라 결과가 게임과 같습니다.
+   게임의 G · B · ROOM 은 let 이라 window 에 없으므로 iframe 의 eval 로 닿습니다.
+   node serve.js 로 띄운 http://localhost:8788/시뮬레이터.html 에서 여세요
+   (file:// 로는 iframe 안에 못 닿습니다 — 시뮬레이터.bat 을 두 번 누르면 서버까지 띄웁니다). */
+const $=id=>document.getElementById(id);
+const fr=$("fr"), W=()=>fr.contentWindow, E=s=>W().eval(s);
+const setStatus=t=>$("status").textContent=t;
+const STORE="uch.sim", MAPS="uch.sim.maps";
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const opt=(v,t,sel)=>`<option value="${v}"${sel?" selected":""}>${t}</option>`;
+const cl=(v,a,b)=>Math.max(a,Math.min(b,v));
+const AMMO=[{k:"pistol",n:"권총탄"},{k:"shotgun",n:"산탄"},{k:"rifle",n:"소총탄"},{k:"arrow",n:"화살"}];
+
+let D=null;            // 게임에서 읽어 온 표
+let cfg=null;          // 지금 설정
+let lastKeys=null, runNo=0, cur=null, benching=false;
+
+/* ── 설정 ── */
+const DEF_A=[[36.5,90],[45.5,90],[54.5,90],[63.5,90]];
+const DEF_E=[[52,25],[36,22],[20,26],[66,30],[28,34],[46,18],[12,22],[60,16],[76,34],[40,36]];
+const defMap=()=>({obs:[],a:DEF_A.map(p=>p.slice()),e:DEF_E.map(p=>p.slice())});
+const defMember=i=>({name:["가","나","다","라"][i]+"대원",sex:i%2?"f":"m",lvl:1,major:"",
+  stats:{vit:10,maj:10,str:10,spd:10,agi:10,luk:10},
+  gear:{rh:"",lh:"",head:"",top:"",bottom:"",shoes:""},
+  ammo:{pistol:60,shotgun:40,rifle:80,arrow:40},hpPct:100});
+const defCfg=()=>({place:"diner",day:1,night:false,usebg:false,spd:"1",emode:"roll",noboss:false,
+  foes:[],pn:4,members:[0,1,2,3].map(defMember),map:defMap(),
+  wpns:[""],wwho:0,wn:20,wlim:90,wsolo:true,wammo:true});
+
+function load(){
+  try{const s=JSON.parse(localStorage.getItem(STORE)||"null");
+    if(s){const c=Object.assign(defCfg(),s);c.map=Object.assign(defMap(),s.map||{});return c}}catch(e){}
+  return defCfg();
+}
+function save(){try{localStorage.setItem(STORE,JSON.stringify(cfg))}catch(e){}}
+const myMaps=()=>{try{return JSON.parse(localStorage.getItem(MAPS)||"{}")}catch(e){return{}}};
+const putMaps=m=>{try{localStorage.setItem(MAPS,JSON.stringify(m))}catch(e){}};
+
+/* ── 게임에서 표 읽기 ── */
+fr.addEventListener("load",()=>{
+  try{
+    E("saveGame=()=>true");                    // 시뮬레이터는 저장 슬롯을 건드리지 않습니다
+    D=JSON.parse(E(`JSON.stringify({
+      gates:GATES.map(g=>({id:g.id,n:g.n,days:g.days})),
+      places:PLACES.map(p=>({n:p.n,room:p.room,gate:p.gate||"front",risk:p.risk})),
+      enemies:Object.fromEntries(Object.entries(ENEMIES).map(([k,e])=>[k,{n:e.n,hp:e.hp,atk:e.atk,boss:!!e.boss}])),
+      items:Object.fromEntries(Object.entries(ITEMS).map(([k,it])=>[k,{n:it.n,slot:it.slot||"",kind:it.kind||"",two:typeof twoHand==="function"&&!!twoHand(k),ic:itemIcon(k),d:it.d||"",ammo:it.ammo||""}])),
+      rooms:Object.fromEntries(Object.entries(ROOMS).map(([k,r])=>[k,{obs:r.obs||[],spawn:r.spawn||null}])),
+      majors:MAJORS.map(m=>({id:m.id,n:m.n})),
+      stats:STATS.map(s=>({k:s.k,n:s.n})),
+      slots:SLOTS.map(s=>({k:s.k,n:s.n})),
+      maxLv:MAX_LV})`));
+    /* 배속 — 한 프레임에 tick 을 여러 번 돌립니다. 원본은 __tick0 으로 남겨 시험대가 씁니다 */
+    E(`if(!window.__tick0){window.__tick0=tick;
+      tick=function(dt){const n=window.__spd||1;for(let i=0;i<n;i++){if(!B||B.over)break;window.__tick0(dt);B._t=(B._t||0)+dt}}}`);
+    E(`window.__sim={setup:${setupInGame.toString()},bench:${benchOne.toString()}}`);
+  }catch(e){setStatus("게임을 읽지 못했습니다 — node serve.js 로 띄운 주소에서 여세요. ("+e.message+")");return}
+  if(!cfg){cfg=load();build()}
+  setStatus("준비됨. 맵을 그리고 ▶ 전투 시작.");
+});
+
+/* ── 화면 짜기 ── */
+function build(){
+  $("place").innerHTML=D.places.map(p=>opt(p.room,`${p.n} (위험 ${p.risk})`,p.room===cfg.place)).join("");
+  if(!D.places.some(p=>p.room===cfg.place))cfg.place=D.places[0].room;
+  $("fromRoom").innerHTML=D.places.filter(p=>D.rooms[p.room]).map(p=>opt(p.room,p.n)).join("");
+  $("foe").innerHTML=Object.entries(D.enemies).map(([k,e])=>opt(k,`${e.n}${e.boss?" [보스]":""} (${k})`)).join("");
+  $("wsel").innerHTML=opt("","맨손")+Object.keys(D.items).filter(k=>D.items[k].slot==="rh")
+    .map(k=>opt(k,D.items[k].n)).join("");
+  $("day").value=cfg.day;$("night").checked=cfg.night;$("usebg").checked=cfg.usebg;$("spd").value=cfg.spd;
+  $("noboss").checked=cfg.noboss;$("pn").value=cfg.pn;
+  $("wn").value=cfg.wn;$("wlim").value=cfg.wlim;$("wsolo").checked=cfg.wsolo;$("wammo").checked=cfg.wammo;
+  document.querySelector(`input[name=emode][value=${cfg.emode}]`).checked=true;
+  dayMax();foeList();members();mapList();wList();drawMap();
+}
+function dayMax(){
+  const pl=D.places.find(p=>p.room===cfg.place)||D.places[0];
+  const g=D.gates.find(x=>x.id===pl.gate)||D.gates[0];
+  $("day").max=g.days;cfg.day=cl(cfg.day,1,g.days);$("day").value=cfg.day;
+  $("day").title=`${g.n} ${g.days}일`;
+}
+
+/* ══ 맵 편집 ══════════════════════════════════════════════════════════════
+   ROOMS[key].obs = [{x,y,w,h,l?,lv}] 규약 그대로 만듭니다. lv 는 층 비트(L1=1 L2=2 L3=4, 벽=7).
+   감속 지대는 lv 대신 mul(이동 배율)을 답니다. */
+const L1=1,L2=2,L3=4,TALL=7;
+const DOOR={x:78,y:96,w:14,h:4};
+const CV=$("cv"), C2=CV.getContext("2d");
+let sel=null, drag=null;
+const tool=()=>document.querySelector(".tool.on").dataset.tool;
+const snapv=v=>$("snap").checked?Math.round(v*2)/2:Math.round(v*10)/10;
+const toF=ev=>{const r=CV.getBoundingClientRect();
+  return{x:(ev.clientX-r.left)/r.width*100,y:(ev.clientY-r.top)/r.height*100}};
+
+function drawMap(){
+  const w=CV.width,h=CV.height,px=v=>v/100*w,py=v=>v/100*h;
+  C2.clearRect(0,0,w,h);
+  C2.fillStyle="#22212A";C2.fillRect(0,0,w,h);
+  C2.strokeStyle="rgba(255,255,255,.045)";C2.lineWidth=1;
+  for(let i=1;i<10;i++){
+    C2.beginPath();C2.moveTo(px(i*10),0);C2.lineTo(px(i*10),h);C2.stroke();
+    C2.beginPath();C2.moveTo(0,py(i*10));C2.lineTo(w,py(i*10));C2.stroke();
+  }
+  C2.strokeStyle="rgba(216,71,126,.35)";C2.lineWidth=3;C2.strokeRect(1.5,1.5,w-3,h-3);
+  C2.fillStyle="rgba(216,71,126,.30)";C2.fillRect(px(DOOR.x),py(DOOR.y),px(DOOR.w),py(DOOR.h));
+  C2.textAlign="center";
+  cfg.map.obs.forEach((o,i)=>{
+    if(o.mul){
+      C2.fillStyle=o.mul<1?"rgba(90,180,200,.16)":"rgba(200,180,90,.16)";
+      C2.fillRect(px(o.x),py(o.y),px(o.w),py(o.h));
+      C2.setLineDash([2,3]);C2.strokeStyle="rgba(120,205,225,.6)";C2.lineWidth=1;
+      C2.strokeRect(px(o.x)+.5,py(o.y)+.5,px(o.w)-1,py(o.h)-1);C2.setLineDash([]);
+      C2.fillStyle="rgba(200,235,245,.7)";C2.font="700 10px system-ui";
+      C2.fillText("×"+o.mul,px(o.x+o.w/2),py(o.y+o.h/2)+3);
+    }else{
+      const high=(o.lv&L3)!==0,mid=(o.lv&L2)!==0,low=(o.lv&L1)!==0;
+      C2.fillStyle=high&&mid&&low?"#43414F":mid&&low?"#3A3948":"rgba(120,112,140,.32)";
+      C2.fillRect(px(o.x),py(o.y),px(o.w),py(o.h));
+      if(!(high&&mid&&low))C2.setLineDash([3,3]);
+      C2.strokeStyle="rgba(255,255,255,.26)";C2.lineWidth=1;
+      C2.strokeRect(px(o.x)+.5,py(o.y)+.5,px(o.w)-1,py(o.h)-1);C2.setLineDash([]);
+      if(o.l){C2.fillStyle="rgba(234,230,242,.5)";C2.font="700 10px system-ui";
+        C2.fillText(o.l,px(o.x+o.w/2),py(o.y+o.h/2)+3.5)}
+    }
+    if(sel&&sel.t==="obs"&&sel.i===i){
+      C2.strokeStyle="#7fd7c4";C2.lineWidth=2;C2.strokeRect(px(o.x)-1,py(o.y)-1,px(o.w)+2,py(o.h)+2);
+      C2.fillStyle="#7fd7c4";C2.fillRect(px(o.x+o.w)-4,py(o.y+o.h)-4,8,8);
+    }
+  });
+  const cross=(p,i,c,pre,on)=>{
+    const x=px(p[0]),y=py(p[1]);
+    C2.strokeStyle=c;C2.lineWidth=on?2.5:1.5;
+    C2.beginPath();C2.moveTo(x-6,y);C2.lineTo(x+6,y);C2.moveTo(x,y-6);C2.lineTo(x,y+6);C2.stroke();
+    C2.beginPath();C2.arc(x,y,on?8:5,0,7);C2.stroke();
+    C2.fillStyle=c;C2.font="700 10px system-ui";C2.fillText(pre+(i+1),x,y-9);
+  };
+  cfg.map.a.forEach((p,i)=>cross(p,i,"#4FC3D9","대",sel&&sel.t==="a"&&sel.i===i));
+  cfg.map.e.forEach((p,i)=>cross(p,i,"#d8477e","적",sel&&sel.t==="e"&&sel.i===i));
+  if(drag&&drag.mode==="new"&&drag.x1!==undefined){
+    const x=Math.min(drag.x0,drag.x1),y=Math.min(drag.y0,drag.y1);
+    C2.setLineDash([4,3]);C2.strokeStyle="#7fd7c4";C2.lineWidth=1.5;
+    C2.strokeRect(px(x),py(y),px(Math.abs(drag.x1-drag.x0)),py(Math.abs(drag.y1-drag.y0)));
+    C2.setLineDash([]);
+  }
+}
+function hit(p){
+  const near=(q)=>Math.hypot(q[0]-p.x,(q[1]-p.y)*0.92)<2.6;
+  for(let i=cfg.map.e.length-1;i>=0;i--)if(near(cfg.map.e[i]))return{t:"e",i};
+  for(let i=cfg.map.a.length-1;i>=0;i--)if(near(cfg.map.a[i]))return{t:"a",i};
+  for(let i=cfg.map.obs.length-1;i>=0;i--){const o=cfg.map.obs[i];
+    if(p.x>=o.x&&p.x<=o.x+o.w&&p.y>=o.y&&p.y<=o.y+o.h)return{t:"obs",i}}
+  return null;
+}
+CV.addEventListener("pointerdown",e=>{
+  if(!cfg)return;
+  CV.setPointerCapture(e.pointerId);
+  const p=toF(e),t=tool();
+  if(t==="wall"||t==="slow"){drag={mode:"new",kind:t,x0:snapv(p.x),y0:snapv(p.y)};return}
+  const h=hit(p);
+  if(t==="erase"){if(h)removeSel(h);sel=null;props();drawMap();save();return}
+  sel=h;props();drawMap();
+  if(!h)return;
+  if(h.t==="obs"){
+    const o=cfg.map.obs[h.i];
+    const corner=Math.abs(p.x-(o.x+o.w))<2.2&&Math.abs(p.y-(o.y+o.h))<2.2;
+    drag=corner?{mode:"size",i:h.i}:{mode:"move",i:h.i,dx:p.x-o.x,dy:p.y-o.y};
+  }else drag={mode:"mark",t:h.t,i:h.i};
+});
+CV.addEventListener("pointermove",e=>{
+  if(!drag)return;
+  const p=toF(e);
+  if(drag.mode==="new"){drag.x1=snapv(cl(p.x,0,100));drag.y1=snapv(cl(p.y,0,100))}
+  else if(drag.mode==="move"){const o=cfg.map.obs[drag.i];
+    o.x=snapv(cl(p.x-drag.dx,0,100-o.w));o.y=snapv(cl(p.y-drag.dy,0,100-o.h))}
+  else if(drag.mode==="size"){const o=cfg.map.obs[drag.i];
+    o.w=snapv(cl(p.x-o.x,1,100-o.x));o.h=snapv(cl(p.y-o.y,1,100-o.y))}
+  else if(drag.mode==="mark"){const a=drag.t==="a"?cfg.map.a:cfg.map.e;
+    a[drag.i]=[snapv(cl(p.x,1,99)),snapv(cl(p.y,1,99))]}
+  props();drawMap();
+});
+const endDrag=()=>{
+  if(!drag)return;
+  if(drag.mode==="new"&&drag.x1!==undefined){
+    const x=Math.min(drag.x0,drag.x1),y=Math.min(drag.y0,drag.y1);
+    const w=Math.abs(drag.x1-drag.x0),h=Math.abs(drag.y1-drag.y0);
+    if(w>=1&&h>=1){
+      const o={x,y,w,h};
+      if(drag.kind==="slow")o.mul=0.55;else o.lv=+$("newlv").value;
+      cfg.map.obs.push(o);sel={t:"obs",i:cfg.map.obs.length-1};
+    }
+  }
+  drag=null;props();drawMap();save();
+};
+CV.addEventListener("pointerup",endDrag);
+CV.addEventListener("pointercancel",endDrag);
+document.querySelectorAll(".tool").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".tool").forEach(x=>x.classList.remove("on"));b.classList.add("on")});
+
+function removeSel(h){
+  if(h.t==="obs")cfg.map.obs.splice(h.i,1);
+  else if(h.t==="e"){if(cfg.map.e.length>1)cfg.map.e.splice(h.i,1)}
+  /* 대원 자리는 네 칸 고정입니다 — 지우지 않고 옮기기만 합니다 */
+}
+function props(){
+  const box=$("props");
+  if(!sel){box.classList.add("off");$("ptitle").textContent="고른 것 없음";return}
+  box.classList.remove("off");
+  const isObs=sel.t==="obs";
+  $("wrapWH").style.display=isObs?"":"none";
+  if(isObs){
+    const o=cfg.map.obs[sel.i];
+    $("ptitle").textContent=o.mul?"감속 지대":"벽";
+    $("px").value=o.x;$("py").value=o.y;$("pw").value=o.w;$("ph").value=o.h;
+    $("plv").value=o.lv||TALL;$("pmul").value=o.mul||"";
+    $("plv").parentElement.style.display=o.mul?"none":"";
+    $("pmulw").style.display=o.mul?"":"none";
+  }else{
+    const a=sel.t==="a"?cfg.map.a:cfg.map.e;
+    $("ptitle").textContent=(sel.t==="a"?"대원":"적")+" 자리 "+(sel.i+1);
+    $("px").value=a[sel.i][0];$("py").value=a[sel.i][1];
+  }
+}
+["px","py","pw","ph","plv","pmul"].forEach(id=>$(id).onchange=()=>{
+  if(!sel)return;
+  const v=+$(id).value;
+  if(sel.t!=="obs"){const a=sel.t==="a"?cfg.map.a:cfg.map.e;
+    if(id==="px")a[sel.i][0]=cl(v,0,100);if(id==="py")a[sel.i][1]=cl(v,0,100);}
+  else{const o=cfg.map.obs[sel.i];
+    if(id==="px")o.x=cl(v,0,100);else if(id==="py")o.y=cl(v,0,100);
+    else if(id==="pw")o.w=cl(v,0.5,100);else if(id==="ph")o.h=cl(v,0.5,100);
+    else if(id==="plv")o.lv=v;else if(id==="pmul")o.mul=cl(v,0.05,3);}
+  props();drawMap();save();
+});
+$("del").onclick=()=>{if(sel){removeSel(sel);sel=null;props();drawMap();save()}};
+$("dup").onclick=()=>{
+  if(!sel)return;
+  if(sel.t==="obs"){const o=cfg.map.obs[sel.i];
+    cfg.map.obs.push(Object.assign({},o,{x:cl(o.x+3,0,100-o.w),y:cl(o.y+3,0,100-o.h)}));
+    sel={t:"obs",i:cfg.map.obs.length-1}}
+  else if(sel.t==="e"){const p=cfg.map.e[sel.i];
+    cfg.map.e.push([cl(p[0]+4,1,99),cl(p[1]+4,1,99)]);sel={t:"e",i:cfg.map.e.length-1}}
+  props();drawMap();save();
+};
+document.addEventListener("keydown",e=>{
+  if(!sel||/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName))return;
+  const step=e.shiftKey?0.1:0.5, dir={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];
+  if(dir){
+    if(sel.t==="obs"){const o=cfg.map.obs[sel.i];o.x=cl(+(o.x+dir[0]*step).toFixed(1),0,100-o.w);o.y=cl(+(o.y+dir[1]*step).toFixed(1),0,100-o.h)}
+    else{const a=sel.t==="a"?cfg.map.a:cfg.map.e;
+      a[sel.i]=[cl(+(a[sel.i][0]+dir[0]*step).toFixed(1),0,100),cl(+(a[sel.i][1]+dir[1]*step).toFixed(1),0,100)]}
+    e.preventDefault();props();drawMap();save();return;
+  }
+  if(e.key==="Delete"){$("del").click();e.preventDefault()}
+  if(e.key==="d"&&(e.ctrlKey||e.metaKey)){$("dup").click();e.preventDefault()}
+});
+
+$("clrMap").onclick=()=>{cfg.map.obs=[];sel=null;props();drawMap();save()};
+$("addEsp").onclick=()=>{cfg.map.e.push([50,30]);sel={t:"e",i:cfg.map.e.length-1};props();drawMap();save()};
+$("grab").onclick=()=>{
+  const r=D.rooms[$("fromRoom").value];if(!r)return;
+  cfg.map.obs=JSON.parse(JSON.stringify(r.obs||[]));
+  if(r.spawn){cfg.map.a=r.spawn.a.map(p=>p.slice());cfg.map.e=r.spawn.e.map(p=>p.slice())}
+  sel=null;props();drawMap();save();
+  setStatus(`${$("fromRoom").selectedOptions[0].text} 의 지형을 가져왔습니다.`);
+};
+
+/* ── 무작위 지형 ──
+   대원·적 자리 둘레는 비워 둡니다. 안 그러면 시작하자마자 벽에 낀 채로 밀려납니다 */
+const rr=(a,b)=>a+Math.random()*(b-a);
+function freeOf(o){
+  return ![...cfg.map.a,...cfg.map.e].some(([x,y])=>
+    x>o.x-4&&x<o.x+o.w+4&&y>o.y-4&&y<o.y+o.h+4);
+}
+function putRnd(list){
+  cfg.map.obs=list.filter(freeOf);sel=null;props();drawMap();save();
+}
+$("rndOpen").onclick=()=>putRnd([]);
+$("rndPillar").onclick=()=>{
+  const out=[];
+  for(let i=0;i<9;i++){const w=rr(4,11),h=rr(4,11);
+    out.push({x:+rr(4,94-w).toFixed(1),y:+rr(8,84-h).toFixed(1),w:+w.toFixed(1),h:+h.toFixed(1),lv:TALL})}
+  putRnd(out);
+};
+$("rndRoom").onclick=()=>{
+  const out=[];
+  for(const y of [26,50,72]){
+    if(Math.random()<0.25)continue;
+    const gap=rr(18,62), gw=rr(12,20);
+    out.push({x:2,y:+y.toFixed(1),w:+(gap-2).toFixed(1),h:4,lv:TALL});
+    out.push({x:+(gap+gw).toFixed(1),y:+y.toFixed(1),w:+(96-gap-gw).toFixed(1),h:4,lv:TALL});
+  }
+  for(const x of [30,66]) if(Math.random()<0.5)
+    out.push({x,y:+rr(14,60).toFixed(1),w:4,h:+rr(10,24).toFixed(1),lv:Math.random()<0.4?L1|L2:TALL});
+  putRnd(out.filter(o=>o.w>2&&o.h>2));
+};
+$("rndMaze").onclick=()=>{
+  const out=[],cell=16;
+  for(let r=1;r<5;r++)for(let c=0;c<5;c++){
+    if(Math.random()<0.45)continue;
+    out.push({x:+(6+c*cell+rr(0,3)).toFixed(1),y:+(10+r*cell).toFixed(1),
+      w:+rr(8,cell-1).toFixed(1),h:3.5,lv:TALL});
+  }
+  for(let c=1;c<5;c++)for(let r=0;r<4;r++){
+    if(Math.random()<0.55)continue;
+    out.push({x:+(6+c*cell).toFixed(1),y:+(12+r*cell+rr(0,3)).toFixed(1),
+      w:3.5,h:+rr(8,cell-1).toFixed(1),lv:TALL});
+  }
+  putRnd(out);
+};
+
+/* ── 내 맵 ── */
+function mapList(){
+  const m=myMaps(),ks=Object.keys(m);
+  $("myMaps").innerHTML=ks.length?ks.map(k=>opt(k,k)).join(""):opt("","(저장된 맵 없음)");
+}
+$("saveMap").onclick=()=>{
+  const n=$("mapName").value.trim();if(!n){setStatus("맵 이름을 적어 주세요.");return}
+  const m=myMaps();m[n]=JSON.parse(JSON.stringify(cfg.map));putMaps(m);mapList();$("myMaps").value=n;
+  setStatus(`'${n}' 으로 저장했습니다.`);
+};
+$("loadMap").onclick=()=>{
+  const m=myMaps(),k=$("myMaps").value;if(!m[k])return;
+  cfg.map=Object.assign(defMap(),JSON.parse(JSON.stringify(m[k])));
+  $("mapName").value=k;sel=null;props();drawMap();save();setStatus(`'${k}' 을(를) 불러왔습니다.`);
+};
+$("delMap").onclick=()=>{
+  const m=myMaps(),k=$("myMaps").value;if(!m[k])return;
+  delete m[k];putMaps(m);mapList();setStatus(`'${k}' 을(를) 지웠습니다.`);
+};
+$("copyMap").onclick=()=>{
+  const lvName=v=>v===7?"TALL":v===3?"L1|L2":v===1?"L1":v===2?"L2":v===4?"L3":v===5?"L1|L3":v===6?"L2|L3":v;
+  const num=v=>+(+v).toFixed(1);
+  const key=($("mapName").value.trim()||"mymap").replace(/[^\w]/g,"")||"mymap";
+  const txt=`  ${key}:{id:"${key}",\n      spawn:{a:[${cfg.map.a.map(p=>`[${num(p[0])},${num(p[1])}]`).join(",")}],\n`+
+    `             e:[${cfg.map.e.map(p=>`[${num(p[0])},${num(p[1])}]`).join(",")}]},\n      obs:[\n`+
+    cfg.map.obs.map(o=>`      {x:${num(o.x)},y:${num(o.y)},w:${num(o.w)},h:${num(o.h)}`+
+      (o.l?`,l:"${o.l}"`:"")+(o.mul?`,mul:${o.mul}}`:`,lv:${lvName(o.lv||TALL)}}`)).join(",\n")+`]},`;
+  navigator.clipboard.writeText(txt).then(()=>setStatus("ROOMS 조각을 복사했습니다 — index.html 의 ROOMS 안에 붙여넣으면 진짜 장소가 됩니다."),
+    ()=>setStatus("복사하지 못했습니다."));
+};
+
+/* ══ 적 ══ */
+const foeName=k=>{const e=D.enemies[k];return e?e.n+(e.boss?"(보스)":""):k};
+const foeText=keys=>{const c={};for(const k of keys)c[k]=(c[k]||0)+1;
+  return Object.entries(c).map(([k,n])=>`${foeName(k)}${n>1?"×"+n:""}`).join(", ")};
+function foeList(){
+  const cnt={};for(const k of cfg.foes)cnt[k]=(cnt[k]||0)+1;
+  $("foeList").innerHTML=Object.entries(cnt).map(([k,n])=>
+    `<span class="chip">${esc(foeName(k))} <b>×${n}</b><button data-rm="${k}">✕</button></span>`).join("")
+    ||`<span class="hint">비어 있음 — '게임처럼 뽑기'로 돌립니다</span>`;
+}
+$("addFoe").onclick=()=>{const n=cl(+$("foeN").value||1,1,12);
+  for(let i=0;i<n;i++)cfg.foes.push($("foe").value);
+  document.querySelector("input[name=emode][value=pick]").checked=true;cfg.emode="pick";foeList();save()};
+$("clrFoe").onclick=()=>{cfg.foes=[];foeList();save()};
+$("foeList").onclick=e=>{const k=e.target.dataset.rm;if(!k)return;
+  const i=cfg.foes.lastIndexOf(k);if(i>=0)cfg.foes.splice(i,1);foeList();save()};
+
+/* ══ 대원 ══ */
+function members(){
+  const it=D.items;
+  const majOpts=v=>opt("","—",!v)+D.majors.map(m=>opt(m.id,m.n,m.id===v)).join("");
+  $("members").innerHTML=cfg.members.slice(0,cfg.pn).map((m,i)=>`
+    <div class="mem" data-i="${i}">
+      <h3>${i+1}번 <input type="text" data-f="name" value="${esc(m.name)}">
+        <select data-f="sex">${opt("m","남",m.sex==="m")}${opt("f","여",m.sex==="f")}</select></h3>
+      <div class="grid">
+        <span>레벨</span><div><input type="number" data-f="lvl" min="1" max="${D.maxLv}" value="${m.lvl}">
+          시작 체력 <input type="number" data-f="hpPct" min="1" max="100" value="${m.hpPct}">%</div>
+        <span>전공</span><div><select data-f="major">${majOpts(m.major)}</select></div>
+      </div>
+      <div class="stats">${D.stats.map(s=>`<label>${s.n}<input type="number" data-st="${s.k}" min="1" max="99" value="${m.stats[s.k]}"></label>`).join("")}</div>
+      <div class="hint" data-pts></div>
+      <div class="grid" style="margin-top:6px">${D.slots.map(s=>`<span>${s.n}</span><div>${pickBtn(m.gear[s.k],"—",`g:${s.k}`)}</div>`).join("")}</div>
+      <div class="stats">${AMMO.map(a=>`<label>${a.n}<input type="number" data-am="${a.k}" min="0" value="${m.ammo[a.k]}"></label>`).join("")}</div>
+      <div class="derived" data-der></div>
+    </div>`).join("");
+  document.querySelectorAll(".mem").forEach(el=>derived(+el.dataset.i));
+  $("wwho").innerHTML=cfg.members.slice(0,cfg.pn).map((m,i)=>opt(i,`${i+1}번 ${m.name}`,i===cfg.wwho)).join("");
+}
+function derived(i){
+  const el=document.querySelector(`.mem[data-i="${i}"]`);if(!el)return;
+  const m=cfg.members[i];
+  const used=Object.values(m.stats).reduce((a,b)=>a+b,0)-60, have=m.lvl-1;
+  el.querySelector("[data-pts]").innerHTML=`기본 60 기준 추가 포인트 <b>${used}</b> / 레벨로 받는 몫 <b>${have}</b>${used>have?' <span class="warn">(레벨보다 많음)</span>':""}`;
+  let d=null;
+  try{d=JSON.parse(E(`JSON.stringify(derive(${JSON.stringify(mkPerson(m))}))`))}catch(e){}
+  const two=m.gear.rh&&D.items[m.gear.rh]&&D.items[m.gear.rh].two&&m.gear.lh;
+  el.querySelector("[data-der]").innerHTML=d?`체력 <b>${d.maxHp}</b> · 공격 <b>${d.atk}</b> · 공속 <b>${d.aspd}</b> · 이동 <b>${d.speed}</b> · 방어 <b>${d.guard}</b> · 회피 <b>${d.dodge}%</b> · 치명 <b>${d.crit}%</b>`
+    +(two?` <span class="warn">· 양손 무기라 왼손은 전투에서 빠집니다</span>`:""):"";
+}
+function mkPerson(m){
+  const gear={};for(const s of D.slots)gear[s.k]=m.gear[s.k]||null;
+  return{name:m.name,sex:m.sex,face:"",lvl:m.lvl,exp:0,major:m.major||null,major2:null,
+    stats:{...m.stats},base:{...m.stats},gear,bag:[],ammo:{...m.ammo},points:0,inParty:true,log:[]};
+}
+$("pn").onchange=e=>{cfg.pn=+e.target.value;
+  while(cfg.members.length<cfg.pn)cfg.members.push(defMember(cfg.members.length));
+  cfg.wwho=cl(cfg.wwho,0,cfg.pn-1);members();save()};
+$("eqAll").onclick=()=>{const a=cfg.members[0];
+  for(let i=1;i<cfg.members.length;i++){const b=JSON.parse(JSON.stringify(a));
+    b.name=cfg.members[i].name;b.sex=cfg.members[i].sex;cfg.members[i]=b}
+  members();save()};
+$("lvAll").onclick=()=>{
+  const order=["vit","str","agi","spd","luk","maj"];
+  for(const m of cfg.members){
+    for(const k of order)m.stats[k]=10;
+    for(let n=0;n<m.lvl-1;n++)m.stats[order[n%order.length]]++;
+  }
+  members();save();
+};
+$("members").addEventListener("change",e=>{
+  const card=e.target.closest(".mem");if(!card)return;
+  const i=+card.dataset.i,m=cfg.members[i],t=e.target,ds=t.dataset;
+  if(ds.f)m[ds.f]=t.type==="number"?cl(+t.value||0,+t.min||0,+t.max||999):t.value;
+  else if(ds.st)m.stats[ds.st]=+t.value||1;
+  else if(ds.am)m.ammo[ds.am]=Math.max(0,+t.value||0);
+  save();derived(i);
+  if(ds.f==="name")members();
+});
+$("members").addEventListener("click",e=>{
+  const pb=e.target.closest("button.pick");if(!pb)return;
+  const i=+pb.closest(".mem").dataset.i,m=cfg.members[i],sl=pb.dataset.pick.slice(2);
+  if(PK.classList.contains("on")){closePicker();return}
+  const ids=Object.keys(D.items).filter(k=>D.items[k].slot===sl);
+  openPicker(pb,ids,m.gear[sl]||"",id=>{m.gear[sl]=id;save();members()});
+});
+
+/* ── 아이템 고르기 — 아이콘이 보이는 목록 ── */
+const pickBtn=(id,empty,what)=>{const x=id&&D.items[id];
+  return `<button class="pick${x?"":" empty"}" data-pick="${what}" title="${x?esc(x.d):""}">${x?x.ic:""}<span class="nm">${x?esc(x.n)+(x.two?" (양손)":""):empty}</span></button>`};
+const PK=$("picker");
+let pkDone=null;
+function openPicker(btn,ids,cur0,done){
+  pkDone=done;
+  const inp=PK.querySelector("input"),list=PK.querySelector(".list");
+  const draw=()=>{
+    const q=inp.value.trim();
+    list.innerHTML=`<div class="pi" data-id="">— 비우기</div>`+
+      ids.filter(k=>!q||D.items[k].n.includes(q)).map(k=>{const x=D.items[k];
+        return `<div class="pi${k===cur0?" cur":""}" data-id="${k}" title="${esc(x.d)}">${x.ic}${esc(x.n)}${x.two?" (양손)":""}<small>${esc(x.d).slice(0,22)}</small></div>`}).join("");
+  };
+  inp.value="";draw();inp.oninput=draw;
+  const r=btn.getBoundingClientRect();
+  PK.classList.add("on");
+  const h=PK.offsetHeight;
+  PK.style.left=Math.max(4,Math.min(innerWidth-304,r.left))+"px";
+  PK.style.top=(r.bottom+h+4<innerHeight?r.bottom+2:Math.max(4,r.top-h-2))+"px";
+  inp.focus();
+}
+const closePicker=()=>{PK.classList.remove("on");pkDone=null};
+PK.addEventListener("click",e=>{const el=e.target.closest(".pi");if(!el||!pkDone)return;
+  const f=pkDone;closePicker();f(el.dataset.id)});
+document.addEventListener("mousedown",e=>{if(PK.classList.contains("on")&&!PK.contains(e.target)&&!e.target.closest("button.pick"))closePicker()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closePicker()});
+
+/* ══ 머리말 입력 ══ */
+$("place").onchange=e=>{cfg.place=e.target.value;dayMax();save()};
+$("day").onchange=e=>{cfg.day=+e.target.value||1;dayMax();save()};
+$("night").onchange=e=>{cfg.night=e.target.checked;save()};
+$("usebg").onchange=e=>{cfg.usebg=e.target.checked;save()};
+$("spd").onchange=e=>{cfg.spd=e.target.value;try{W().__spd=+cfg.spd}catch(_){}save()};
+$("noboss").onchange=e=>{cfg.noboss=e.target.checked;save()};
+document.querySelectorAll("input[name=emode]").forEach(r=>r.onchange=e=>{cfg.emode=e.target.value;save()});
+
+/* ══ 전투 ══════════════════════════════════════════════════════════════
+   아래 setupInGame · benchOne 은 iframe 안에서 도는 함수입니다.
+   문자열로 넘겨 그쪽 전역(G · B · ROOM · ROOMS)에서 실행합니다. */
+function setupInGame(c){
+  stopLoop();
+  document.querySelectorAll(".pop").forEach(p=>p.remove());
+  newGame(0);
+  G.slot=-1;G.mode="run";G.scene="battleload";
+  G.gate=c.gate;G.day=c.day;G.night=c.night;G.dayOn=true;
+  G.roster=c.people.map(p=>{p.hp=Math.max(1,Math.round(derive(p).maxHp*p.hpPct/100));delete p.hpPct;return p});
+  G.player=G.roster[0];
+  G.instants=[];
+  G.here=PLACES.find(p=>p.room===c.place)||PLACES[0];
+  /* 그린 맵을 방 하나로 만들어 끼웁니다. id 가 BG_ART 에 없으면 게임이 격자와 사각형을 그대로 그립니다 */
+  ROOMS.__sim={id:c.bg||"__sim",spawn:{a:c.map.a,e:c.map.e},obs:c.map.obs};
+  ROOM=ROOMS.__sim;
+  const keys=c.keys||rollEncounter(battleDay(),G.here.risk||0,G.roster.length,c.noboss);
+  enterBattle(G.roster,keys);
+  B._t=0;
+  return keys;
+}
+/* 그리지 않고 끝까지 돌립니다 — 화면을 안 거치니 한 판이 눈 깜짝할 새에 끝납니다.
+   render · finishBattle · setTimeout 을 잠시 비워 두어 전투가 끝나도 화면이 넘어가지 않게 합니다. */
+function benchOne(c){
+  const r0=render,f0=finishBattle,t0=window.setTimeout;
+  render=function(){};finishBattle=function(){};window.setTimeout=function(){return 0};
+  try{
+    window.__sim.setup(c);
+    const T=window.__tick0||tick, dt=1/60;
+    const fh0=B.foes.reduce((s,f)=>s+f.maxHp,0), ah0=B.allies.reduce((s,a)=>s+a.hp,0);
+    let t=0;
+    while(!B.over&&t<c.lim){T(dt);t+=dt}
+    const fh=B.foes.reduce((s,f)=>s+Math.max(0,f.hp),0), ah=B.allies.reduce((s,a)=>s+Math.max(0,a.hp),0);
+    return{done:!!B.over,win:!!B.over&&ah>0&&fh<=0,t:+t.toFixed(2),
+      dealt:Math.round(fh0-fh),taken:Math.round(ah0-ah),
+      hp:Math.round(ah),hpMax:Math.round(B.allies.reduce((s,a)=>s+a.maxHp,0))};
+  }finally{render=r0;finishBattle=f0;window.setTimeout=t0}
+}
+const inGame=(fn,arg)=>E(`(${fn.toString()})(${JSON.stringify(arg)})`);
+
+/* 지금 설정으로 iframe 에 넘길 한 벌을 만듭니다 */
+function packCfg(over){
+  const o=over||{};
+  const pl=D.places.find(p=>p.room===cfg.place)||D.places[0];
+  const idx=o.only!==undefined?[o.only]:cfg.members.slice(0,cfg.pn).map((_,i)=>i);
+  const people=idx.map(i=>{
+    const m=JSON.parse(JSON.stringify(cfg.members[i]));
+    if(o.rh!==undefined)m.gear.rh=o.rh;
+    if(o.fullAmmo)for(const a of AMMO)m.ammo[a.k]=999;
+    return{...mkPerson(m),hpPct:m.hpPct};
+  });
+  return{gate:pl.gate,place:cfg.place,day:cfg.day,night:cfg.night,noboss:cfg.noboss,
+    bg:cfg.usebg?cfg.place:"",map:cfg.map,people,keys:o.keys||null};
+}
+function start(keys){
+  if(!D){setStatus("게임이 아직 준비되지 않았습니다.");return}
+  let k=keys||null;
+  if(!k&&cfg.emode==="pick"){
+    if(!cfg.foes.length){setStatus("직접 지정인데 적 목록이 비었습니다.");return}
+    k=[...cfg.foes];
+  }
+  try{
+    W().__spd=+cfg.spd;
+    lastKeys=inGame(setupInGame,packCfg({keys:k}));
+  }catch(e){setStatus("전투를 차리지 못했습니다: "+e.message);console.error(e);return}
+  runNo++;
+  cur={no:runNo,place:($("mapName").value.trim()||"맵")+" · "+$("place").selectedOptions[0].text.replace(/ \(위험.*$/,""),
+    day:cfg.day+(cfg.night?" 야간":""),
+    party:cfg.members.slice(0,cfg.pn).map(m=>`${m.name} Lv${m.lvl}`).join(", "),
+    foes:foeText(lastKeys),done:false};
+  $("rolled").textContent="이번 적: "+cur.foes;
+  setStatus(`#${runNo} 전투 중 · ${cur.foes}`);
+  fr.contentWindow.focus();
+}
+$("run").onclick=()=>start(null);
+$("again").onclick=()=>{if(!lastKeys){setStatus("아직 싸운 적이 없습니다.");return}start([...lastKeys])};
+$("pause").onclick=()=>{try{E("if(B&&!B.over)B.paused=!B.paused")}catch(e){}};
+$("preview").onclick=()=>{
+  if(!D)return;
+  try{
+    const k=rollKeys();
+    $("rolled").textContent="뽑아 본 적: "+foeText(k)+" (예시 — 전투 때 다시 뽑습니다)";
+  }catch(e){$("rolled").textContent="뽑기 실패: "+e.message}
+};
+/* 시험대에서 쓸 적 한 벌 — 게임과 같은 방식으로 한 번만 뽑아 모든 무기에 같이 씁니다 */
+function rollKeys(){
+  const pl=D.places.find(p=>p.room===cfg.place)||D.places[0];
+  const n=$("wsolo").checked?1:cfg.pn;
+  return JSON.parse(E(`(()=>{const g0=G;G={...(G||{}),gate:${JSON.stringify(pl.gate)},night:${cfg.night},day:${cfg.day},mode:"run"};
+    try{return JSON.stringify(rollEncounter(battleDay(),${pl.risk||0},${n},${cfg.noboss}))}finally{G=g0}})()`));
+}
+
+/* ══ 무기 시험대 ══ */
+function wList(){
+  $("wList").innerHTML=cfg.wpns.map((k,i)=>{
+    const x=D.items[k];
+    return `<span class="chip">${x?x.ic:""}${esc(x?x.n:"맨손")}<button data-wrm="${i}">✕</button></span>`}).join("")
+    ||`<span class="hint">비어 있음 — 견주어 볼 무기를 넣어 주세요</span>`;
+}
+$("addW").onclick=()=>{const k=$("wsel").value;
+  if(!cfg.wpns.includes(k))cfg.wpns.push(k);wList();save()};
+$("clrW").onclick=()=>{cfg.wpns=[];wList();save()};
+$("wList").onclick=e=>{const i=e.target.dataset.wrm;if(i===undefined)return;
+  cfg.wpns.splice(+i,1);wList();save()};
+$("wwho").onchange=e=>{cfg.wwho=+e.target.value;save()};
+["wn","wlim"].forEach(id=>$(id).onchange=e=>{cfg[id]=+e.target.value||1;save()});
+["wsolo","wammo"].forEach(id=>$(id).onchange=e=>{cfg[id]=e.target.checked;save()});
+
+let stopFlag=false;
+$("stopW").onclick=()=>{stopFlag=true};
+$("runW").onclick=()=>{
+  if(!D||benching)return;
+  if(!cfg.wpns.length){$("wmsg").textContent="무기를 먼저 넣어 주세요.";return}
+  const keys=cfg.emode==="pick"&&cfg.foes.length?[...cfg.foes]:rollKeys();
+  const trials=cl(+$("wn").value||20,1,200), lim=cl(+$("wlim").value||90,10,600);
+  const solo=$("wsolo").checked, full=$("wammo").checked, who=cl(cfg.wwho,0,cfg.pn-1);
+  const jobs=[];
+  for(const wk of cfg.wpns)for(let t=0;t<trials;t++)jobs.push(wk);
+  const acc={};for(const wk of cfg.wpns)acc[wk]={n:0,win:0,t:0,dealt:0,taken:0,hp:0,hpMax:0,stuck:0};
+  benching=true;stopFlag=false;
+  $("wmsg").textContent=`적 ${foeText(keys)} · ${cfg.wpns.length}종 × ${trials}판`;
+  let i=0;
+  const step=()=>{
+    if(stopFlag||i>=jobs.length){
+      benching=false;$("wbar").style.width="100%";
+      $("wmsg").textContent=(stopFlag?"멈췄습니다 · ":"끝났습니다 · ")+`${i}판`;
+      wTable(acc,keys);
+      try{E("stopLoop()")}catch(e){}
+      return;
+    }
+    const t0=performance.now();
+    while(i<jobs.length&&performance.now()-t0<120){        // 한 번에 120ms 만 돌고 화면에 숨을 돌려 줍니다
+      const wk=jobs[i++];
+      const c=packCfg({keys:[...keys],rh:wk,fullAmmo:full,only:solo?who:undefined});
+      c.lim=lim;
+      let r;
+      try{r=JSON.parse(E(`JSON.stringify(window.__sim.bench(${JSON.stringify(c)}))`))}
+      catch(e){benching=false;$("wmsg").innerHTML=`<span class="warn">시험이 막혔습니다: ${esc(e.message)}</span>`;return}
+      const a=acc[wk];
+      a.n++;a.t+=r.t;a.dealt+=r.dealt;a.taken+=r.taken;a.hp+=r.hp;a.hpMax=r.hpMax;
+      if(r.win)a.win++;
+      if(!r.done)a.stuck++;
+    }
+    $("wbar").style.width=(i/jobs.length*100).toFixed(1)+"%";
+    $("wmsg").textContent=`${i} / ${jobs.length}판 · 적 ${foeText(keys)}`;
+    wTable(acc,keys);
+    setTimeout(step,0);
+  };
+  step();
+};
+function wTable(acc,keys){
+  const rows=cfg.wpns.map(wk=>{
+    const a=acc[wk],x=D.items[wk];
+    let d=null;
+    try{
+      const m=JSON.parse(JSON.stringify(cfg.members[cl(cfg.wwho,0,cfg.pn-1)]));
+      m.gear.rh=wk;
+      d=JSON.parse(E(`JSON.stringify(derive(${JSON.stringify(mkPerson(m))}))`));
+    }catch(e){}
+    return{wk,n:x?x.n:"맨손",ic:x?x.ic:"",d,a,
+      dps:a.t?a.dealt/a.t:0, win:a.n?a.win/a.n*100:0, avg:a.n?a.t/a.n:0,
+      taken:a.n?a.taken/a.n:0, hp:a.n?a.hp/a.n:0};
+  });
+  const best=Math.max(...rows.map(r=>r.dps));
+  $("wTable").innerHTML=rows.map(r=>`<tr class="${r.dps&&r.dps===best?"best":""}">
+    <td>${r.ic}${esc(r.n)}${r.a.stuck?` <span class="warn" title="제한 시간 안에 끝나지 않은 판">⏱${r.a.stuck}</span>`:""}</td>
+    <td class="num">${r.d?r.d.atk:"—"}</td><td class="num">${r.d?r.d.aspd:"—"}</td><td class="num">${r.d?7+r.d.rng:"—"}</td>
+    <td class="num">${r.a.n?r.win.toFixed(0)+"%":"—"}</td>
+    <td class="num">${r.a.n?r.avg.toFixed(1)+"초":"—"}</td>
+    <td class="num"><b>${r.a.n?r.dps.toFixed(1):"—"}</b></td>
+    <td class="num">${r.a.n?r.taken.toFixed(0):"—"}</td>
+    <td class="num">${r.a.n?r.hp.toFixed(0)+" / "+r.a.hpMax:"—"}</td></tr>`).join("");
+}
+
+/* ══ 결과 지켜보기 ══ */
+setInterval(()=>{
+  if(!cur||cur.done||!D||benching)return;
+  let r;
+  try{r=JSON.parse(E(`JSON.stringify(B?{over:!!B.over,t:B._t||0,
+    a:B.allies.map(a=>({n:a.name,hp:Math.max(0,Math.round(a.hp)),mx:a.maxHp})),
+    f:B.foes.filter(f=>f.hp>0).map(f=>({n:f.name,hp:Math.round(f.hp),mx:f.maxHp}))}:null)`))}catch(e){return}
+  if(!r||!r.over)return;
+  cur.done=true;
+  const win=r.a.some(a=>a.hp>0)&&!r.f.length;
+  const tr=document.createElement("tr");
+  tr.innerHTML=`<td>${cur.no}</td><td>${esc(cur.place)} · ${cur.day}일</td><td>${esc(cur.party)}</td><td>${esc(cur.foes)}</td>
+    <td class="${win?"win":"lose"}">${win?"승리":"전멸"}</td><td>${r.t.toFixed(1)}초</td>
+    <td>${r.a.map(a=>`${esc(a.n)} ${a.hp}/${a.mx}`).join("<br>")}${r.f.length?`<br><span class="warn">남은 적: ${r.f.map(f=>`${esc(f.n)} ${f.hp}/${f.mx}`).join(", ")}</span>`:""}</td>`;
+  $("log").prepend(tr);
+  setStatus(`#${cur.no} ${win?"승리":"전멸"} · ${r.t.toFixed(1)}초`);
+},250);
+$("clrLog").onclick=()=>{$("log").innerHTML=""};
+$("copyLog").onclick=()=>{
+  const rows=[...document.querySelectorAll("#log tr")].map(tr=>[...tr.children].map(td=>td.innerText.replace(/\n/g," / ")).join("\t"));
+  navigator.clipboard.writeText(rows.join("\n")).then(()=>setStatus("결과 표를 복사했습니다."),()=>setStatus("복사하지 못했습니다."));
+};
+</script>
