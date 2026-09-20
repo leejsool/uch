@@ -1638,13 +1638,13 @@ const ENEMIES={
   /* 1게이트 4일차부터. 먼저 벌이 섞여 나오고, 6일차에 그 우두머리인 장수말벌이 섭니다.
      날아다녀서 지형을 거의 다 넘고 빠르지만, 한 대에 잘 터집니다 */
   bee:{n:"벌",lvm:FLY,hp:30,atk:13,aspd:.95,speed:52,range:6,r:2.6,c:"#E8C24A",exp:30,dmg:DMG.PIERCE},
-  mantis:{n:"사마귀",lvm:TALL,hp:180,atk:22,aspd:.65,speed:13,range:9,r:5.2,c:"#5FC49A",exp:90,boss:true,dmg:DMG.SLASH},
+  mantis:{n:"사마귀",lvm:TALL,hp:400,atk:23,aspd:.65,speed:13,range:9,r:5.2,c:"#5FC49A",exp:95,boss:true,dmg:DMG.SLASH},
   /* 거미는 다리가 길어 낮은 지형(식탁·화단)을 넘어 다닙니다. 대신 의자와 벽에는 막힙니다. */
   /* 1게이트 마지막 보스. 6일차에 섰을 때보다 크게 불렸습니다.
      공격력 44 → 32 (2026-09-15) — 44 는 체력 75%로 들어간 Lv6 넷이 호위 둘과 함께 10%만 이겼습니다 */
   spider:{n:"거미",lvm:L2|L3,hp:540,atk:33,aspd:.8,speed:28,range:16,r:5.8,c:"#8E6BD9",exp:380,boss:true,dmg:DMG.PIERCE},
   /* 1게이트 6일차 보스. 날아다녀서 지형을 거의 다 넘고, 빠르고 자주 찌릅니다. 대신 무릅니다 */
-  hornet:{n:"장수말벌",lvm:FLY,hp:240,atk:23,aspd:1.1,speed:58,range:8,r:4,c:"#E0A32F",exp:150,boss:true,dmg:DMG.PIERCE},
+  hornet:{n:"장수말벌",lvm:FLY,hp:400,atk:23,aspd:1.1,speed:58,range:8,r:4,c:"#E0A32F",exp:150,boss:true,dmg:DMG.PIERCE},
   /* 3게이트 보스. 눈알 덩어리. 매우 빠르고 시선이 닿은 자리가 터진다 */
   bloodeyes:{n:"Blood Eyes",lvm:TALL,hp:560,atk:50,aspd:2.857,speed:46,range:11,r:6.6,
              c:"#8E1F2E",exp:400,boss:true,dmg:DMG.BLAST},
@@ -3905,6 +3905,7 @@ function hurt(t,amt,c,type,src){
       if(src)t.face=Math.atan2(src.y-t.y,src.x-t.x);
       say(`${t.name}이(가) 뒤로 물러나 피했다.`);
     }else say(`${t.name}이(가) 몸을 틀어 피했다.`);
+    sfx(t.backstep?"물러남":"회피",t.side==="a"?1:.88);
     B.fx.push({x:t.x,y:t.y,t:"회피",c:"#6BD98F",life:.8,off:0});
     return;
   }
@@ -3914,6 +3915,7 @@ function hurt(t,amt,c,type,src){
       if(ch&&Math.random()<ch){
         say(`${t.name}의 ${w.it.n}이(가) ${type}에 부서졌다.`);
         B.fx.push({x:t.x,y:t.y,t:"파손",c:"#C87878",life:1.1,off:0});
+        sfx("파손");
         t.guard=Math.max(0,t.guard-(w.it.guard||0));
         t.broken.push(w.slot);
         t.wearing=t.wearing.filter(x=>x!==w);
@@ -3928,6 +3930,8 @@ function hurt(t,amt,c,type,src){
   amt=Math.max(1,amt-cut);
   const was=t.hp;
   t.hp=Math.max(0,t.hp-amt);t.flash=.18;
+  sfx("피격",t.side==="a"?.82:1.14);
+  if(was>0&&t.hp<=0)sfx("쓰러짐",t.side==="a"?.8:1.2);   /* 누가 쓰러졌는지는 놓치면 안 됩니다 */
   /* 뿔 방패 — 맞으면 때린 적에게 정해진 만큼 돌려줍니다. src 를 넘기지 않아 되돌림이 되돌아오지 않습니다 */
   const th=t.side==="a"&&t.hasS&&ITEMS[t.sid]&&ITEMS[t.sid].thorns;
   if(th&&src&&src.side==="e"&&src.hp>0)hurt(src,th,"#E0A32F",null);
@@ -3948,6 +3952,7 @@ function sprayHeal(u,lifeA){
   const t=near.reduce((b,o)=>o.hp<b.hp?o:b);
   const add=Math.min(h.hp,t.maxHp-t.hp);
   t.hp+=add;
+  sfx("회복");
   B.fx.push({x:t.x,y:t.y-3,t:"+"+Math.round(add),c:"#6BD98F",life:.9,off:0});
   say(`${u.name}의 ${ITEMS[u.sid].n}이(가) ${t===u?"자신":t.name}의 체력을 ${Math.round(add)} 채웠다.`);
 }
@@ -3977,6 +3982,8 @@ function tick(dt){
       const total=gn?GUN_TOTAL:th?THRUST_TOTAL:SWING_TOTAL;
       if(!a.hit&&prev<imp&&a.t>=imp){
         a.hit=true;
+        /* 무기 갈래가 그대로 소리 이름입니다 — DMG 의 값과 SFX 의 이름을 맞춰 두었습니다 */
+        sfx(gn?(u.bow?"활":gunSfx(u)):(u.dmgType||"타격"),u.side==="a"?1:.86);
         /* 활은 화살마다 따로 굴리고, 그 밖의 공격은 취기(소주)만 여기서 굴립니다 */
         const tipsy=!u.bow&&u.drunkMiss>0&&Math.random()<u.drunkMiss;
         if(!tipsy&&a.tgt&&a.tgt.hp>0&&D(u,a.tgt)<u.range+a.tgt.r){
@@ -4043,7 +4050,7 @@ function tick(dt){
               }
             }
           }
-          if(cr)B.fx.push({x:a.tgt.x,y:a.tgt.y-4,t:"치명타",c:"#FF8A3D",life:.9,off:0});
+          if(cr){B.fx.push({x:a.tgt.x,y:a.tgt.y-4,t:"치명타",c:"#FF8A3D",life:.9,off:0});sfx("치명")}
           say(`${u.name}이(가) ${a.tgt.name}을(를) ${u.style==="gun"?"쐈다":u.dmgType==="찌르기"?"찔렀다":"때렸다"}.`
             +(cr?" 급소에 들어갔다!":"")+(swept?` 옆에 있던 ${swept}체도 휩쓸렸다.`:""));
         }else say(`${u.name}의 공격이 빗나갔다.`);
@@ -4120,6 +4127,8 @@ function tick(dt){
     }
     else{f.face=Math.atan2(t.y-f.y,t.x-f.x);f.air=0;f.cool-=dt*f.aspd;
       if(f.cool<=0){f.cool=1;f.strike=.24;
+        /* 적의 공격도 무기 갈래(dmgType)가 그대로 소리 이름입니다. 적은 낮게 울립니다 */
+        sfx(f.dmgType||"깨물기",.86);
         if(f.key==="spider")B.shots.push({x0:f.x,y0:f.y,x1:t.x,y1:t.y,life:.42,max:.42});
         /* 매미처럼 우는 것은 실 대신 고리 세 겹이 퍼져 나갑니다 */
         if((ENEMIES[f.key]||{}).wave)B.shots.push({wave:true,x0:f.x,y0:f.y,x1:t.x,y1:t.y,life:.5,max:.5});
@@ -6555,7 +6564,7 @@ function playTap(){
   if(g){g.classList.add("goldbump");setTimeout(()=>g.classList.remove("goldbump"),420)}
 }
 /* ══ 배경음악 ══
-   화면 갈래마다 한 곡씩 돌립니다. art/bgm/ 에 mp3 를 넣으면 그대로 붙고,
+   화면 갈래마다 한 곡씩 돌립니다. art/bgm/ 에 mp3·m4a 를 넣으면 그대로 붙고,
    아직 안 만든 곡은 조용히 넘어갑니다 — 파일이 없다고 게임이 멈추지는 않습니다.
    브라우저는 사람이 화면을 한 번 건드리기 전에는 소리를 내주지 않습니다. 그래서 일단 틀어 보고,
    거절당하면 첫 입력(터치·클릭·키) 때 한 번 더 겁니다 — 제목 화면을 열자마자 나오거나,
@@ -6567,6 +6576,15 @@ const BGM_ART={
   gate:   "bgm/gate.mp3",      /* 게이트 안 — 장소 고르기 · 전리품 · 야영 · 귀환 */
   battle: "bgm/battle.mp3",    /* 전투 */
   boss:   "bgm/boss.mp3",      /* 보스가 있는 전투 */
+  /* 건물별 — 그 건물 안(hall)과 그 건물의 시설에서 campus 대신 흐릅니다.
+     여기 적지 않은 건물은 campus 를 그대로 씁니다. 곡을 만들면 한 줄만 더하면 됩니다.
+     이름은 BUILDINGS 의 id — arts rotc human edu field sci med main */
+  "bld.arts":  "bgm/arts.m4a",      /* 예체능대학 — 학과사무실 · 게임장 */
+  "bld.rotc":  "bgm/rotc.m4a",      /* ROTC — 학과사무실 */
+  "bld.human": "bgm/human.mp3",     /* 인문사회대학 — 학과사무실 · 도서관 */
+  "bld.sci":   "bgm/sci.m4a",       /* 이공대학 — 학과사무실 · 실습동 */
+  /* 시설 하나에만 붙인 곡. 건물 곡보다 앞섭니다. 이름은 화면(scene) 이름 */
+  "sc.tower":  "bgm/memorial.m4a",  /* 메모리얼 홀 */
 };
 const BGM_VOL=0.42, BGM_FADE=520;        /* 소리 크기 · 곡을 바꿀 때 걸치는 시간(ms) */
 const BGM_KEY="uch.bgmOff";
@@ -6582,6 +6600,19 @@ function bgmAllowed(){
 }
 let bgmOff=false; try{bgmOff=localStorage.getItem(BGM_KEY)==="1"}catch(e){}
 let bgmNow="", bgmEl=null, bgmArmed=false;
+/* 오락실의 게임 화면들도 오락실(예체능대학) 안입니다 */
+const ARCADE_SCENES=["spidergame","stargame","huntgame","spiderend","starend","huntend","arcadeend"];
+/* 지금 화면이 어느 건물 안인지. 아니면 null.
+   G.hallId 는 지도로 나와도 남아 있으므로, 화면이 그 건물의 것인지 한 번 더 봅니다 —
+   안 보면 캠퍼스 지도에서까지 마지막에 들른 건물의 곡이 흐릅니다.
+   학과사무실은 건물마다 있어 화면 이름(dept)이 겹칩니다. 그래서 hallId 가 필요합니다 */
+function bldOfScene(S){
+  const b=BUILDINGS.find(x=>x.id===G.hallId);
+  if(!b)return null;
+  if(S==="hall")return b.id;
+  if(ARCADE_SCENES.includes(S))S="arcade";
+  return (b.facs||[]).some(f=>FAC_SCENE[f]===S)?b.id:null;
+}
 /* 지금 화면에 맞는 곡. 빈 문자열이면 아무것도 틀지 않습니다 */
 function bgmFor(){
   const S=G.scene;
@@ -6592,8 +6623,13 @@ function bgmFor(){
     return (B&&B.foes&&B.foes.some(f=>f.boss))?"boss":"battle";
   /* confirm 은 들어가기 전 마지막 확인이라 아직 캠퍼스입니다.
      instant("오늘의 힘")는 게이트 안에서 고르므로 캠퍼스가 아니라 gate 입니다 */
-  if(CAMPUS_SCENES.includes(S)||S==="confirm"||S==="arcadeend"
-     ||S==="volunteer"||S==="talk")return "campus";
+  /* library 를 따로 적는 까닭 — CAMPUS_SCENES 에 빠져 있습니다. 빼면 도서관에서 게이트 곡이 흐릅니다 */
+  if(CAMPUS_SCENES.includes(S)||S==="library"||S==="confirm"||S==="arcadeend"
+     ||S==="volunteer"||S==="talk"){
+    if(BGM_ART["sc."+S])return "sc."+S;                  /* 시설 하나에만 붙인 곡이 먼저 */
+    const b=bldOfScene(S);
+    return (b&&BGM_ART["bld."+b])?"bld."+b:"campus";     /* 곡 없는 건물은 campus */
+  }
   return "gate";      /* 장소 고르기 · 조우 · 오늘의 힘 · 전리품 · 야영 · 레벨업 · 귀환 */
 }
 /* 소리 크기를 ms 동안 to 까지 밀어 올리거나 내립니다 */
@@ -6638,6 +6674,9 @@ function bgmMute(off){
   bgmOff=off;
   try{localStorage.setItem(BGM_KEY,off?"1":"0")}catch(e){}
   document.body.classList.toggle("muted",off);
+  if(sfxBus)try{sfxBus.gain.value=off?0:SFX_VOL}catch(e){}   /* 효과음도 같은 단추로 */
+  /* <audio> 로 도는 것(file://)은 소리통을 안 거치므로 따로 멈춥니다 */
+  if(off)for(const q in sfxTags)for(const a of sfxTags[q]){try{a.pause()}catch(e){}}
   if(!bgmEl)return;
   if(off)bgmRamp(bgmEl,0,240,()=>{try{bgmEl&&bgmEl.pause()}catch(e){}});
   else bgmTry(bgmEl);
@@ -6647,6 +6686,228 @@ document.body.classList.toggle("muted",bgmOff);
 document.addEventListener("click",e=>{
   if(e.target&&e.target.closest&&e.target.closest(".snd"))bgmMute(!bgmOff);
 });
+/* ══ 효과음 ══
+   파일이 아니라 칠 때마다 그 자리에서 만듭니다 — 오실레이터와 잡음에 포락선을 씌웁니다.
+   art/ 에 넣을 것이 없고, 같은 소리도 음높이를 조금씩 흔들어 반복해도 덜 질립니다.
+   끄고 켜는 것은 배경음악과 같은 단추입니다(.snd → bgmOff 를 같이 봅니다). */
+let SFX_VOL=0.5;                     /* 전체 크기 — 효과음.html 에서 바로 만져 볼 수 있게 let */
+let SFX_MAX=5;                       /* 한꺼번에 울릴 수 있는 수 */
+let AC=null, sfxBus=null, sfxNoise=null;
+let sfxLive=[];                      /* 지금 울리고 있는 것 {pri,end,g} */
+const sfxLast=Object.create(null);   /* 소리마다 마지막으로 친 시각 */
+/* 도구 페이지·iframe 에서는 울리지 않습니다 — 배경음악과 같은 기준입니다.
+   효과음 시험 페이지만 UCH_SFX_TEST 로 예외를 둡니다 */
+function sfxOn(){return !bgmOff&&(window.UCH_SFX_TEST||bgmAllowed())}
+/* 브라우저는 사람이 한 번 건드리기 전에는 소리 장치를 내주지 않습니다 — 첫 손짓에 깨웁니다 */
+function sfxWake(){
+  if(!AC){
+    const C=window.AudioContext||window.webkitAudioContext;
+    if(!C)return null;
+    try{AC=new C()}catch(e){return null}
+    sfxBus=AC.createGain();sfxBus.gain.value=bgmOff?0:SFX_VOL;sfxBus.connect(AC.destination);
+  }
+  if(AC.state==="suspended")AC.resume().catch(()=>{});
+  sfxPreload();
+  return AC;
+}
+["pointerdown","keydown","touchstart"].forEach(e=>document.addEventListener(e,sfxWake,true));
+/* 잡음은 한 번 만들어 두고 돌려 씁니다 */
+function sfxNz(){
+  if(sfxNoise)return sfxNoise;
+  const n=Math.floor(AC.sampleRate*.5),b=AC.createBuffer(1,n,AC.sampleRate),d=b.getChannelData(0);
+  for(let i=0;i<n;i++)d[i]=Math.random()*2-1;
+  return sfxNoise=b;
+}
+/* 소리 알갱이 둘 — 음(osc)과 잡음(nz). f0 에서 f1 으로 미끄러지며 dur 초 동안 사그라듭니다 */
+function osc(t,to,{type="sine",f0,f1,dur,v=1,at=.004}){
+  const o=AC.createOscillator(),g=AC.createGain();
+  o.type=type;o.frequency.setValueAtTime(f0,t);
+  if(f1&&f1!==f0)o.frequency.exponentialRampToValueAtTime(Math.max(1,f1),t+dur);
+  g.gain.setValueAtTime(.0001,t);g.gain.linearRampToValueAtTime(v,t+at);
+  g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  o.connect(g);g.connect(to);o.start(t);o.stop(t+dur+.02);
+}
+function nz(t,to,{f0,f1,dur,v=1,q=1,type="bandpass",at=.003}){
+  const s=AC.createBufferSource();s.buffer=sfxNz();s.loop=true;
+  const f=AC.createBiquadFilter();f.type=type;f.Q.value=q;
+  f.frequency.setValueAtTime(f0,t);
+  if(f1&&f1!==f0)f.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t+dur);
+  const g=AC.createGain();
+  g.gain.setValueAtTime(.0001,t);g.gain.linearRampToValueAtTime(v,t+at);
+  g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  s.connect(f);f.connect(g);g.connect(to);s.start(t);s.stop(t+dur+.02);
+}
+/* 녹음된 소리 — art/sfx/ 에 있는 것은 이것을 쓰고, 없는 것만 아래 SFX 표의 합성음으로 떨어집니다.
+   배경음악에서 없는 곡을 조용히 넘기는 것과 같은 방식입니다 — 파일이 빠져도 게임은 돕니다.
+   여럿 적어 두면 칠 때마다 무작위로 골라, 같은 소리가 연달아 나지 않습니다.
+   전부 CC0 입니다(출처는 인수인계.md §효과음). 화학·음파·회복은 실물 소리가 없어 합성음 그대로입니다 */
+/* 총소리는 탄약 갈래(u.gun.type)로 고릅니다 — 권총·산탄총·소총이 같은 소리를 내면 심심합니다 */
+const GUN_SFX={pistol:"권총",shotgun:"샷건",rifle:"소총"};
+const gunSfx=u=>(u.gun&&GUN_SFX[u.gun.type])||"총기";
+const SFX_ART={
+  "베기":   ["sfx/slash1.m4a"],
+  "찌르기": ["sfx/thrust1.m4a","sfx/thrust2.m4a","sfx/thrust3.m4a"],
+  "타격":   ["sfx/blunt1.m4a"],
+  "관통":   ["sfx/pierce1.m4a"],
+  "깨물기": ["sfx/bite1.m4a","sfx/bite2.m4a","sfx/bite3.m4a"],
+  "폭발":   ["sfx/blast1.m4a","sfx/blast2.m4a"],
+  "활":     ["sfx/bow1.m4a","sfx/bow2.m4a"],
+  /* 총은 탄약 갈래마다 소리가 다릅니다. 갈래를 모르는 총은 "총기"(권총 소리)로 떨어집니다 */
+  "권총":   ["sfx/gunPistol.m4a"],
+  "샷건":   ["sfx/gunShotgun.m4a"],
+  "소총":   ["sfx/gunRifle.m4a"],
+  "총기":   ["sfx/gunPistol.m4a"],
+  "치명":   ["sfx/crit1.m4a","sfx/crit2.m4a"],
+  "쓰러짐": ["sfx/die1.m4a","sfx/die2.m4a"],
+  "회피":   ["sfx/dodge1.m4a"],
+  "물러남": ["sfx/backstep1.m4a","sfx/backstep2.m4a"],
+  "피격":   ["sfx/hurt1.m4a","sfx/hurt2.m4a","sfx/hurt3.m4a"],
+  "파손":   ["sfx/break1.m4a","sfx/break2.m4a","sfx/break3.m4a"],
+};
+const sfxBuf=Object.create(null);   /* 풀어 둔 소리. 없거나 실패하면 null 로 남습니다 */
+let sfxPre=false;
+/* file:// 로 열면 브라우저가 fetch 를 막습니다 — 파일은 멀쩡한데 하나도 못 풀어 옵니다.
+   그때는 <audio> 로 직접 틉니다. 이쪽은 file:// 에서도 됩니다(배경음악이 그렇게 돌고 있습니다).
+   음량도 음높이도 그대로 먹고, 우선순위·겹침 제한도 똑같이 돕니다 — Web Audio 를 안 거칠 뿐입니다. */
+let sfxTagMode=false;
+const sfxTags=Object.create(null);   /* 길마다 <audio> 두엇씩 돌려 씁니다 */
+function sfxLoad(path){
+  if(path in sfxBuf)return sfxBuf[path];
+  sfxBuf[path]=null;                                     /* 받는 동안 또 부르지 않게 */
+  fetch(artUrl(path)).then(r=>r.ok?r.arrayBuffer():Promise.reject(r.status))
+    .then(b=>AC.decodeAudioData(b))
+    .then(d=>{sfxBuf[path]=d})
+    .catch(e=>{
+      sfxBuf[path]=null;
+      /* 거절이 숫자면 HTTP 오류(그 파일이 없는 것)이고, 아니면 막힌 것입니다 */
+      if(typeof e!=="number"&&!sfxTagMode){sfxTagMode=true;sfxTagPre()}
+    });
+  return null;
+}
+/* 막힌 것을 알아챈 순간, 쓸 파일을 <audio> 로 미리 걸어 둡니다 — 첫 소리가 늦지 않게 */
+function sfxTagPre(){
+  for(const k in SFX_ART)for(const q of SFX_ART[k])sfxTag(q);
+}
+function sfxTag(path){
+  const pool=sfxTags[path]||(sfxTags[path]=[]);
+  for(const a of pool)if(a.paused||a.ended)return a;
+  if(pool.length>=3)return null;                         /* 같은 소리는 셋까지만 겹칩니다 */
+  const a=new Audio(artUrl(path));
+  a.preload="auto";pool.push(a);
+  return a;
+}
+/* 소리 장치가 깨는 첫 손짓에 다 받아 둡니다 — 다 합쳐 200KB 남짓입니다.
+   받기 전에 전투가 붙으면 그 잠깐은 합성음이 납니다 */
+function sfxPreload(){
+  if(sfxPre)return;sfxPre=true;
+  for(const k in SFX_ART)for(const q of SFX_ART[k])sfxLoad(q);
+}
+/* 받아 둔 것 중 하나를 고릅니다. 아직 못 받았으면 null — 합성음으로 넘어갑니다 */
+function sfxPick(key){
+  const L=SFX_ART[key];if(!L)return null;
+  const ok=[];
+  for(const q of L){const b=sfxBuf[q];if(b)ok.push(b)}
+  return ok.length?ok[Math.floor(Math.random()*ok.length)]:null;
+}
+/* 소리표 — 이름 여덟은 DMG 의 값과 같습니다. 그래서 sfx(u.dmgType) 이 그대로 먹습니다.
+   pri  높을수록 먼저 들립니다. 자리 다툼에서 낮은 것을 밀어냅니다
+   gap  같은 소리를 다시 치기까지의 최소 간격(ms). 열이 동시에 휘둘러도 한 번만 납니다
+   dur  자리를 차지하는 시간(초) — 겹침을 셀 때만 씁니다 */
+const SFX={
+  /* ── 무기 갈래별 공격 ── */
+  "베기":   {sv:0.9,pri:2,gap:70,dur:.26,f:(t,o,r)=>{nz(t,o,{f0:1900*r,f1:480*r,dur:.22,v:.5,q:1.2})}},
+  "찌르기": {sv:0.8,pri:2,gap:70,dur:.16,f:(t,o,r)=>{nz(t,o,{f0:800*r,f1:3400*r,dur:.09,v:.32,q:2.4});
+                                              osc(t,o,{type:"triangle",f0:620*r,f1:1600*r,dur:.09,v:.16})}},
+  "타격":   {sv:1.0,pri:2,gap:70,dur:.3, f:(t,o,r)=>{osc(t,o,{type:"sine",f0:190*r,f1:55*r,dur:.24,v:.75});
+                                              nz(t,o,{f0:2600*r,f1:700*r,dur:.045,v:.3,q:.8})}},
+  "관통":   {sv:0.8,pri:2,gap:70,dur:.2, f:(t,o,r)=>{osc(t,o,{type:"sawtooth",f0:2200*r,f1:520*r,dur:.14,v:.2});
+                                              nz(t,o,{f0:3000*r,f1:1400*r,dur:.07,v:.22,q:3})}},
+  "화학":   {sv:1,pri:2,gap:90,dur:.36,f:(t,o,r)=>{nz(t,o,{type:"lowpass",f0:5200*r,f1:1400*r,dur:.32,v:.3,q:.5,at:.03})}},
+  "깨물기": {sv:0.9,pri:2,gap:70,dur:.24,f:(t,o,r)=>{nz(t,o,{f0:700*r,f1:260*r,dur:.06,v:.45,q:1.6});
+                                              nz(t+.06,o,{f0:520*r,f1:180*r,dur:.1,v:.35,q:1.6})}},
+  "폭발":   {sv:0.9,pri:4,gap:90,dur:.6, f:(t,o,r)=>{nz(t,o,{type:"lowpass",f0:2400*r,f1:120*r,dur:.5,v:.6,q:.4});
+                                              osc(t,o,{type:"sine",f0:160*r,f1:40*r,dur:.4,v:.5})}},
+  "음파":   {sv:1,pri:2,gap:90,dur:.4, f:(t,o,r)=>{osc(t,o,{type:"sine",f0:900*r,f1:300*r,dur:.34,v:.3});
+                                              osc(t,o,{type:"sine",f0:940*r,f1:290*r,dur:.34,v:.22})}},
+  /* ── 쏘는 것 ── */
+  "활":     {sv:0.9,pri:3,gap:60,dur:.3, f:(t,o,r)=>{osc(t,o,{type:"triangle",f0:540*r,f1:140*r,dur:.17,v:.4});
+                                              nz(t,o,{f0:2600*r,f1:900*r,dur:.06,v:.25,q:1.4})}},
+  "권총":   {sv:0.85,pri:4,gap:55,dur:.34,f:(t,o,r)=>SFX["총기"].f(t,o,r)},
+  "샷건":   {sv:0.85,pri:4,gap:75,dur:.42,f:(t,o,r)=>SFX["총기"].f(t,o,r*.78)},
+  "소총":   {sv:0.85,pri:4,gap:55,dur:.36,f:(t,o,r)=>SFX["총기"].f(t,o,r*1.06)},
+  "총기":   {sv:0.85,pri:4,gap:55,dur:.34,f:(t,o,r)=>{nz(t,o,{type:"lowpass",f0:7000*r,f1:600*r,dur:.16,v:.7,q:.6,at:.001});
+                                              osc(t,o,{type:"square",f0:240*r,f1:60*r,dur:.1,v:.35,at:.001})}},
+  /* ── 놓치면 안 되는 것들 — pri 를 높게 ── */
+  "치명":   {sv:0.6,pri:8,gap:40,dur:.44,f:(t,o,r)=>{osc(t,o,{type:"square",f0:900*r,f1:1750*r,dur:.1,v:.28});
+                                              osc(t+.07,o,{type:"triangle",f0:1750*r,f1:2600*r,dur:.3,v:.24})}},
+  "쓰러짐": {sv:0.9,pri:7,gap:60,dur:.7, f:(t,o,r)=>{osc(t,o,{type:"sawtooth",f0:420*r,f1:60*r,dur:.55,v:.34,at:.01});
+                                              nz(t,o,{type:"lowpass",f0:1600*r,f1:200*r,dur:.4,v:.25,q:.5})}},
+  "회피":   {sv:0.8,pri:6,gap:60,dur:.3, f:(t,o,r)=>{nz(t,o,{f0:600*r,f1:4200*r,dur:.13,v:.3,q:2.6,at:.02});
+                                              nz(t+.1,o,{f0:3600*r,f1:900*r,dur:.14,v:.16,q:2.6,at:.02})}},
+  "물러남": {sv:0.8,pri:6,gap:60,dur:.3, f:(t,o,r)=>{nz(t,o,{f0:420*r,f1:2400*r,dur:.16,v:.28,q:2.2,at:.03});
+                                              osc(t,o,{type:"sine",f0:150*r,f1:90*r,dur:.12,v:.16})}},
+  "회복":   {sv:1,pri:6,gap:220,dur:.6,f:(t,o,r)=>{osc(t,o,{type:"sine",f0:520*r,f1:780*r,dur:.22,v:.24,at:.02});
+                                              osc(t+.11,o,{type:"sine",f0:780*r,f1:1040*r,dur:.34,v:.2,at:.02})}},
+  /* ── 자주 나는 것들 — pri 를 낮게 ── */
+  "피격":   {sv:0.85,pri:3,gap:45,dur:.22,f:(t,o,r)=>{osc(t,o,{type:"sine",f0:220*r,f1:70*r,dur:.16,v:.4});
+                                              nz(t,o,{type:"lowpass",f0:1400*r,f1:400*r,dur:.07,v:.22,q:.6})}},
+  "파손":   {sv:0.75,pri:5,gap:140,dur:.4,f:(t,o,r)=>{nz(t,o,{f0:3400*r,f1:900*r,dur:.12,v:.4,q:1.2});
+                                              osc(t,o,{type:"square",f0:700*r,f1:180*r,dur:.22,v:.2})}},
+};
+/* 소리 하나 치기. 겹쳐서 시끄러워지지 않게 세 겹으로 막습니다.
+   ① 같은 소리는 gap(ms) 안에 다시 나지 않습니다 — 여럿이 동시에 휘둘러도 한 번입니다
+   ② 동시에 SFX_MAX 개까지. 자리가 없으면 **나보다 덜 중요한 것 중 가장 덜 중요한 것**을 밀어냅니다
+   ③ 밀어낼 것이 없으면(다 나보다 중요하면) 이번 소리는 버립니다
+   그래서 칼 소리가 쏟아져도 치명·회피·쓰러짐은 자리를 얻습니다. 반대로는 되지 않습니다.
+   rate 는 음높이 — 적은 낮게 울려 누구 쪽 소리인지 눈을 떼고도 갈립니다 */
+function sfx(key,rate){
+  if(!sfxOn())return;
+  const s=SFX[key];if(!s)return;
+  const ac=sfxWake();if(!ac)return;
+  const now=performance.now();
+  if(sfxLast[key]&&now-sfxLast[key]<s.gap)return;
+  const t=ac.currentTime;
+  sfxLive=sfxLive.filter(v=>v.end>t);
+  if(sfxLive.length>=SFX_MAX){
+    let w=null;
+    for(const v of sfxLive)if(v.pri<s.pri&&(!w||v.pri<w.pri))w=v;
+    if(!w)return;                                   /* 다 나보다 중요합니다 — 이번엔 참습니다 */
+    if(w.kill)w.kill();
+    sfxLive=sfxLive.filter(v=>v!==w);
+  }
+  sfxLast[key]=now;
+  /* 음높이를 칠 때마다 조금씩 흔듭니다 — 같은 녹음을 써도 복사한 티가 덜 납니다 */
+  const r=(rate||1)*(.94+Math.random()*.12);
+  const vol=s.sv==null?1:s.sv;
+  /* 자리를 무는 시간은 0.5초까지만 셉니다 — 총성·폭발의 긴 꼬리까지 세면
+     뒤따르는 소리가 죄다 버려집니다. 귀에 걸리는 것은 앞머리입니다 */
+  const hold=d=>Math.min(d,.5);
+  let dur=s.dur,kill=null;
+  const buf=sfxPick(key);
+  const L=SFX_ART[key];
+  if(buf){
+    const g=ac.createGain();g.gain.value=vol;g.connect(sfxBus);
+    const src=ac.createBufferSource();src.buffer=buf;src.playbackRate.value=r;
+    src.connect(g);src.start(t);
+    dur=hold(buf.duration/r);
+    kill=()=>{try{const n=ac.currentTime;g.gain.cancelScheduledValues(n);
+                  g.gain.setTargetAtTime(.0001,n,.012)}catch(e){}};
+  }else if(sfxTagMode&&L){
+    const a=sfxTag(L[Math.floor(Math.random()*L.length)]);
+    if(!a)return;
+    try{a.currentTime=0}catch(e){}
+    a.playbackRate=r;a.volume=Math.max(0,Math.min(1,vol*SFX_VOL));
+    const pr=a.play();if(pr&&pr.catch)pr.catch(()=>{});
+    dur=hold((a.duration||s.dur)/r);
+    kill=()=>{try{a.pause()}catch(e){}};
+  }else{
+    const g=ac.createGain();g.gain.value=1;g.connect(sfxBus);
+    try{s.f(t,g,r)}catch(e){return}                     /* 아직 못 받았거나 없는 소리 */
+    kill=()=>{try{const n=ac.currentTime;g.gain.cancelScheduledValues(n);
+                  g.gain.setTargetAtTime(.0001,n,.012)}catch(e){}};
+  }
+  sfxLive.push({pri:s.pri,end:t+dur,kill});
+}
 /* ═══════════ 도서관 ═══════════
    겪어 본 것만 이름이 남습니다 — 무엇을 겪어야 하는지는 적지 않습니다.
    전공은 열려 있는 것(openMajors), 적은 쓰러뜨려 본 것(G.foeKilled),

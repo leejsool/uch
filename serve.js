@@ -1,7 +1,8 @@
 const http = require("http"), fs = require("fs"), path = require("path"), url = require("url");
 const ROOT = __dirname;   /* 이 파일이 있는 폴더를 통째로 내보낸다 */
 const MIME = {".html":"text/html; charset=utf-8",".js":"text/javascript",".css":"text/css",
-  ".png":"image/png",".jpg":"image/jpeg",".webp":"image/webp",".md":"text/plain; charset=utf-8"};
+  ".png":"image/png",".jpg":"image/jpeg",".webp":"image/webp",".md":"text/plain; charset=utf-8",
+  ".mp3":"audio/mpeg",".m4a":"audio/mp4",".ogg":"audio/ogg",".wav":"audio/wav",".webm":"audio/webm"};
 
 http.createServer((req, res) => {
   const u = url.parse(req.url, true);

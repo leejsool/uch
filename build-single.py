@@ -21,7 +21,7 @@ except Exception:
     pass
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SRC  = os.path.join(HERE, "univercityhunter.html")
+SRC  = os.path.join(HERE, "index.html")   # 게임 본체. 예전에는 univercityhunter.html 이었습니다
 DST  = os.path.join(HERE, "univercityhunter-single.html")
 ART  = os.path.join(HERE, "art")
 
@@ -43,7 +43,7 @@ def data_url(rel):
 
 def main():
     if not os.path.isfile(SRC):
-        print("univercityhunter.html 을 찾지 못했습니다. 이 스크립트를 게임 파일 옆에 두세요.")
+        print("index.html 을 찾지 못했습니다. 이 스크립트를 게임 파일 옆에 두세요.")
         sys.exit(1)
 
     s = io.open(SRC, encoding="utf-8").read()
