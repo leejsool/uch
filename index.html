@@ -1222,6 +1222,13 @@ const gradGates=()=>GATES.map(g=>{
 const gradPlaces=()=>gradGates().reduce((n,x)=>n+x.done,0);
 /* 그 사람이 지금 더 받아 갈 수 있는 점수 */
 const gradLeft=r=>Math.max(0,Math.min(gradPlaces(),r.lvl)-(r.gradTaken||0));
+/* ── 수련실 (ROTC, 2026-09-21) ──
+   스탯을 한 점 깎을 때마다 TRAIN_COST 골드를 받고 포인트(r.points) 한 점을 돌려줍니다.
+   대학원에서 다시 나누거나, 전투 뒤 레벨업 화면에서 나눕니다(남은 포인트가 있으면 거기서 불러 세웁니다).
+   r.trained 는 레벨업 화면의 문구를 바꾸려고 세우는 표시이고, 분배를 확정하면 지웁니다.
+   스탯은 TRAIN_MIN 밑으로는 깎지 않습니다. */
+const TRAIN_SUM=80, TRAIN_COST=10, TRAIN_MIN=5;
+const statSum=r=>STATS.reduce((s,x)=>s+((r&&r.stats&&r.stats[x.k])||0),0);
 /* ── 번개당근 ──
    같은 반출 장비를 GOT_CARROT 번 주워 보면(G.gotN) 학생회장이 '번개당근' 의뢰를 꺼냅니다.
    기부할 수 있는 것도 같은 갈래입니다 — 행정실이 사 주지 않는 반출 장비(칸에 차는 것). */
@@ -1836,10 +1843,10 @@ const ENEMIES={
              c:"#8E1F2E",exp:400,boss:true,dmg:DMG.BLAST},
   /* 2게이트 5일차 보스. 네 발로 달린다 — 낮게 기어 L1 지형에만 걸리고, 대신 매우 빠르다.
      flee: 체력이 at 밑으로 떨어지면 한 번만 구석으로 물러나 rate(초당 최대체력 비율)로
-     회복하고, to 까지 차면 다시 덤빈다. */
-  dogzomb:{n:"강아지 좀비",lvm:CRAWL,hp:300,atk:22,aspd:1.3,speed:66,range:6,r:3.6,
+     회복하고, to 까지 차면 다시 덤빈다. 회복하는 동안 hits 대를 맞으면 그만두고 덤빈다(hurt). */
+  dogzomb:{n:"강아지 좀비",lvm:CRAWL,hp:600,atk:25,aspd:1.35,speed:66,range:6,r:3.6,
            c:"#7A8C3E",exp:170,boss:true,dmg:DMG.BITE,
-           flee:{at:0.25,to:0.5,rate:0.05}},
+           flee:{at:0.25,to:0.5,rate:0.05,hits:3}},
   /* 2게이트 10일차 보스. 다리가 부러져 거의 못 걷는 대신 팔이 길고 한 대가 무겁다.
      그림은 정면(FOE_FRONT)이지만 걸음은 절뚝갈래(ZOMB_WALK)를 그대로 씁니다 */
   crawlzomb:{n:"다리가 부러진 좀비",lvm:HUMAN,hp:760,atk:44,aspd:.55,speed:8,range:14,r:5.6,
@@ -2272,18 +2279,25 @@ const INSTANTS=[
      d:"공격력 +{25}%, 공격 속도 +{5}% · 총을 든 대원은 사거리 +{3}",
      f:u=>{u.atk*=1.25;u.aspd*=1.05;const rh=rhOf(u);if(rh&&rh.ammo&&!rh.bow)u.range+=3}},
   {k:"m_police", maj:"police", n:"진압 훈련", br:"guard",v:3,  d:"받는 피해 −{3}",             f:u=>u.guard+=3},
+  {k:"m_police2",maj:"police",up:"m_police",n:"진압 훈련+",br:"guard",v:5, d:"받는 피해 −{5}, 최대 체력 +{10}", f:u=>{u.guard+=5;u.maxHp+=10;u.hp+=10}},
   {k:"m_chem",   maj:"chem",   n:"약품 조제", br:"mix",  v:10, d:"공격력·공격 속도 +{10}%",     f:u=>{u.atk*=1.10;u.aspd*=1.10}},
   {k:"m_phil",   maj:"phil",   n:"설득",     br:"hp",   v:20, d:"최대 체력 +{20}",            f:u=>{u.maxHp+=20;u.hp+=20}},
+  {k:"m_phil2", maj:"phil", up:"m_phil", n:"설득+",     br:"hp",   v:40, d:"최대 체력 +{40}",            f:u=>{u.maxHp+=40;u.hp+=40}},
   {k:"m_pe",     maj:"pe",     n:"기초 체력", br:"hp",   v:25, d:"최대 체력 +{25}",            f:u=>{u.maxHp+=25;u.hp+=25}},
+  {k:"m_pe2",   maj:"pe",   up:"m_pe",   n:"기초 체력+", br:"hp",   v:45, d:"최대 체력 +{45}, 이동 +{5}%",   f:u=>{u.maxHp+=45;u.hp+=45;u.vspeed*=1.05}},
   {k:"m_med",    maj:"nurse",  n:"응급 처치", br:"heal", v:25, d:"전투 시작마다 체력 {25} 회복", f:u=>u.hp=Math.min(u.maxHp,u.hp+25)},
+  {k:"m_med2",  maj:"nurse",up:"m_med",  n:"응급 처치+", br:"heal", v:45, d:"전투 시작마다 체력 {45} 회복", f:u=>u.hp=Math.min(u.maxHp,u.hp+45)},
   {k:"m_cs",     maj:"cs",     n:"조준 보정", br:"rng",  v:3,  d:"공격 사거리 +{3}",           f:u=>u.range+=3},
+  {k:"m_cs2",   maj:"cs",   up:"m_cs",   n:"조준 보정+", br:"rng",  v:5,  d:"공격 사거리 +{5}, 치명타 +{5}%", f:u=>{u.range+=5;u.crit+=5}},
   {k:"m_dance",  maj:"dance",  n:"스텝",     br:"dodge",v:12, d:"이동 +{12}%, 회피 +{9}%",      f:u=>{u.vspeed*=1.12;u.dodge+=9}},
+  {k:"m_dance2",maj:"dance",up:"m_dance",n:"스텝+",     br:"dodge",v:20, d:"이동 +{20}%, 회피 +{15}%",     f:u=>{u.vspeed*=1.20;u.dodge+=15}},
   /* 구조 파악 — 전투 몫은 파티 전원. 장소 후보 +1·느린 지형·미리 보기는 archLv() 가 G.instants 를 보고 겁니다 */
   {k:"m_arch",   maj:"arch",   n:"구조 파악", br:"guard",v:2,  d:"받는 피해 −{2}, 이동 +{3}%, 고를 수 있는 장소 +1",    f:u=>{u.guard+=2;u.vspeed*=1.03}},
   {k:"m_arch2",  maj:"arch", up:"m_arch", n:"구조 파악+", br:"guard",v:3,
      d:"받는 피해 −{2}, 이동 +{3}%, 고를 수 있는 장소 +1 · 장소 안의 느린 지형을 무시하고, 아직 얻지 못한 물건도 흐리게 보인다",
      f:u=>{u.guard+=2;u.vspeed*=1.03}},
   {k:"m_lib",    maj:"lib",    n:"약점 기록", br:"atk",  v:14, d:"공격력 +{14}%",              f:u=>u.atk*=1.14},
+  {k:"m_lib2",  maj:"lib",  up:"m_lib",  n:"약점 기록+", br:"atk",  v:25, d:"공격력 +{25}%, 치명타 +{4}%",  f:u=>{u.atk*=1.25;u.crit+=4}},
   /* 태권도학과 것만은 파티 전원이 아니라, 양손이 빈 태권도학과 대원에게만 걸립니다.
      무기와 방패를 다 버리는 값이 커서 다른 전공 스킬보다 후하게 잡았습니다. */
   {k:"m_tkd",    maj:"tkd",    n:"적수공권", br:"mix",  v:25,
@@ -2305,31 +2319,46 @@ const INSTANTS=[
   {k:"m_phys",  maj:"phys", n:"지렛대", br:"mix", v:22,
      d:"무기를 든 물리학과 대원만 · 공격력 +{22}%",
      f:u=>{if(armedMaj(u,"phys"))u.atk*=1.22}},
-  {k:"m_phys2", maj:"phys", up:"m_phys", n:"작용·반작용", br:"mix", v:35,
+  {k:"m_phys2", maj:"phys", up:"m_phys", n:"지렛대+", br:"mix", v:35,
      d:"무기를 든 물리학과 대원만 · 공격력 +{35}%, 타격으로 미는 거리 {x2}배",
      f:u=>{if(armedMaj(u,"phys")){u.atk*=1.35;u.knockM=2}}},
   /* 기계공학과 — 탄약이 배낭을 차지하게 된 뒤로 값이 큽니다 */
   {k:"m_mech",  maj:"mech", n:"탄창 개조", br:"mix", v:25,
      d:"아군 파티에서 탄창을 쓰는 모든 공격(총, 활)에서 {25}% 확률로 탄약이 줄지 않고, 공격 속도 +{10}%",
      f:u=>{const rh=rhOf(u);if(rh&&rh.ammo){u.ammoSave=0.25;u.aspd*=1.10}}},
+  {k:"m_mech2", maj:"mech", up:"m_mech", n:"탄창 개조+", br:"mix", v:45,
+     d:"아군 파티에서 탄창을 쓰는 모든 공격(총, 활)에서 {45}% 확률로 탄약이 줄지 않고, 공격 속도 +{18}%",
+     f:u=>{const rh=rhOf(u);if(rh&&rh.ammo){u.ammoSave=0.45;u.aspd*=1.18}}},
   /* 생명공학과 — 전투 중에 계속 아무는 것은 이쪽뿐입니다 */
   {k:"m_bio",   maj:"bio", n:"자가 재생", br:"mix", v:8,
      d:"생명공학과 대원만 · 전투 중 1초마다 최대 체력의 {0.8}% 회복",
      f:u=>{if(isMaj(u,"bio"))u.regen=0.008}},
+  {k:"m_bio3",  maj:"bio", up:"m_bio", n:"자가 재생+", br:"mix", v:15,
+     d:"생명공학과 대원만 · 전투 중 1초마다 최대 체력의 {1.5}% 회복",
+     f:u=>{if(isMaj(u,"bio"))u.regen=0.015}},
   /* 항체는 지하상가 게이트(좀비)에서만 열립니다 — 그 밖에서는 쓸 데가 없습니다 */
   {k:"m_bio2",  maj:"bio", gate:"back", n:"항체", br:"mix", v:35,
      d:"생명공학과 대원만 · 좀비 계열에게 받는 피해 −{35}%",
      f:u=>{if(isMaj(u,"bio"))u.zombCut=0.35}},
+  {k:"m_bio2p", maj:"bio", gate:"back", up:"m_bio2", n:"항체+", br:"mix", v:55,
+     d:"생명공학과 대원만 · 좀비 계열에게 받는 피해 −{55}%",
+     f:u=>{if(isMaj(u,"bio"))u.zombCut=0.55}},
   /* 화학과 — 약품 조제는 파티 전원, 극약 조제는 화학 무기를 든 본인만 */
   {k:"m_chem2", maj:"chem", up:"m_chem", n:"약품 조제+", br:"mix", v:20,
      d:"공격력·공격 속도 +{20}%", f:u=>{u.atk*=1.20;u.aspd*=1.20}},
   {k:"m_chemx", maj:"chem", n:"극약 조제", br:"mix", v:35,
      d:"화학 무기를 든 화학과 대원만 · 공격력 +{35}%, 화학이 쌓이는 정도 +{50}%",
      f:u=>{if(chemMaj(u)){u.atk*=1.35;u.chemUp=1.5}}},
+  {k:"m_chemx2",maj:"chem", up:"m_chemx", n:"극약 조제+", br:"mix", v:55,
+     d:"화학 무기를 든 화학과 대원만 · 공격력 +{55}%, 화학이 쌓이는 정도 +{100}%",
+     f:u=>{if(chemMaj(u)){u.atk*=1.55;u.chemUp=2}}},
   /* 군사학 — 지금까지 유일하게 스킬이 없던 해금 전공 */
   {k:"m_mil",   maj:"mil", n:"제식 사격", br:"mix", v:18,
      d:"총을 든 군사학 대원만 · 공격력 +{18}%, 사거리 +{3}",
      f:u=>{if(gunMaj(u,"mil")){u.atk*=1.18;u.range+=3}}},
+  {k:"m_mil2",  maj:"mil", up:"m_mil", n:"제식 사격+", br:"mix", v:30,
+     d:"총을 든 군사학 대원만 · 공격력 +{30}%, 사거리 +{5}, 공격 속도 +{8}%",
+     f:u=>{if(gunMaj(u,"mil")){u.atk*=1.30;u.range+=5;u.aspd*=1.08}}},
   /* ── 양궁 ── 전부 '활을 든 양궁 대원'에게만 걸립니다(bowMaj).
      빗나감(u.miss)·폭발(u.boomP)·멀티샷(u.multi)은 tick 의 활 갈래가 봅니다 */
   {k:"m_boom",  maj:"archery", n:"천궁", br:"mix", v:50,
@@ -2757,9 +2786,16 @@ const FACILITIES=[
    cond:g=>((g.gateDay||{}).front||0)>=GRAD_DAY,
    prog:g=>`정문 게이트 ${Math.min((g.gateDay||{}).front||0,GRAD_DAY)} / ${GRAD_DAY}일차`,
    msg:"사범대학에 대학원이 개방되었습니다.<br><br>여기서는 레벨 업을 하지 않고도 스텟을 올릴 수 있습니다."},
+  /* 수련실 — ROTC. 대학원이 열려 있고 스탯 합이 TRAIN_SUM 이상인 대원이 있으면 열립니다.
+     한 번 열리면 그 대원이 죽거나 스탯을 깎아도 다시 잠기지 않습니다(실습동과 같은 방식) */
+  {id:"train",ic:"🏋",n:"수련실",d:"스탯을 깎아 포인트로 되돌립니다",
+   cond:g=>(g.announced||[]).includes("train")
+     ||(((g.gateDay||{}).front||0)>=GRAD_DAY&&(g.roster||[]).some(r=>statSum(r)>=TRAIN_SUM)),
+   prog:g=>`대학원 · 스탯 합 ${TRAIN_SUM} 대원 (현재 최고 ${Math.max(0,...(g.roster||[]).map(statSum))})`,
+   msg:"ROTC에 수련실이 해금되었습니다."},
 ];
 const FAC_SCENE={office:"office",shop:"shop",adm:"admissions",union:"union",market:"market",clinic:"clinic",tower:"tower",arcade:"arcade",work:"work",
-                 deptArts:"dept",deptMed:"dept",deptRotc:"dept",deptSci:"dept",deptHum:"dept",library:"library",deptEdu:"dept",study:"study",grad:"grad"};
+                 deptArts:"dept",deptMed:"dept",deptRotc:"dept",deptSci:"dept",deptHum:"dept",library:"library",deptEdu:"dept",study:"study",grad:"grad",train:"train"};
 
 /* ═══════════ 시설 담당자 ═══════════
    first — 그 시설에 처음 들어갈 때 한 번. 줄 단위로 넘깁니다.
@@ -2825,6 +2861,16 @@ const NPCS={
            ["deptRotc","바로 절대로 포기하지 않는 불굴의 정신이다!!"],
            ["pc","여기 온 게 잘한 일일까?"]],
     again:["군사학, 정하실 분 있습니까?","총은 다룰 줄 아는 사람만 듭니다."]},
+  /* 수련실 — 학과사무실의 학군단 교관이 그대로 맡습니다. popFirst: 첫 대사를 팝업으로 띄웁니다 */
+  train:{n:"학군단 교관",role:"ROTC 수련실",ic:"🎖",popFirst:true,
+    first:[["pc","왠지 와서는 안 될 곳에 온 기분이다."],
+           ["deptRotc","수련실에 온 것을 환영한다! 군인이란 항상 전투를 위해 단련해야 하는 법!"],
+           ["pc","어.. 직업군인을 하려는 생각은 없어요."],
+           ["deptRotc","이렇게 게이트가 열리고 몬스터가 나오는 이 사태! 전시나 다름없다. 우리 모두가 전사가 되어 싸워야 하지."],
+           ["pc","역시 와서는 안 될 곳이었다."],
+           ["deptRotc","건강한 몸에 건강한 정신이 깃든다. 사운드 바디 사운드 소울! 자 여기서 단련하자! 그러면 잘못 찍은 스텟을 내리고 다시 포인트로 받을 수 있다."],
+           ["pc","그렇다면 수련실에서 단련되면 몸이 안좋아져서 스텟이 포인트로 돌아오는 걸까?"]],
+    again:["사운드 바디 사운드 소울!","단련은 배신하지 않는다!","오늘도 한 바퀴 더!"]},
   /* 왜 문이 열렸는지는 이 사람도 말해 주지 않습니다 */
   deptSci:{n:"이공대학 조교",role:"이공대학 학과사무실",ic:"⚗",
     first:["어라, 문이 열려 있었네요. 언제부터였죠?",
@@ -2862,11 +2908,12 @@ const NPCS={
     again:["장소 하나를 다 밝혀낼 때마다 한 점씩 늘어나네.",
            "제 레벨을 넘겨 받아 갈 수는 없네. 그건 규칙이야.",
            "분석은 이쪽에서 할 테니, 자네는 남김없이 주워 오게."]},
-  tower:{n:"관리인",role:"메모리얼 홀",ic:"🕯",
-    first:["여기 이름을 새깁니다.",
-           "돌아오지 못한 사람들의 기록만 남습니다.",
-           "…읽고 가세요. 그게 전부입니다."],
-    again:["오늘도 오셨군요.","이름은 지워지지 않습니다.","천천히 보고 가세요."]},
+  /* 메모리얼 홀 — 따로 관리인을 두지 않고 응급의학과 전임교수가 맡습니다(초상도 같은 그림) */
+  tower:{n:"응급의학과 전임교수",role:"메모리얼 홀",ic:"🩺",
+    first:["돌아오지 못하는 사람들이 생기고 있어.",
+           "내가 신이 아닌 건 잘 알지만. 어쩔 수 없이 화가 나는군.",
+           "너희들은 꼭 살아서 돌아와라. 안전이 최우선이야. 돌이킬 수 없어."],
+    again:["또 왔군. 나도 마찬가지지만.","여기에 적힐 사람을 늘리면 안돼.","천천히 보고 가."]},
   /* 실습동은 따로 사람을 두지 않고 이공대학 조교가 맡습니다(초상도 같은 그림) */
   work:{n:"이공대학 조교",role:"실습동",ic:"⚗",
     first:["전기 들어왔습니다. 선반도 바이스도 멀쩡하고요.",
@@ -2935,31 +2982,40 @@ function openFacility(id){
   if(G.metNpc[id]){
     G.npcSay=pick(NPCS[id].again);G.npcSayFor=id;G.scene=dest;render();return;
   }
+  /* 첫 대사를 화면 대신 팝업으로 — 시설 화면을 먼저 깔고 그 위에 띄웁니다 */
+  if(NPCS[id].popFirst){
+    G.metNpc[id]=true;G.npcSay=null;G.npcSayFor=null;G.scene=dest;
+    unlockHold=true;render();
+    popupTalk(NPCS[id].first,()=>{unlockHold=false;render()});
+    return;
+  }
   G.talkFor=id;G.talkLine=0;G.talkNext=dest;G.scene="talk";render();
 }
-const CAMPUS_SCENES=["campus","hall","office","shop","admissions","union","market","gates","soon","tower","clinic","arcade","spidergame","stargame","huntgame","spiderend","starend","huntend","dept","work","record","study","grad","gradalloc"];
+const CAMPUS_SCENES=["campus","hall","office","shop","admissions","union","market","gates","soon","tower","clinic","arcade","spidergame","stargame","huntgame","spiderend","starend","huntend","dept","work","record","study","grad","gradalloc","train"];
 
 /* ═══════════ 그림 ═══════════
    그림은 전부 art 폴더에 둡니다. 빈 칸("")이면 지금처럼 이모지나 글자로 나옵니다.
    파일을 만들어 넣고 아래 표에 이름만 적으면 그 자리에 바로 붙습니다. */
 const ART="art/";
-const NPC_ART={office:"npc/office.webp",shop:"npc/shop.webp",adm:"npc/adm.webp",union:"npc/union.webp",clinic:"npc/clinic.webp",arcade:"",tower:"",work:"npc/deptSci.webp",
+const NPC_ART={office:"npc/office.webp",shop:"npc/shop.webp",adm:"npc/adm.webp",union:"npc/union.webp",clinic:"npc/clinic.webp",arcade:"",work:"npc/deptSci.webp",
+               tower:"npc/clinic.webp",  /* 메모리얼 홀도 응급의학과 전임교수가 맡습니다 */
                grad:"npc/office.webp",   /* 대학원에 앉아 있는 것도 행정실장입니다 */
-               deptArts:"",deptMed:"npc/deptMed.webp",deptRotc:"",deptSci:"npc/deptSci.webp"};
+               deptArts:"npc/deptArts.webp",deptMed:"npc/deptMed.webp",deptRotc:"npc/deptRotc.webp",deptSci:"npc/deptSci.webp",deptEdu:"npc/deptEdu.webp",
+               train:"npc/deptRotc.webp"};   /* 수련실도 학군단 교관 */
 const FAC_ART={office:"",shop:"",adm:"",union:"",clinic:"",arcade:"",tower:"",work:"",gate:"",
                deptArts:"",deptMed:"",deptRotc:""};
 const CAMPUS_ART="campus.webp";
 /* 건물 안 화면의 배경. 빈 칸이면 배경 없이 지금처럼 나옵니다. */
 const BLD_ART={main:"bld/main.webp",med:"bld/med.webp",arts:"bld/arts.webp",
                gate:"intro/gate.webp",   /* 정문은 오프닝에 쓴 게이트 그림을 그대로 씁니다 */
-               human:"",edu:"",sci:"",field:"",rotc:""};
+               human:"",edu:"",sci:"bld/sci.webp",field:"",rotc:""};
 /* 본진 지도 — 그림에 그려진 표지판 위에 글자를 얹습니다.
    box는 그림 기준 백분율 [왼쪽, 위, 오른쪽, 아래]. 그림을 바꾸면 이 숫자만 다시 재면 됩니다.
    facs가 비면 아직 쓰임을 정하지 않은 건물, null이면 게이트입니다. */
 const BUILDINGS=[
   /* 학과사무실이 있는 건물은 학과사무실을 맨 앞에 둡니다 — 건물 안 목록이 이 순서로 그려집니다 */
   {id:"arts",  n:"예체능대학",   box:[26.7, 7.4,45.5,10.6], facs:["deptArts","arcade"]},
-  {id:"rotc",  n:"ROTC",        box:[60.5, 6.8,77.7,10.9], facs:["deptRotc"]},
+  {id:"rotc",  n:"ROTC",        box:[60.5, 6.8,77.7,10.9], facs:["deptRotc","train"]},
   {id:"human", n:"인문사회대학", box:[17.7,23.4,38.5,27.1], facs:["deptHum","library"]},
   {id:"edu",   n:"사범대학",     box:[66.1,23.9,84.8,27.5], facs:["deptEdu","study","grad"]},
   {id:"field", n:"대운동장",     box:[44,39.62,62,42.9], facs:["union","market"]},
@@ -2991,10 +3047,11 @@ const FACE_ART={
   /* 줄 초상이 다 떨어졌을 때 쓰는 얼굴 없는 그림. 여럿이 같이 써도 됩니다 */
   anon:{m:"face/m-anon.webp", f:"face/f-anon.webp"},
   shin:"face/m-shin.webp",                           /* 고정 인물 신재혁 */
+  jeong:"face/m-jeong.webp",                         /* 고정 인물 신정재 — 신재혁의 동생 */
   lee:"face/lee.webp",                               /* 주인공 이경호 */
 };
 /* 고유 인물의 전용 초상 — 주인 말고는 누구에게도 주지 않습니다 */
-const FACE_OWNER={[FACE_ART.lee]:"이경호",[FACE_ART.shin]:"신재혁"};
+const FACE_OWNER={[FACE_ART.lee]:"이경호",[FACE_ART.shin]:"신재혁",[FACE_ART.jeong]:"신정재"};
 /* 지운 초상 — 옛 저장본에서 이 얼굴을 가진 사람은 다른 얼굴로 바꿉니다 */
 const FACE_GONE=["face/m-17.webp"];
 const isAnon=f=>f===FACE_ART.anon.m||f===FACE_ART.anon.f;
@@ -3764,7 +3821,7 @@ function rigFor(id,slot,dir){
   return e||RIG_FB[slot][dir]||RIG_FB[slot].se;
 }
 /* 타격에 맞으면 때린 쪽 반대로 밀립니다. 보스는 꿈쩍하지 않고, 벽에 막히면 그만큼만 밀립니다.
-   미는 쪽이 작용·반작용(물리학과)을 가졌으면 그만큼 더 멉니다. */
+   미는 쪽이 지렛대+(물리학과)를 가졌으면 그만큼 더 멉니다. */
 function knockBack(u,t,amt){
   if(t.boss||t.hp<=0)return;
   amt*=(u&&u.knockM)||1;
@@ -4337,10 +4394,24 @@ function fleeDen(f){
   const cx=av.length?av.reduce((s,a)=>s+a.x,0)/av.length:50;
   const cy=av.length?av.reduce((s,a)=>s+a.y,0)/av.length:50;
   /* 모서리를 먼저 설 수 있는 자리로 옮긴 뒤에 고른다. 모서리가 벽 속이면
-     freeSpot 이 한참 떨어진 데로 밀어내므로, 밀린 결과를 기준으로 재야 한다. */
+     freeSpot 이 한참 떨어진 데로 밀어내므로, 밀린 결과를 기준으로 재야 한다.
+     빈 자리이기만 하면 안 되고 **저에게서 걸어갈 수 있어야** 한다 — 실탄사격장 2 의
+     오른쪽 위 모서리는 사로 칸막이 너머라, 강아지가 그 앞에서 흔들거리기만 했다. */
+  const fd=distField(f.lvm,rBucket(f.r),f.x,f.y);
+  const ok=(x,y)=>!blocked(x,y,f.r,f.lvm)&&fd[cIdx(toCell(x),toCell(y))]>=0;
+  const spot=(x,y)=>{
+    if(ok(x,y))return{x,y};
+    for(let k=1;k<200;k++){
+      const a=k*1.1,rad=1+k*0.55;
+      const nx=Math.max(f.r,Math.min(100-f.r,x+Math.cos(a)*rad));
+      const ny=Math.max(f.r,Math.min(100-f.r,y+Math.sin(a)*rad));
+      if(ok(nx,ny))return{x:nx,y:ny};
+    }
+    return freeSpot(x,y,f.r,f.lvm);
+  };
   let best=null,bd=-1;
   for(const c of [[10,10],[90,10],[10,90],[90,90]]){
-    const sp=freeSpot(c[0],c[1],f.r,f.lvm);
+    const sp=spot(c[0],c[1]);
     const d=Math.hypot(sp.x-cx,sp.y-cy);
     if(d>bd){bd=d;best=sp}
   }
@@ -4518,6 +4589,12 @@ function hurt(t,amt,c,type,src){
   t.hp=Math.max(0,t.hp-amt);t.flash=.18;
   sfx("피격",t.side==="a"?.82:1.14);
   if(was>0&&t.hp<=0)sfx("쓰러짐",t.side==="a"?.8:1.2);   /* 누가 쓰러졌는지는 놓치면 안 됩니다 */
+  /* 상처를 핥다가(강아지 좀비) 여러 대 맞으면 회복을 그만두고 다시 덤빕니다 */
+  if(t.flee==="heal"&&t.hp>0){
+    const FL=(ENEMIES[t.key]||{}).flee;
+    t.healHits=(t.healHits||0)+1;
+    if(FL&&FL.hits&&t.healHits>=FL.hits){t.flee=null;say(`${t.name}이(가) 참다못해 다시 달려든다!`)}
+  }
   /* 뿔 방패 — 맞으면 때린 적에게 정해진 만큼 돌려줍니다. src 를 넘기지 않아 되돌림이 되돌아오지 않습니다 */
   const th=t.side==="a"&&t.hasS&&ITEMS[t.sid]&&ITEMS[t.sid].thorns;
   if(th&&src&&src.side==="e"&&src.hp>0)hurt(src,th,"#E0A32F",null);
@@ -4704,13 +4781,15 @@ function tick(dt){
     /* 물러났다 돌아오는 패턴. 한 판에 한 번만(f.fled) 쓴다. */
     const FL=(ENEMIES[f.key]||{}).flee;
     if(FL&&!f.fled&&f.hp>0&&f.hp<=f.maxHp*FL.at){
-      f.fled=true;f.flee="run";f.den=fleeDen(f);f.anim=null;
+      f.fled=true;f.flee="run";f.den=fleeDen(f);f.runT=0;f.anim=null;
       say(`${f.name}이(가) 등을 보이며 물러난다.`);
     }
     if(f.flee==="run"){
       f.face=Math.atan2(f.den.y-f.y,f.den.x-f.x);
       moveTo(f,f.den.x,f.den.y,dt);
-      if(D(f,f.den)<f.r+1.5){f.flee="heal";say(`${f.name}이(가) 웅크린 채 상처를 핥는다.`)}
+      f.runT=(f.runT||0)+dt;
+      /* 그래도 끼어서 못 닿으면 4초 뒤 그 자리에서 웅크린다 */
+      if(D(f,f.den)<f.r+1.5||f.runT>4){f.healHits=0;f.flee="heal";say(`${f.name}이(가) 웅크린 채 상처를 핥는다.`)}
       continue;
     }
     if(f.flee==="heal"){
@@ -5560,7 +5639,7 @@ function togglePause(){
 /* ═══════════ 뒤로가기 (안드로이드 하드웨어 버튼 · Esc) ═══════════
    게이트 전투 중이면 일시정지 토글, 캠퍼스에서는 방 → 건물 → 캠퍼스 순으로 한 단계 올라간다.
    최상위 화면(캠퍼스·타이틀)에서는 한 번 더 누르면 종료. 그 밖(게이트 진행)은 무시. */
-const BACK_FAC_SCENES=["office","shop","admissions","union","market","clinic","tower","arcade","dept","soon","study","grad"];
+const BACK_FAC_SCENES=["office","shop","admissions","union","market","clinic","tower","arcade","dept","soon","study","grad","train"];
 let backExitArm=0;
 function appExit(){
   try{
@@ -5631,17 +5710,27 @@ function grantExp(list,amount){
 /* ── 전투 뒤 탄약 수습 ──
    총이나 활을 들고 살아남은 사람이 있으면 그 탄약이 **전리품 바닥에 떨어집니다**.
    배낭에 바로 꽂지 않는 것은, 전리품 정리에서 누가 얼마나 이고 갈지 고르게 하기 위해서입니다.
-   위험도(★ = risk+1)별 [확률, 뭉치의 몇 몫인지] — ★ 20%·반 뭉치가 기준입니다.
+   한 번 굴려 SALVAGE_PART(뭉치의 몇 몫) 가운데 하나가 나오거나 아무것도 안 나옵니다.
+   SALVAGE 는 위험도(risk 0~3)별로 그 네 몫이 나올 확률 — 많은 몫일수록 드물고,
+   위험할수록 모두 오릅니다(2026-09-21, 처음 정한 값의 70%). risk 3 은 밤 거리에서만 나옵니다.
+   한 번만 굴려 칸을 고르므로 네 칸의 합이 "뭐라도 나올 확률"입니다.
    사람마다 따로 굴리고, 같은 탄약은 바닥에서 한 줄로 합쳐집니다(mergeGroundAmmo). */
-const SALVAGE=[[0.20,0.50],[0.30,0.65],[0.40,0.80],[0.50,1.00]];
+const SALVAGE_PART=[0.50,0.65,0.80,1.00];
+const SALVAGE=[[0.070,0.049,0.021,0.007],
+               [0.084,0.063,0.035,0.021],
+               [0.105,0.077,0.056,0.035],
+               [0.126,0.091,0.070,0.049]];
 function salvageAmmo(alive){
   const out=[];
   if(G.mode!=="run"||!G.here)return out;
-  const [q,part]=SALVAGE[Math.max(0,Math.min(SALVAGE.length-1,G.here.risk||0))];
+  const ps=SALVAGE[Math.max(0,Math.min(SALVAGE.length-1,G.here.risk||0))];
   for(const a of alive){
     const r=a.ref, rh=r&&ITEMS[r.gear.rh];
-    if(!rh||!rh.ammo||Math.random()>=q)continue;
-    out.push({id:AMMO_ID[rh.ammo],src:"수습",n:Math.max(1,Math.round(ammoQty(rh.ammo)*part))});
+    if(!rh||!rh.ammo)continue;
+    let x=Math.random(), k=0;
+    while(k<ps.length&&x>=ps[k]){x-=ps[k];k++}
+    if(k>=ps.length)continue;
+    out.push({id:AMMO_ID[rh.ammo],src:"수습",n:Math.max(1,Math.round(ammoQty(rh.ammo)*SALVAGE_PART[k]))});
   }
   return out;
 }
@@ -6876,7 +6965,7 @@ function allocScreen(p,title,note,after){
   el.querySelectorAll("[data-dn]").forEach(b=>b.onclick=()=>{
     const k=b.dataset.dn;p.stats[k]--;p.points++;p.spent[k]--;
     p.hp=Math.min(derive(p).maxHp,p.hp);render()});
-  document.getElementById("ok").onclick=()=>{delete p.spent;after()};
+  document.getElementById("ok").onclick=()=>{delete p.spent;delete p.trained;after()};
 }
 /* 익힌 힘 — 줄에 마우스를 올리거나 눌러 보면 그 힘이 무엇을 하는지 툴팁으로 나옵니다 */
 /* ── 출동 명단 ── 게이트 화면 맨 위에 고용된 사람을 전부 늘어놓습니다.
@@ -6933,10 +7022,10 @@ function bindChips(){
   el.querySelectorAll("[data-chip]").forEach(b=>b.onclick=()=>{
     const i=+b.dataset.chip;G.chipSel=(G.chipSel===i?null:i);render()});
 }
-/* ── 대화 이벤트는 캠퍼스에 한 번 올 때마다 하나만 ──
+/* ── 대화 이벤트는 캠퍼스 지도에 한 번 올 때마다 하나만 ──
    조건이 여럿 겹쳐도 줄지어 대화가 이어지지 않게 합니다(앞뒤 대화가 이어진 이야기로 읽히기도 합니다).
-   G.visit 은 게이트에서 돌아올 때마다 하나씩 늘고, 대화를 띄우면 G.talkAt 에 그 값을 적습니다.
-   남은 대화는 다음에 돌아왔을 때 뜹니다. 플레이어가 직접 한 일에 바로 붙는 대화(활 첫 구매,
+   G.visit 은 다른 화면에서 캠퍼스 지도로 넘어올 때마다 하나씩 늘고(render), 대화를 띄우면 G.talkAt 에 그 값을 적습니다.
+   남은 대화는 건물에 들렀다가 지도로 다시 나왔을 때 뜹니다 — 게이트를 한 번 더 다녀올 필요는 없습니다(2026-09-21). 플레이어가 직접 한 일에 바로 붙는 대화(활 첫 구매,
    학생회관에서 재료를 넘기는 것)는 세지 않습니다 — 그쪽은 들어서는 것 말고 다른 방법이 없기 때문입니다. */
 const talkFree=()=>G.talkAt!==(G.visit||0);
 const talkUse=()=>{G.talkAt=G.visit||0};
@@ -6974,6 +7063,41 @@ function shinJoinTalk(){
     popupTalk([["clinic","무기를 가진 채로 침대에 누울 껀 아니지? 사실 나는 상관없지만 '장비를 전부 벗긴다' 버튼이 있으니 편하게 이용하도록 해."]],
       ()=>{unlockHold=false;render()});
   });
+}
+/* ─── 신정재 합류 (2026-09-21) ───
+   신재혁이 파티에 끼어 게이트를 한 번 다녀오면(싸우고 살아서 귀환) G.jeongDue 가 섭니다(귀환 버튼).
+   캠퍼스 지도에 닿으면 **다른 대화·해금 안내보다 먼저** 동생 신정재가 찾아옵니다(render).
+   "플레이어1" 자리는 명단에서 신재혁이 아닌 첫 사람이 말합니다. 그런 사람이 없거나 신재혁이 명단에 없으면
+   G.jeongDue 를 그대로 두고 기다립니다. 신재혁처럼 정원을 보지 않고 들어옵니다. */
+const isShin=r=>!!r&&(r.face===FACE_ART.shin||r.name==="신재혁");
+function jeongReady(){
+  if(!G.jeongDue||G.jeongDone||!G.roster)return false;
+  return G.roster.some(isShin)&&G.roster.some(r=>!isShin(r));
+}
+function jeongJoinTalk(){
+  const shin=G.roster.find(isShin), p1=G.roster.find(r=>!isShin(r));
+  const v={name:"신정재",sex:"m",face:FACE_ART.jeong,      /* 전용 초상 — 무작위 얼굴 풀에는 넣지 않습니다 */
+           lvl:1,exp:0,major:null,
+           stats:{vit:11,maj:11,str:7,spd:12,agi:10,luk:9},   /* 형과 비슷하게 — 힘 −1, 전공활용 +1 */
+           gear:emptyGear(),bag:[],ammo:EMPTY_AMMO(),points:0,inParty:false,log:[]};
+  v.hp=derive(v).maxHp;
+  v.inParty=G.roster.filter(x=>x.inParty&&!away(x)).length<squadMax();
+  logAdd(v,"형을 따라 합류");
+  claimFace(v);G.roster.push(v);G.recruited++;
+  G.jeongDone=true;G.jeongDue=false;talkUse();
+  unlockHold=true;                          /* 대사가 끝날 때까지 해금 안내는 뒤로 */
+  popupTalk([
+    [{p:v},"형!"],
+    [{p:shin},"정재잖아!"],
+    [{p:p1},"재혁아 니 동생이야?"],
+    [{p:shin},"맞아. 소개할께. 내 동생 신정재야."],
+    [{p:v},"나도 게이트에 데려가 줘."],
+    [{p:shin},"위험해서 안돼."],
+    [{p:v},"내가 분명 도움이 될 껄?"],
+    [{p:p1},"재혁아. 내가 잘 지켜줄께. 지금은 한 사람이라도 더 필요한 상황이야."],
+    [{p:shin},"야 너 진짜 조심해야 돼."],
+    [{p:v},"응! 걱정마."],
+  ],()=>{unlockHold=false;render()});
 }
 /* ── 해금 안내 ──
    화면을 통째로 가로채지 않고 팝업으로 띄웁니다. 본진 화면에 닿는 순간에만 도므로
@@ -7349,6 +7473,8 @@ const BGM_ART={
   "bld.rotc":  "bgm/rotc.m4a",      /* ROTC — 학과사무실 */
   "bld.human": "bgm/human.mp3",     /* 인문사회대학 — 학과사무실 · 도서관 */
   "bld.sci":   "bgm/sci.m4a",       /* 이공대학 — 학과사무실 · 실습동 */
+  "bld.field": "bgm/field.m4a",     /* 대운동장 — 학생회관 · 번개당근마켓 */
+  "bld.med":   "bgm/med.m4a",       /* 의학대학 — 학과사무실 · 실습실 (메모리얼 홀은 따로) */
   /* 시설 하나에만 붙인 곡. 건물 곡보다 앞섭니다. 이름은 화면(scene) 이름 */
   "sc.tower":  "bgm/memorial.m4a",  /* 메모리얼 홀 */
 };
@@ -7882,11 +8008,18 @@ function render(){
   if(S!=="library")libFoeStop();         /* 도감의 적 그림도 화면을 뜨면 멈춥니다 */
   if(S!=="title")titleStop();
   bgmPlay(bgmFor());
-  if(CAMPUS_SCENES.includes(S)){showUnlock();if(S==="campus")campusNotes()}
+  /* 다른 화면(건물 안·게이트)에서 캠퍼스 지도로 막 넘어왔는가. 안내가 안에서 render 를 다시 불러도
+     두 번 세지 않도록 lastScene 은 안내를 띄우기 전에 적습니다 */
+  const toCampus=S==="campus"&&lastScene!=="campus";
+  lastScene=S;
+  /* 넘어올 때마다 한 번 — 대화 이벤트는 그때마다 하나씩 */
+  if(toCampus&&G.roster)G.visit=(G.visit||0)+1;
+  /* 신정재 합류 대사는 다른 대화·해금 안내보다 먼저 */
+  if(S==="campus"&&!unlockHold&&!document.querySelector(".pop")&&jeongReady())jeongJoinTalk();
+  else if(CAMPUS_SCENES.includes(S)){showUnlock();if(S==="campus")campusNotes()}
   /* 캠퍼스로 돌아올 때는 늘 맨 위에서 시작합니다 — 앞 화면에서 내려둔 자리가 그대로 남으면
      명단 한복판에서 시작해 매번 위로 올려야 했습니다. 같은 화면을 다시 그릴 때는 건드리지 않습니다 */
-  if(S==="campus"&&lastScene!=="campus")window.scrollTo(0,0);
-  lastScene=S;
+  if(toCampus)window.scrollTo(0,0);
   const p=G.player;
 
   if(S==="title"){
@@ -8252,7 +8385,8 @@ function render(){
     const who=list.find(x=>x.points>0);
     if(!who){G.scene=G.mode==="tutorial"?"retreat":"nextday";render();return}
     allocScreen(who,`${who.name} · Lv ${who.lvl}`,
-      `좀처럼 오르지 않는 레벨이 올랐습니다. 포인트 ${who.points}점.`,
+      who.trained?`수련실에서 되돌린 포인트가 남아 있습니다. 포인트 ${who.points}점.`
+        :`좀처럼 오르지 않는 레벨이 올랐습니다. 포인트 ${who.points}점.`,
       ()=>{G.scene=list.some(x=>x.points>0)?"levelup":(G.mode==="tutorial"?"retreat":"nextday");render()});
     return;
   }
@@ -8285,7 +8419,6 @@ function render(){
       <div class="bar"><span class="tag"></span><button id="o">귀환한다</button></div>`;
     document.getElementById("o").onclick=()=>{
       if(G.fought)G.explores++;
-      G.visit=(G.visit||0)+1;            /* 캠퍼스에 돌아온 횟수 — 대화 이벤트는 한 번에 하나 */
       /* 깬 게이트를 적어 둔다 — 다음 게이트는 이걸 보고 열린다 */
       if(cleared&&!G.cleared.includes(gateOf().id))G.cleared.push(gateOf().id);
       G.gateClear=false;
@@ -8297,6 +8430,8 @@ function render(){
       if(went.some(r=>r.hp>0&&hasGun(r)))G.gunHome=true;
       /* 체력이 가득한 채로 돌아온 대원이 있으면 예체능대학에 무용과가 붙습니다 (귀환 회복 전 기준) */
       if(went.some(r=>r.hp>0&&r.hp>=derive(r).maxHp))G.danceHome=true;
+      /* 신재혁이 파티에 끼어 싸우고 살아 돌아왔으면 — 캠퍼스에서 동생 신정재가 찾아옵니다 */
+      if(!tut&&G.fought&&!G.jeongDone&&went.some(r=>r.hp>0&&isShin(r)))G.jeongDue=true;
       if(tut){G.roster=[p];G.mode="campus";if(!G.announced.includes("office"))G.announced.push("office")}
       /* 학습실 — 수업을 마치고 나온 사람 · 교육비를 못 내 나온 사람 */
       G.studyDone=[];G.studyKick=null;
@@ -8911,28 +9046,66 @@ function render(){
       Lv ${Math.max(1,...G.roster.map(r=>r.lvl))}인 사람은 ${Math.max(1,...G.roster.map(r=>r.lvl))}점이 끝입니다.
       레벨이 오르면 그만큼 더 받아 갈 수 있습니다.</p>
       ${rosterOrder().map(r=>{
-        const left=gradLeft(r), cap=Math.min(pool,r.lvl), ri=G.roster.indexOf(r);
-        return `<div class="app" style="margin-top:9px${left?";border-left-color:var(--mark)":""}">
+        /* tp — 이미 가지고 있는 나누지 않은 포인트(수련실에서 되돌린 것 등). 대학원 몫과 함께 나눕니다 */
+        const left=gradLeft(r), cap=Math.min(pool,r.lvl), ri=G.roster.indexOf(r), tp=r.points||0;
+        return `<div class="app" style="margin-top:9px${left||tp?";border-left-color:var(--mark)":""}">
           ${faceTag(r)}<div class="hd"><b>${r.name}</b><span>${majorName(r)} · Lv ${r.lvl}</span></div>
           <div class="bar" style="margin-top:9px">
-            <span class="tag">받아 간 점수 ${r.gradTaken||0} / ${cap}</span>
-            <button data-grad="${ri}" ${left?"":"disabled"}>미분배 ${left}</button></div></div>`}).join("")}
+            <span class="tag">받아 간 점수 ${r.gradTaken||0} / ${cap}${tp?` · 남은 포인트 ${tp}`:""}</span>
+            <button data-grad="${ri}" ${left||tp?"":"disabled"}>미분배 ${left+tp}</button></div></div>`}).join("")}
       </div>
       <div class="bar"><span class="tag"></span><button class="ghost" id="bk">캠퍼스로</button></div>`;
     el.querySelectorAll("[data-grad]").forEach(b=>b.onclick=()=>{
       const r=G.roster[+b.dataset.grad];
       if(!r)return;
       const n=gradLeft(r);
-      if(n<=0)return;
+      if(n<=0&&!(r.points>0))return;
       /* 받아 가는 순간 장부에 적고 점수로 바꿉니다. 다 쓰지 않고 화면을 벗어나도
-         점수는 그 사람에게 남아 다음 레벨업 화면에서 이어 씁니다 — 사라지지 않습니다 */
-      r.gradTaken=(r.gradTaken||0)+n;
-      r.points+=n;
-      logAdd(r,`대학원 스탯 ${n}점`);
+         점수는 그 사람에게 남아 다음 레벨업 화면에서 이어 씁니다 — 사라지지 않습니다.
+         이미 가진 포인트(수련실에서 되돌린 것)는 그대로 같은 화면에서 나눕니다 */
+      if(n>0){r.gradTaken=(r.gradTaken||0)+n;r.points+=n;logAdd(r,`대학원 스탯 ${n}점`)}
       G.gradWho=G.roster.indexOf(r);
       G.scene="gradalloc";render();
     });
     document.getElementById("bk").onclick=()=>{G.scene="campus";render()};
+    return;
+  }
+  /* ── 수련실 ──
+     대원을 누르면 스탯이 펼쳐지고, 스탯을 누르면 그 줄에 깎기 버튼이 나옵니다.
+     G.trWho = 펼친 대원(명단 순번), G.trStat = 고른 스탯 */
+  if(S==="train"){
+    const who=G.roster[G.trWho];
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">ROTC · 수련실</span><span class="tag">골드 <b>${G.gold}</b></span></div>
+      <div class="card"><p>스텟을 깎고 포인트로 바꾸면 대학원에서 다시 스텟으로 분배할 수 있습니다.</p></div>
+      ${npcBar("train")}
+      <div class="card">${rosterOrder().map(r=>{
+        const ri=G.roster.indexOf(r), open=r===who;
+        return `<div class="app tap" data-trw="${ri}" style="margin-top:9px;cursor:pointer${open?";border-left-color:var(--mark)":""}">
+          ${faceTag(r)}<div class="hd"><b>${r.name}</b><span>${majorName(r)} · Lv ${r.lvl} · 스탯 합 ${statSum(r)}${
+            r.points?` · 포인트 <b style="color:var(--mark)">${r.points}</b>`:""}</span></div>
+          ${open?`<div style="margin-top:9px">${STATS.map(s=>{
+            const v=r.stats[s.k], sel=G.trStat===s.k, can=v>TRAIN_MIN&&G.gold>=TRAIN_COST;
+            return `<div class="buyrow tap ${sel?"open":""}" data-trs="${s.k}">
+              <div><b>${s.n}</b></div><span class="tag"><b>${v}</b> <span class="caret">${sel?"▴":"▾"}</span></span>
+              ${sel?`<div class="acts"><button data-trcut="${s.k}" ${can?"":"disabled"}>깎기 · ${TRAIN_COST}골드</button></div>`:""}</div>`}).join("")}</div>`:""}
+        </div>`}).join("")}</div>
+      <div class="bar"><span class="tag"></span><button class="ghost" id="bk">밖으로</button></div>`;
+    el.querySelectorAll("[data-trw]").forEach(d=>d.onclick=e=>{
+      if(e.target.closest("[data-trs]"))return;          /* 스탯 줄을 누른 것은 아래에서 */
+      const i=+d.dataset.trw;G.trWho=(G.trWho===i?null:i);G.trStat=null;render()});
+    el.querySelectorAll("[data-trs]").forEach(d=>d.onclick=e=>{
+      if(e.target.closest("[data-trcut]"))return;
+      const k=d.dataset.trs;G.trStat=(G.trStat===k?null:k);render()});
+    el.querySelectorAll("[data-trcut]").forEach(b=>b.onclick=()=>{
+      const r=G.roster[G.trWho], k=b.dataset.trcut;
+      if(!r||r.stats[k]<=TRAIN_MIN||G.gold<TRAIN_COST)return;
+      G.gold-=TRAIN_COST;
+      r.stats[k]--;
+      r.points++;r.trained=true;
+      r.hp=Math.min(derive(r).maxHp,r.hp);             /* 체력을 깎으면 최대 체력도 줄어듭니다 */
+      render()});
+    document.getElementById("bk").onclick=()=>{G.trWho=null;G.trStat=null;G.hallId="rotc";G.scene="hall";render()};
     return;
   }
   if(S==="gradalloc"){

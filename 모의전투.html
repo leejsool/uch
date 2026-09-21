@@ -172,7 +172,8 @@ fr.addEventListener("load",()=>{
     E("saveGame=()=>true");                    // 모의 전투는 저장 슬롯을 건드리지 않습니다
     D=JSON.parse(E(`JSON.stringify({
       gates:GATES.map(g=>({id:g.id,n:g.n,days:g.days,boss:g.boss})),
-      places:PLACES.map(p=>({n:p.n,room:p.room,gate:p.gate||"front",risk:p.risk})),
+      places:PLACES.flatMap(p=>{const alt=p.alt||[];      // 같은 장소의 다른 지형(alt)도 따로 고를 수 있게 한 줄씩
+        return [p.room,...alt].map((r,i)=>({n:alt.length?p.n+" "+(i+1):p.n,room:r,gate:p.gate||"front",risk:p.risk}))}),
       enemies:Object.fromEntries(Object.entries(ENEMIES).map(([k,e])=>[k,{n:e.n,hp:e.hp,atk:e.atk,boss:!!e.boss}])),
       items:Object.fromEntries(Object.entries(ITEMS).map(([k,it])=>[k,{n:it.n,slot:it.slot||"",kind:it.kind||"",two:typeof twoHand==="function"&&!!twoHand(k),ic:itemIcon(k),d:it.d||""}])),
       majors:MAJORS.map(m=>({id:m.id,n:m.n})),
@@ -365,8 +366,8 @@ function setupInGame(c){
   G.roster=c.people.map(p=>{p.hp=Math.max(1,Math.round(derive(p).maxHp*p.hpPct/100));delete p.hpPct;return p});
   G.player=G.roster[0];
   G.instants=c.skills.map(skillOf).filter(Boolean);
-  G.here=PLACES.find(p=>p.room===c.place)||PLACES[0];
-  ROOM=ROOMS[G.here.room]||ROOM;
+  G.here=PLACES.find(p=>p.room===c.place||(p.alt||[]).includes(c.place))||PLACES[0];
+  ROOM=ROOMS[c.place]||ROOMS[G.here.room]||ROOM;
   const keys=c.keys||rollEncounter(battleDay(),G.here.risk||0,G.roster.length,c.noboss);
   enterBattle(G.roster,keys);
   B._t=0;
@@ -403,7 +404,7 @@ $("preview").onclick=()=>{
   if(!D)return;
   try{
     const k=JSON.parse(E(`(()=>{const g0=G;G={...(G||{}),gate:${JSON.stringify(cfg.gate)},night:${cfg.night},day:${cfg.day},mode:"run"};
-      const pl=PLACES.find(p=>p.room===${JSON.stringify(cfg.place)})||PLACES[0];
+      const pl=PLACES.find(p=>p.room===${JSON.stringify(cfg.place)}||(p.alt||[]).includes(${JSON.stringify(cfg.place)}))||PLACES[0];
       try{return JSON.stringify(rollEncounter(battleDay(),pl.risk||0,${cfg.pn},${cfg.noboss}))}finally{G=g0}})()`));
     $("rolled").textContent="뽑아 본 적: "+foeText(k)+" (예시 — 전투 때 다시 뽑습니다)";
   }catch(e){$("rolled").textContent="뽑기 실패: "+e.message}
