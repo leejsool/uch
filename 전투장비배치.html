@@ -74,7 +74,7 @@
     <strong>BATTLE_RIG</strong>
     <button class="go" id="copy">클립보드 복사</button>
     <button id="load">텍스트 적용</button>
-    <span class="hint">헤더의 <b>'바로 쓰기'</b>(크롬·엣지) 로 index.html 에 직접 저장 · 안 되면 이 텍스트를 복사해 붙여넣기 · x·y=r 배수, rot 라디안, scale=r*1.7 배수</span>
+    <span class="hint">헤더의 <b>'바로 쓰기'</b>(크롬·엣지) 로 index.html 에 직접 저장 · 안 되면 이 텍스트를 복사해 붙여넣기 · x·y=r 배수, rot 라디안, scale=r*1.7 배수 · <b>장비 목록은 index.html 에서 읽어 옵니다</b></span>
   </div>
   <textarea id="out" spellcheck="false"></textarea>
 </footer>
@@ -85,18 +85,54 @@
    s = r*1.7*scale, w = s*(icon.w/icon.h).
    z = 겹침 순서 — 대원 몸통 0 기준, 뒤 −2‥−1 · 앞 1‥2 (◀▶ 로 조정).
    방향은 북동/북서/남동/남서 4등분(ne/nw/se/sw). 몸통 스프라이트만 서쪽에서 좌우반전하고
-   손장비는 방향마다 좌표·반전·순서를 따로 잡는다. */
+   손장비는 방향마다 좌표·반전·순서를 따로 잡는다.
+
+   ─── 다루는 장비 (2026-09-21) ───────────────────────────────────────────────
+   목록을 여기 박아 두지 않는다. **index.html 을 읽어 ITEMS 의 slot:"rh"/"lh" 를 전부 가져온다**
+   (parseHand). 새 손장비를 index.html 에 넣으면 이 도구에도 그냥 뜬다 — 예전에는 13+5 종이
+   박혀 있어 나중에 넣은 대걸레·망치·합판 따위를 아예 고칠 수 없었다.
+   index.html 의 BATTLE_RIG 뒤에 붙은 별칭 줄(BATTLE_RIG.mop=BATTLE_RIG.bat;)도 함께 읽어
+   그 값을 제 칸으로 펴 놓고(parseRig), 쓸 때는 장비마다 한 줄씩 다 적으면서 별칭 줄은 지운다 —
+   별칭은 리터럴 뒤에 실행되므로 남겨 두면 여기서 맞춘 값을 도로 덮어쓰기 때문이다. */
 const CW=340, CH=380, R=36, AX=CW/2, AY=272;
 
-const WEAPONS=[["ladle","국자"],["pen","만년필"],["weight","벼려진 문진"],["bat","야구 배트"],
-  ["bottle","깨진 소주병"],["cutter","커터칼"],["tongs","연탄집게"],["mic","마이크"],
-  ["spray","헤어스프레이"],["pistol","권총"],["shotgun","진압용 산탄총"],["rifle","소총"],["baton","경찰봉"]];
-const SHIELDS=[["lid","냄비뚜껑"],["book","전공책"],["tray","쟁반"],["signboard","입간판"],["doorpanel","자동차 문짝"]];
-const ALL_IDS=[...WEAPONS,...SHIELDS].map(a=>a[0]);
-const IS_RH=id=>WEAPONS.some(w=>w[0]===id);
-const NAME_OF=id=>([...WEAPONS,...SHIELDS].find(a=>a[0]===id)||[id,id])[1];
-const EXT={ladle:"webp",pen:"webp",spray:"webp",lid:"webp",book:"webp",doorpanel:"webp"};
-const iconSrc=id=>`art/item/${id}.${EXT[id]||"png"}`;
+/* ── 손장비 표 — [id, 이름, 그림 경로] ──
+   **index.html 을 불러오면 그 안의 ITEMS(slot:"rh"/"lh")와 ITEM_ART 에서 다시 읽어 통째로
+   갈아 끼웁니다**(parseHand → setHand). 아래 값은 아직 못 불러왔을 때 쓰는 기본값일 뿐이니,
+   새 장비가 안 보이면 손으로 고치지 말고 '불러오기' 를 누르십시오.
+   강화판(커터칼+ 따위)은 여기 없습니다 — index.html 의 rigFor 가 baseOf 로 원본 배치를 씁니다. */
+const DEF_W=[["ladle","국자","item/ladle.webp"],["pen","만년필","item/pen.webp"],
+  ["weight","벼려진 문진","item/weight.png"],["bat","야구 배트","item/bat.png"],
+  ["bottle","깨진 소주병","item/bottle.png"],["cutter","커터칼","item/cutter.png"],
+  ["tongs","연탄집게","item/tongs.png"],["mic","마이크","item/mic.png"],
+  ["spray","헤어스프레이","item/spray.webp"],["fkiller","에프킬라","item/fkiller.png"],
+  ["pistol","권총","item/pistol.png"],["seized","압수 권총","item/seized.png"],
+  ["shotgun","진압용 산탄총","item/shotgun.png"],["rifle","소총","item/rifle.png"],
+  ["mop","대걸레","item/mop.png"],["plunger","뚫어뻥","item/plunger.png"],
+  ["umbrella","장우산","item/umbrella.png"],["ftongs","튀김 젓가락","item/ftongs.png"],
+  ["selfie","셀카봉","item/selfie.png"],["candlestick","촛대","item/candlestick.png"],
+  ["pipe","쇠파이프","item/pipe.png"],["hammer","망치","item/hammer.png"],
+  ["rollpin","밀대","item/rollpin.png"],["mannequin","마네킹 팔","item/mannequin.png"],
+  ["bow","학생회 제작 활","item/bow.png"],["scythe","사마귀 낫","item/scythe.png"],
+  ["unionrod","학생회장봉","item/unionrod.png"],["baton","경찰봉","item/baton.png"]];
+const DEF_S=[["lid","냄비뚜껑","item/lid.webp"],["book","전공책","item/book.webp"],
+  ["tray","쟁반","item/tray.png"],["signboard","입간판","item/signboard.png"],
+  ["doorpanel","자동차 문짝","item/doorpanel.webp"],["healspray","회복스프레이","item/healspray.png"],
+  ["toiletlid","변기 뚜껑","item/toiletlid.png"],["bench","벤치 판자","item/bench.png"],
+  ["laptop","노트북","item/laptop.png"],["plywood","합판","item/plywood.png"],
+  ["hshield","뿔 방패","item/hshield.png"]];
+let WEAPONS=DEF_W, SHIELDS=DEF_S;
+let ALL_IDS=[], RH_SET=new Set(), NM={}, ICON={};
+function indexHand(){
+  ALL_IDS=[...WEAPONS,...SHIELDS].map(a=>a[0]);
+  RH_SET=new Set(WEAPONS.map(a=>a[0]));
+  NM={}; ICON={};
+  for(const [id,nm,art] of [...WEAPONS,...SHIELDS]){ NM[id]=nm; ICON[id]=art; }
+}
+indexHand();
+const IS_RH=id=>RH_SET.has(id);
+const NAME_OF=id=>NM[id]||id;
+const iconSrc=id=>"art/"+(ICON[id]||("item/"+id+".png"));
 
 /* 그리드는 2열이라 [북서 북동 / 남서 남동] 순서로 나침반처럼 배치한다.
    spr: n*=등 그림, s*=정면 그림.
@@ -125,13 +161,21 @@ let RIG=freshRIG(), sex="m", curW="ladle", curS="lid", target="rh", bgOn=true;
 const curId=()=>target==="rh"?curW:curS;
 
 /* ─── 자동 저장/복원 ─── */
-const LS="uch-battle-rig-v4";     // 방향 ne/nw/se/sw · behind → z(겹침순서) · mir(좌우반전) 추가
+/* v5 — 손장비를 index.html 에서 읽어 오면서 표가 18종에서 39종으로 늘었습니다.
+   옛 저장본(v4)은 새 장비 자리가 비어 있어 그대로 쓰면 '바로 쓰기' 때 엉뚱한 값이 박힙니다. */
+const LS="uch-battle-rig-v5";
 let saveT, hadSaved=false;
 function save(){ clearTimeout(saveT); saveT=setTimeout(()=>{
   try{ localStorage.setItem(LS,JSON.stringify({RIG,sex,curW,curS,target,bgOn})); }catch(e){} },200); }
 function restore(){ try{
   const d=JSON.parse(localStorage.getItem(LS)||"null"); if(!d) return;
-  if(d.RIG && ALL_IDS.every(id=>d.RIG[id]&&DIRS.every(x=>d.RIG[id][x.key]))){ RIG=d.RIG; hadSaved=true; }
+  /* 장비 표가 늘고 줄어도 아는 칸만 받아 옵니다 — 모르는 id 는 기본값으로 남습니다 */
+  if(d.RIG && typeof d.RIG==="object"){
+    let hit=0;
+    for(const id of Object.keys(d.RIG))
+      if(d.RIG[id]&&DIRS.every(x=>d.RIG[id][x.key])){ RIG[id]=d.RIG[id]; hit++; }
+    if(hit) hadSaved=true;
+  }
   if(d.sex==="m"||d.sex==="f") sex=d.sex;
   if(ALL_IDS.includes(d.curW)) curW=d.curW;
   if(ALL_IDS.includes(d.curS)) curS=d.curS;
@@ -175,9 +219,13 @@ for(const d of DIRS){
 }
 
 const wsel=document.getElementById("wsel"), ssel=document.getElementById("ssel");
-for(const [id,nm] of WEAPONS) wsel.add(new Option(`${nm} (${id})`,id));
-for(const [id,nm] of SHIELDS) ssel.add(new Option(`${nm} (${id})`,id));
-wsel.value=curW; ssel.value=curS;
+function fillSelects(){
+  wsel.innerHTML=""; ssel.innerHTML="";
+  for(const [id,nm] of WEAPONS) wsel.add(new Option(`${nm} (${id})`,id));
+  for(const [id,nm] of SHIELDS) ssel.add(new Option(`${nm} (${id})`,id));
+  wsel.value=curW; ssel.value=curS;
+}
+fillSelects();
 document.getElementById("sex").value=sex;
 document.getElementById("bg").checked=bgOn;
 for(const b of document.querySelectorAll('#target button')) b.classList.toggle("on",b.dataset.t===target);
@@ -287,7 +335,7 @@ function drawAll(){ for(const d of DIRS){ renderOrder(d.key); drawPanel(d.key); 
 const n2=v=>(Math.round(v*100)/100).toFixed(2);
 function line(id){
   const p=d=>{ const e=RIG[id][d]; return `{ x:${n2(e.x)}, y:${n2(e.y)}, rot:${n2(e.rot)}, scale:${n2(e.scale)}, z:${zOf(e)}, mir:${!!e.mir} }`; };
-  return `  ${(id+":").padEnd(11)}{ ne:${p("ne")}, nw:${p("nw")}, se:${p("se")}, sw:${p("sw")} }`;
+  return `  ${(id+":").padEnd(13)}{ ne:${p("ne")}, nw:${p("nw")}, se:${p("se")}, sw:${p("sw")} }`;
 }
 function syncUI(){
   for(const d of DIRS){
@@ -306,7 +354,9 @@ function syncUI(){
   if(document.activeElement!==out)
     out.value=
       "/* 전투 손장비 배치 — '전투장비배치.html' 산출물. index.html 의 BATTLE_RIG 를 이 블록으로 교체한다.\n"+
-      "   x·y = r 배수, rot 라디안, scale = r*1.7 배수, mir = 아이콘 좌우반전, z = 겹침순서(몸통 0, 뒤 −2‥−1 · 앞 1‥2) */\n"+
+      "   x·y = r 배수, rot 라디안, scale = r*1.7 배수, mir = 아이콘 좌우반전, z = 겹침순서(몸통 0, 뒤 −2‥−1 · 앞 1‥2).\n"+
+      "   손장비마다 한 줄씩 다 적는다 — 예전처럼 'BATTLE_RIG.mop=BATTLE_RIG.bat' 로 빌려 쓰는 줄은 두지 않는다.\n"+
+      "   그 줄은 리터럴 뒤에 실행되어, 여기서 맞춘 값을 도로 덮어쓰기 때문이다. */\n"+
       "const BATTLE_RIG = {\n"+
       "  /* ── 오른손(무기) ── */\n"+
       WEAPONS.map(w=>line(w[0])+",").join("\n")+"\n"+
@@ -348,12 +398,61 @@ function loadObj(obj){
   drawAll();
   return hit;
 }
-const RIG_RE=/const\s+BATTLE_RIG\s*=\s*\{[\s\S]*?\n\};/;
-/* index.html 통째 텍스트에서 BATTLE_RIG 블록만 뽑아 적용 */
-function applyRigText(txt){
+/* index.html 에서 갈아 끼울 자리 — BATTLE_RIG 리터럴 **과 그 뒤에 붙은 별칭 줄까지**.
+   별칭(BATTLE_RIG.mop=BATTLE_RIG.bat;)은 리터럴 뒤에 실행되므로, 남겨 두면 이 도구가 맞춘
+   대걸레 자리를 야구 배트 자리로 도로 덮어씁니다. 그래서 통째로 잡아 통째로 갈아 끼웁니다. */
+const RIG_RE=/const\s+BATTLE_RIG\s*=\s*\{[\s\S]*?\n\};(?:[\s\S]*?\nBATTLE_RIG\.[^\n]*;)*/;
+/* 리터럴과 별칭을 함께 읽어 한 표로 폅니다 — 빌려 쓰던 것도 제 값을 가진 칸이 됩니다 */
+function parseRig(txt){
   const m=txt.match(RIG_RE);
   if(!m) throw new Error("BATTLE_RIG 블록을 못 찾음");
-  const n=loadObj((new Function("return ("+m[0].replace(/^const\s+BATTLE_RIG\s*=\s*/,"").replace(/;\s*$/,"")+")"))());
+  const lit=m[0].match(/\{[\s\S]*?\n\};/);
+  if(!lit) throw new Error("BATTLE_RIG 리터럴을 못 읽음");
+  const obj=(new Function("return ("+lit[0].replace(/;\s*$/,"")+")"))();
+  /* 'BATTLE_RIG.a=BATTLE_RIG.b=BATTLE_RIG.bat;' → a·b 가 bat 의 배치를 빌려 쓴다는 뜻 */
+  for(const a of m[0].matchAll(/\nBATTLE_RIG\.([\w$]+)((?:\s*=\s*BATTLE_RIG\.[\w$]+)+)\s*;/g)){
+    const ids=[a[1],...[...a[2].matchAll(/BATTLE_RIG\.([\w$]+)/g)].map(x=>x[1])];
+    const src=obj[ids.pop()];
+    if(src) for(const id of ids) obj[id]=JSON.parse(JSON.stringify(src));
+  }
+  return obj;
+}
+/* index.html 통째 텍스트에서 **손장비 목록**을 뽑습니다 — ITEMS 의 slot:"rh"/"lh" 와 ITEM_ART 의 그림.
+   소스에는 강화판이 없습니다(DARK_UP·WORK_UP 이 게임을 켤 때 만듭니다) — 원본만 걸립니다. */
+function parseHand(txt){
+  const art={}, ab=txt.match(/const\s+ITEM_ART\s*=\s*\{[\s\S]*?\n\};/);
+  if(ab) for(const m of ab[0].matchAll(/([A-Za-z_$][\w$]*)\s*:\s*"([^"]+)"/g)) art[m[1]]=m[2];
+  const ib=txt.match(/const\s+ITEMS\s*=\s*\{[\s\S]*?\n\};/);
+  if(!ib) return null;
+  const re=/\n  ([A-Za-z_$][\w$]*)\s*:\s*\{/g, mark=[], w=[], sh=[];
+  let m; while((m=re.exec(ib[0]))) mark.push([m[1],m.index]);
+  mark.forEach(([id,at],i)=>{
+    const seg=ib[0].slice(at, i+1<mark.length?mark[i+1][1]:ib[0].length);
+    const slot=(seg.match(/slot\s*:\s*"(\w+)"/)||[])[1];
+    if(slot!=="rh"&&slot!=="lh") return;
+    (slot==="rh"?w:sh).push([id,(seg.match(/n\s*:\s*"([^"]*)"/)||[])[1]||id,
+      art[id]||("item/"+id+".png")]);
+  });
+  return (w.length&&sh.length)?[w,sh]:null;
+}
+/* 목록을 갈아 끼웁니다 — 이미 잡아 둔 배치는 두고, 처음 보는 id 에만 기본값을 깔아 줍니다 */
+function setHand(w,sh){
+  WEAPONS=w; SHIELDS=sh; indexHand();
+  for(const id of ALL_IDS){
+    RIG[id]=RIG[id]||{};
+    for(const d of DIRS) if(!RIG[id][d.key]) RIG[id][d.key]=defFor(id,d.key);
+  }
+  if(!RH_SET.has(curW)) curW=WEAPONS[0][0];
+  if(!SHIELDS.some(a=>a[0]===curS)) curS=SHIELDS[0][0];
+  fillSelects();
+  ALL_IDS.forEach(iconImg);
+  return ALL_IDS.length;
+}
+/* 목록과 배치를 함께 반영 */
+function applyRigText(txt){
+  const hand=parseHand(txt);
+  if(hand) setHand(hand[0],hand[1]);
+  const n=loadObj(parseRig(txt));
   loadedOnce=true;
   return n;
 }
@@ -390,10 +489,6 @@ async function pickIndex(){
 /* 같은 폴더 index.html 을 읽어 반영한다.
    ① 저장된 파일 핸들이 있으면 그걸로 (디스크에서 바로 읽음)  ② 없으면 fetch  */
 async function fetchIndex(force){
-  if(!force && hadSaved){
-    setStatus("로컬에서 편집하던 값을 씁니다. index.html 최신값을 반영하려면 '불러오기'.", null);
-    return;
-  }
   try{
     let txt;
     if(idxHandle && await perm(idxHandle,"read")){
@@ -403,8 +498,19 @@ async function fetchIndex(force){
       if(!res.ok) throw new Error("HTTP "+res.status);
       txt=await res.text();
     }
-    const n=applyRigText(txt);
-    setStatus("index.html 반영됨 ("+n+"칸)."+(FS_OK?" 편집한 뒤 '바로 쓰기' 로 저장하세요.":" 편집한 뒤 아래 텍스트를 복사해 붙여넣으세요."), true);
+    /* **손장비 목록은 편집하던 값이 있어도 늘 새로 읽습니다** — 그래야 새로 넣은 장비가 바로 뜹니다.
+       배치 값만 로컬 것을 지킵니다(새 장비는 어차피 로컬에 없어 기본값이 깔립니다). */
+    const hand=parseHand(txt), hn=hand?setHand(hand[0],hand[1]):0;
+    if(!force && hadSaved){
+      drawAll();
+      setStatus("손장비 "+hn+"종을 읽었습니다. 배치는 이 브라우저에 저장해 둔 것을 씁니다 —"
+        +" index.html 값으로 되돌리려면 '불러오기'.", null);
+      return;
+    }
+    const n=loadObj(parseRig(txt));
+    loadedOnce=true;
+    setStatus("index.html 반영됨 (손장비 "+hn+"종 · 배치 "+n+"칸)."
+      +(FS_OK?" 편집한 뒤 '바로 쓰기' 로 저장하세요.":" 편집한 뒤 아래 텍스트를 복사해 붙여넣으세요."), true);
   }catch(err){
     setStatus("불러오기 실패("+err.message+"). "+(FS_OK?"'불러오기' 를 눌러 index.html 을 직접 고르세요.":"로컬 파일이면 브라우저가 fetch 를 막습니다 — 서버로 열거나 '직접 선택' 을 쓰세요."), false);
   }
@@ -438,8 +544,8 @@ if(FS_OK){ const wb=document.getElementById("write"); wb.hidden=false; wb.onclic
 document.getElementById("load").onclick=()=>{
   const t=document.getElementById("out").value;
   try{
-    const src=t.includes("BATTLE_RIG") ? t.replace(/[\s\S]*?BATTLE_RIG\s*=/,"return ") : "return ("+t+")";
-    const obj=(new Function(src.replace(/;\s*$/,"")+";"))();
+    const obj=t.includes("BATTLE_RIG") ? parseRig(t)
+      : (new Function("return ("+t.replace(/;\s*$/,"")+")"))();
     flash("load", "적용 "+loadObj(obj)+"칸");
   }catch(err){ alert("불러오기 실패: "+err.message); }
 };

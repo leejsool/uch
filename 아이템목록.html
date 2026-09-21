@@ -356,6 +356,9 @@ const EDS={
          get:it=>it.d||"", put:v=>v.trim()?JSON.stringify(v):null},
   atk:  {f:"atk",   step:1, show:()=>true, get:it=>it.atk,   put:v=>v?String(v):null},
   guard:{f:"guard", step:1, show:()=>true, get:it=>it.guard, put:v=>v?String(v):null},
+  /* 방어율 — 퍼센트로 받아 index 에 armor:N 으로 적습니다.
+     피해 = 공격력 × (1 − 방어율%) − 피해감소 (index.html 의 hurt 참고) */
+  armor:{f:"armor", step:1, show:()=>true, get:it=>it.armor, put:v=>v?String(v):null},
   hp:   {f:"hp",    step:1, show:()=>true, get:it=>it.hp,    put:v=>v?String(v):null},
   dodge:{f:"dodge", step:1, show:()=>true, get:it=>it.dodge, put:v=>v?String(v):null},
   crit: {f:"crit",  step:1, show:()=>true, get:it=>it.crit,  put:v=>v?String(v):null},
@@ -403,6 +406,7 @@ function descPat(field,oldV,newV){
     case "atk":   return [new RegExp(`(공격력\\s*[+＋]\\s*)${o}(?!\\d)`,"g"),`$1${n}`];
     case "hp":    return [new RegExp(`(체력\\s*[+＋]\\s*)${o}(?!\\d)`,"g"),`$1${n}`];
     case "guard": return [new RegExp(`(피해\\s*[−-]\\s*)${o}(?!\\d)`,"g"),`$1${n}`];
+    case "armor": return [new RegExp(`(방어율\\s*[+＋]?\\s*)${o}(\\s*%)`,"g"),`$1${n}$2`];
     case "dodge": return [new RegExp(`(회피\\s*[+＋]?\\s*)${o}(\\s*%)`,"g"),`$1${n}$2`];
     case "crit":  return [new RegExp(`(치명\\s*[+＋]?\\s*)${o}(\\s*%)`,"g"),`$1${n}$2`];
     case "rng":   return [new RegExp(`(사거리\\s*[+＋]\\s*)${o}(?!\\d)`,"g"),`$1${n}`];
@@ -490,6 +494,7 @@ function makeCols(){
     {id:"d",     t:"성능",  w:r=>r.it.d||"", cls:"d", grp:"txt", h:r=>esc(r.it.d||"")},
     {id:"atk",   t:"공",    w:r=>r.it.atk||0,   num:1, grp:"num", h:r=>n(r.it.atk)},
     {id:"guard", t:"방",    w:r=>r.it.guard||0, num:1, grp:"num", h:r=>n(r.it.guard)},
+    {id:"armor", t:"방어율", w:r=>r.it.armor||0, num:1, grp:"num", h:r=>r.it.armor?"+"+r.it.armor+"%":dash()},
     {id:"hp",    t:"체",    w:r=>r.it.hp||0,    num:1, grp:"num", h:r=>n(r.it.hp)},
     {id:"dodge", t:"회피",  w:r=>r.it.dodge||0, num:1, grp:"num", h:r=>r.it.dodge?r.it.dodge+"%":dash()},
     {id:"crit",  t:"치명",  w:r=>r.it.crit||0,  num:1, grp:"num", h:r=>r.it.crit?"+"+r.it.crit+"%":dash()},

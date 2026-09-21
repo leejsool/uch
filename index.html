@@ -512,6 +512,8 @@ const LORE=[
                    +"1일차보다 2일차가, 2일차보다 3일차가 더 강합니다."},
   {k:"boss",      d:"게이트 안에는 특정한 시기가 되면 나오는 보스가 있습니다. 일반 적들보다도 강력하니 조심하세요."},
   {k:"survive",   d:"게이트 안에서 오래 버티려면 데미지 감소와 체력 회복이 중요합니다. 소모품도 적극적으로 사용하세요."},
+  {k:"ally_flee", d:"각 전투에서 처음으로 hp가 4분의 1 이하로 떨어진 플레이어는 황급히 적에게서 도망칩니다."},
+  {k:"armor_calc",d:"피격시 방어율만큼 적의 데미지를 없앤 후, 피해감소만큼의 데미지를 다시 뺀 수치가 데미지가 됩니다."},
   /* ── 여기부터 해금 ── */
   {k:"inst",      on:()=>sawItem(it=>it.kind==="inst"),
    d:"현장 아이템은 게이트 안에서만 사용할 수 있습니다. 게이트를 나오면 사라집니다."},
@@ -536,6 +538,9 @@ const LORE=[
   {k:"crystal",   on:g=>!!((g.itemSeen||{}).crystal||(g.itemSeen||{})["crystal+"]),
    d:"어둠 에너지 결정은 게이트 내의 에너지의 집약체입니다. 현장 아이템을 강화할 수 있습니다. "
     +"물론 어둠 에너지 결정도 현장 아이템입니다."},
+  /* 대학원과 같은 조건으로 열립니다 — 시설이 문을 여는 그때 지식도 같이 열립니다 */
+  {k:"grad",      on:g=>((g.gateDay||{}).front||0)>=GRAD_DAY,
+   d:"사범대학의 대학원에서는 모든 아이템을 발견한 장소의 숫자만큼 추가 스텟을 얻을 수 있습니다."},
 ];
 /* 지금 열려 있는 지식 */
 const loreOpen=()=>LORE.filter(b=>!b.on||b.on(G));
@@ -565,7 +570,7 @@ const HUM_MAJORS=[
    use.buff 가 붙은 것을 먹으면 그 값이 p.foodBuff 에 실려 **다음 전투 한 번**에만 걸립니다.
    여러 개를 먹으면 더하는 칸은 더하고 배율 칸은 곱합니다. 싸우지 않고 문을 나서면 그대로 깹니다.
    소주의 취기도 이 길을 지납니다(SOJU). */
-const BUFF_ADD=["atk","guard","dodge","crit","range","miss"], BUFF_MUL=["aspdM","vspeedM"];
+const BUFF_ADD=["atk","guard","armor","dodge","crit","range","miss"], BUFF_MUL=["aspdM","vspeedM"];
 const SOJU={atk:3,aspdM:1.10,miss:0.20};   /* 소주 한 병의 취기 — 다음 전투 한 번 */
 function addBuff(p,b){
   const cur=p.foodBuff||{};
@@ -662,7 +667,8 @@ const passivesOf=p=>majorsOf(p).filter(m=>PASSIVES[m]).map(m=>passiveVals(PASSIV
 function passiveText(pv,rate){
   const sg=n=>n<0?`−{!${-n}}`:`+{${n}}`;
   const part=o=>[o.hp?`최대 체력 ${sg(o.hp)}`:"",o.atk?`공격력 ${sg(o.atk)}`:"",o.atkP?`공격력 ${sg(o.atkP)}%`:"",
-    o.guard?`받는 피해 −{${o.guard}}`:"",o.dodge?`회피 ${sg(o.dodge)}%`:"",o.crit?`치명 ${sg(o.crit)}%`:"",
+    o.guard?`받는 피해 −{${o.guard}}`:"",o.armor?`방어율 ${sg(o.armor)}%`:"",
+    o.dodge?`회피 ${sg(o.dodge)}%`:"",o.crit?`치명 ${sg(o.crit)}%`:"",
     o.aspd?`공격 속도 ${sg(o.aspd)}%`:"",o.spd?`이동 속도 ${sg(o.spd)}%`:""].filter(Boolean).join(", ");
   return scaleTxt([part(pv),pv.bare?`양손이 비어 있으면 ${part(pv.bare)}`:"",
     pv.after?`게이트 안에서 전투가 끝날 때마다 체력 +{${pv.after}}`:"",
@@ -1071,10 +1077,12 @@ function darkDesc(it){
     /* 무기가 지키는 몫까지 들고 있으면 뒤에 붙입니다 — 아이템목록.html 에서 얹을 수 있습니다 */
     if(it.crit)p.push(`치명 +${it.crit}%`);
     if(it.guard)p.push(`피해 −${it.guard}`);
+    if(it.armor)p.push(`방어율 +${it.armor}%`);
     if(it.hp)p.push(`체력 +${it.hp}`);
     if(it.dodge)p.push(`회피 ${it.dodge<0?"−"+(-it.dodge):it.dodge}%`);
   }else{
     if(it.guard)p.push(`피해 −${it.guard}`);
+    if(it.armor)p.push(`방어율 +${it.armor}%`);
     if(it.hp)p.push(`체력 +${it.hp}`);
     if(it.dodge)p.push(`회피 ${it.dodge<0?"−"+(-it.dodge):it.dodge}%`);
     if(it.crit)p.push(`치명 +${it.crit}%`);
@@ -1199,6 +1207,21 @@ const placeDone=pl=>placeItems(pl).every(id=>!!(G.itemSeen&&G.itemSeen[id]));
 /* 그 장소가 판매대에 새로 올릴 수 있는 것 — 이미 SHOP 에 있는 것은 빼고 */
 const placeShopGear=pl=>pl.gear.filter(id=>shopGearOk(id)&&!SHOP.includes(id));
 const placeShopIds=()=>[...new Set(PLACES.filter(placeDone).flatMap(placeShopGear))];
+/* ── 대학원 (2026-09-21) ──
+   레벨업 말고 스탯을 올리는 두 번째 길입니다. 사범대학 안에 있고, 정문 게이트에서
+   GRAD_DAY 일차 전투를 치르면 열립니다(g.gateDay.front — 전투를 마칠 때마다 적힙니다).
+   밑천은 **나올 만한 것을 하나도 남김없이 밝혀낸 장소의 수**입니다(placeDone — 장소 화면에
+   ?? 가 하나도 안 남은 곳). 다만 한 사람이 여기서 받을 수 있는 것은 **제 레벨까지**입니다 —
+   Lv5 면 다섯 점이 끝입니다. 받아 간 점수는 r.gradTaken 에 쌓입니다(옛 저장본은 없으므로 0).
+   밤 거리는 게이트에 딸린 장소가 아니라 세지 않습니다. 장소가 없는 게이트(강의동)도 빠집니다. */
+const GRAD_DAY=9;
+const gradGates=()=>GATES.map(g=>{
+    const own=PLACES.filter(pl=>!pl.night&&(pl.gate||"front")===g.id);
+    return {g,done:own.filter(placeDone).length,all:own.length};
+  }).filter(x=>x.all>0);
+const gradPlaces=()=>gradGates().reduce((n,x)=>n+x.done,0);
+/* 그 사람이 지금 더 받아 갈 수 있는 점수 */
+const gradLeft=r=>Math.max(0,Math.min(gradPlaces(),r.lvl)-(r.gradTaken||0));
 /* ── 번개당근 ──
    같은 반출 장비를 GOT_CARROT 번 주워 보면(G.gotN) 학생회장이 '번개당근' 의뢰를 꺼냅니다.
    기부할 수 있는 것도 같은 갈래입니다 — 행정실이 사 주지 않는 반출 장비(칸에 차는 것). */
@@ -2322,9 +2345,14 @@ function learnSkill(s){
 }
 /* EXP_TABLE[l] — Lv l 에서 다음 레벨까지 필요한 경험치. 칸 수가 곧 최고 레벨입니다.
    Lv2(90)는 사마귀를 만나기 직전에 오도록 맞췄습니다. 그 뒤로는 한 칸에 1.5배 남짓씩 늘다가
-   Lv10 부근부터 완만해집니다. 정문 게이트를 다 돌면 Lv6 안팎, 지하상가 게이트를 마치면 Lv9~10. */
+   Lv10 부근부터 완만해집니다. 정문 게이트를 다 돌면 Lv6 안팎, 지하상가 게이트를 마치면 Lv9~10.
+   Lv19(13,000)까지는 손으로 맞춘 값이고, Lv20~99 는 같은 결로 이어 붙인 꼬리입니다 —
+   한 칸에 1,500씩 늘리되 그 늘어나는 폭이 칸마다 1%씩 줄어(Lv99 는 95,900) 100 단위로 끊습니다.
+   Lv100 까지 다 채우려면 경험치 492만. 지금 콘텐츠로 닿는 것은 Lv10 언저리이니
+   Lv20 뒤는 게이트를 더 만들 때를 위해 비워 둔 자리입니다. */
 const EXP_TABLE=[0,90,140,220,340,520,800,1200,1700,2300,3000,3700,4500,5400,6400,7500,8700,10000,11500,13000];
-const MAX_LV=EXP_TABLE.length;
+for(let l=20,step=1500;l<100;l++,step*=0.99)EXP_TABLE.push(Math.round((EXP_TABLE[l-1]+step)/100)*100);
+const MAX_LV=EXP_TABLE.length;      /* 100 */
 const nextExp=l=>EXP_TABLE[l]!==undefined?EXP_TABLE[l]:9999;
 /* ── 교육장 셈 ──
    eduMaxLv   지금 열린 사범 전공이 정하는 상한 레벨 (초등교육과만 열려 있으면 2)
@@ -2353,11 +2381,11 @@ function eduRoom(p,cap){
 function worn(p){return SLOTS.map(s=>ITEMS[p.gear[s.k]]).filter(Boolean)}
 function derive(p){
   const s=p.stats;
-  let atk=2+s.str*0.6,guard=0,hpAdd=0,aspdM=1,spdM=1,dodge=0,critAdd=0;
+  let atk=2+s.str*0.6,guard=0,armor=0,hpAdd=0,aspdM=1,spdM=1,dodge=0,critAdd=0;
   /* 풍뎅이 투구를 쓰면 장비가 깎는 회피는 셈하지 않습니다 */
   const keepDodge=worn(p).some(it=>it.keepDodge);
   for(const it of worn(p)){
-    atk+=it.atk||0;guard+=it.guard||0;hpAdd+=it.hp||0;
+    atk+=it.atk||0;guard+=it.guard||0;armor+=it.armor||0;hpAdd+=it.hp||0;
     dodge+=keepDodge?Math.max(0,it.dodge||0):(it.dodge||0);critAdd+=it.crit||0;
     aspdM*=it.aspdM||1;spdM*=it.spdM||1;
   }
@@ -2366,7 +2394,7 @@ function derive(p){
   let atkPM=1;
   for(const v of passivesOf(p)){
     for(const o of [v,bareHands&&v.bare].filter(Boolean)){
-      hpAdd+=o.hp||0;atk+=o.atk||0;guard+=o.guard||0;dodge+=o.dodge||0;critAdd+=o.crit||0;
+      hpAdd+=o.hp||0;atk+=o.atk||0;guard+=o.guard||0;armor+=o.armor||0;dodge+=o.dodge||0;critAdd+=o.crit||0;
       spdM*=1+(o.spd||0)/100;aspdM*=1+(o.aspd||0)/100;atkPM*=1+(o.atkP||0)/100;
     }
   }
@@ -2375,6 +2403,7 @@ function derive(p){
   return{maxHp:Math.round(20+s.vit*6+hpAdd),atk:+atk.toFixed(1),
     aspd:+((0.50+s.agi*0.05)*aspdM).toFixed(2),
     speed:Math.round((14+s.spd*3)*spdM),guard,
+    armor:+Math.max(0,Math.min(ARMOR_MAX,armor)).toFixed(1),
     dodge:+Math.max(0,Math.min(40,dodge+s.spd*DODGE_PER_SPD)).toFixed(1),
     crit:+Math.max(0,s.luk*0.5+critAdd).toFixed(1),
     style:rh?rh.style:"swing",dmg:rh?rh.dmg:DMG.BLUNT,rng:rh&&rh.rng?rh.rng:0,
@@ -2612,9 +2641,15 @@ const FACILITIES=[
    cond:g=>topLvl(g)>=3&&(g.roster||[]).filter(r=>majorsOf(r).length>0).length>=2,
    prog:g=>`최고 Lv ${topLvl(g)} / 3 · 전공 가진 대원 ${(g.roster||[]).filter(r=>majorsOf(r).length>0).length} / 2명`,
    msg:"사범대학에 학습실이 문을 열었습니다.<br><br>맡긴 대원은 게이트에 나가지 못하는 대신, 탐색을 한 번 다녀올 때마다 수업을 받고 경험치를 얻습니다."},
+  /* 대학원 — 사범대학. 정문 게이트 9일차를 치르면 열립니다(전공도 레벨도 보지 않습니다).
+     여는 조건과 밑천이 다른 곳입니다 — 여는 것은 게이트 진도, 밑천은 장소 조사입니다 */
+  {id:"grad",ic:"🎓",n:"대학원",d:"레벨업 없이 스탯을 올립니다",
+   cond:g=>((g.gateDay||{}).front||0)>=GRAD_DAY,
+   prog:g=>`정문 게이트 ${Math.min((g.gateDay||{}).front||0,GRAD_DAY)} / ${GRAD_DAY}일차`,
+   msg:"사범대학에 대학원이 개방되었습니다.<br><br>여기서는 레벨 업을 하지 않고도 스텟을 올릴 수 있습니다."},
 ];
 const FAC_SCENE={office:"office",shop:"shop",adm:"admissions",union:"union",market:"market",clinic:"clinic",tower:"tower",arcade:"arcade",work:"work",
-                 deptArts:"dept",deptMed:"dept",deptRotc:"dept",deptSci:"dept",deptHum:"dept",library:"library",deptEdu:"dept",study:"study"};
+                 deptArts:"dept",deptMed:"dept",deptRotc:"dept",deptSci:"dept",deptHum:"dept",library:"library",deptEdu:"dept",study:"study",grad:"grad"};
 
 /* ═══════════ 시설 담당자 ═══════════
    first — 그 시설에 처음 들어갈 때 한 번. 줄 단위로 넘깁니다.
@@ -2691,6 +2726,32 @@ const NPCS={
            "초등교육과는 싸우는 법이 아니라 가르치는 법을 배우네.",
            "교육장도 같이 열어 두었으니 써 보게."],
     again:["초등교육과, 정하실 분 있습니까?","교육장은 늘 열려 있네."]},
+  /* 대학원 — 행정실장이 직접 앉아 있습니다(초상·이름도 행정실 것 그대로).
+     first 가 **함수**인 것은 두 번째로 말하는 사람과 레벨 숫자가 그때그때 달라지기 때문입니다 —
+     대원이 둘 이상이면 둘째 대원이, 혼자면 학생회장이 말을 받습니다. */
+  grad:{n:"행정실장",role:"대학원",ic:"🎓",
+    first:()=>{
+      const two=(G.roster||[]).length>=2?"pc2":"union";
+      const lv=(pcOf()||{}).lvl||1;
+      return [
+        ["pc","여기가 대학원이구나. 레벨업을 하지 않고도 스텟을 올릴 수 있다고?"],
+        [two,"아직 대학 졸업도 안했는데 대학원이 말이 되나?"],
+        ["office","행정실장의 권한으로 내가 특별히 승인했지!"],
+        ["pc","그게 행정실장의 권한으로 되는 건가요?"],
+        ["office","게이트와 몬스터라는 이해할 수 없는 일들이 일어나는 지금, 대학생들도 이해할 수 없는 방법으로 강해지는 게 이상한가?"],
+        ["pc","그래서, 대학원에서 스텟을 올리려면 어떻게 해야 하죠?"],
+        ["office","게이트에서 장소를 고를 때 ??? 를 본 적 있지? 게이트에 대한 조사를 계속해서 ??? 인 아이템을 모두 발견해 주게."],
+        ["office","모든 아이템을 발견한 장소만큼 스텟을 더 올릴 수 있네."],
+        ["pc","아이템을 발견하는 것, 스텟, 대학원. 이 셋이 무슨 관계죠."],
+        ["office","대충 가져온 아이템을 분석해서 힘을 얻는다고 치자고."],
+        ["pc","네 뭐 대충 그렇다고 치죠."],
+        ["office",`단! 대학원에서 받을 수 있는 스텟은 1레벨당 1일세. ${lv}레벨인 사람은 ${lv}스텟까지만 받을 수 있다네.`],
+        ["pc","레벨업도 하고 ??? 아이템도 열심히 밝혀내야겠네."],
+      ];
+    },
+    again:["장소 하나를 다 밝혀낼 때마다 한 점씩 늘어나네.",
+           "제 레벨을 넘겨 받아 갈 수는 없네. 그건 규칙이야.",
+           "분석은 이쪽에서 할 테니, 자네는 남김없이 주워 오게."]},
   tower:{n:"관리인",role:"메모리얼 홀",ic:"🕯",
     first:["여기 이름을 새깁니다.",
            "돌아오지 못한 사람들의 기록만 남습니다.",
@@ -2766,13 +2827,14 @@ function openFacility(id){
   }
   G.talkFor=id;G.talkLine=0;G.talkNext=dest;G.scene="talk";render();
 }
-const CAMPUS_SCENES=["campus","hall","office","shop","admissions","union","market","gates","soon","tower","clinic","arcade","spidergame","stargame","huntgame","spiderend","starend","huntend","dept","work","record","study"];
+const CAMPUS_SCENES=["campus","hall","office","shop","admissions","union","market","gates","soon","tower","clinic","arcade","spidergame","stargame","huntgame","spiderend","starend","huntend","dept","work","record","study","grad","gradalloc"];
 
 /* ═══════════ 그림 ═══════════
    그림은 전부 art 폴더에 둡니다. 빈 칸("")이면 지금처럼 이모지나 글자로 나옵니다.
    파일을 만들어 넣고 아래 표에 이름만 적으면 그 자리에 바로 붙습니다. */
 const ART="art/";
 const NPC_ART={office:"npc/office.webp",shop:"npc/shop.webp",adm:"npc/adm.webp",union:"npc/union.webp",clinic:"npc/clinic.webp",arcade:"",tower:"",work:"npc/deptSci.webp",
+               grad:"npc/office.webp",   /* 대학원에 앉아 있는 것도 행정실장입니다 */
                deptArts:"",deptMed:"npc/deptMed.webp",deptRotc:"",deptSci:"npc/deptSci.webp"};
 const FAC_ART={office:"",shop:"",adm:"",union:"",clinic:"",arcade:"",tower:"",work:"",gate:"",
                deptArts:"",deptMed:"",deptRotc:""};
@@ -2789,7 +2851,7 @@ const BUILDINGS=[
   {id:"arts",  n:"예체능대학",   box:[26.7, 7.4,45.5,10.6], facs:["deptArts","arcade"]},
   {id:"rotc",  n:"ROTC",        box:[60.5, 6.8,77.7,10.9], facs:["deptRotc"]},
   {id:"human", n:"인문사회대학", box:[17.7,23.4,38.5,27.1], facs:["deptHum","library"]},
-  {id:"edu",   n:"사범대학",     box:[66.1,23.9,84.8,27.5], facs:["deptEdu","study"]},
+  {id:"edu",   n:"사범대학",     box:[66.1,23.9,84.8,27.5], facs:["deptEdu","study","grad"]},
   {id:"field", n:"대운동장",     box:[44,39.62,62,42.9], facs:["union","market"]},
   {id:"sci",   n:"이공대학",     box:[15,53.75,33,57.75], facs:["deptSci","work"]},
   {id:"med",   n:"의학대학",     box:[74.7,53.2,92.8,56.8], facs:["deptMed","clinic","tower"]},
@@ -3594,6 +3656,14 @@ function chemMul(t,u){return 1+Math.min(t.chem||0,CHEM_MAX)*CHEM_STACK*((u&&u.ch
 const HOP_AIR=0.26;
 const CRIT_MUL=1.6;              /* 치명타 배율 */
 const DODGE_PER_SPD=0.3;         /* 속도 1점당 회피 % */
+/* ── 한 대를 맞을 때의 셈 (2026-09-21) ──
+   회피도 빗나감도 나지 않았으면
+       피해 = 공격력 × (1 − 방어율%) − 피해감소
+   **방어율(armor)** 은 비율이라 센 공격일수록 많이 깎고,
+   **피해감소(guard)** 는 정해진 값이라 약한 공격일수록 크게 먹습니다. 둘은 서로를 대신하지 않습니다.
+   어느 쪽을 아무리 쌓아도 한 대에 최소 1은 들어갑니다(hurt 의 Math.max(1,…)).
+   방어율을 주는 장비는 아직 없습니다 — ITEMS 에 armor:N 을 적으면 그대로 붙습니다. */
+const ARMOR_MAX=90;              /* 방어율 상한 % — 회피 60·치명 80 과 같은 자리의 값입니다 */
 const SPLASH_RATE=0.5;   // 휘두르기가 주변에 주는 피해 비율
 const SPLASH_PAD=2;      // 주 대상보다 조금 더 넓게 훑는다
 
@@ -3815,7 +3885,7 @@ function makeFighter(p,i,n){
   const d=derive(p);
   const u={ref:p,name:p.name,sex:p.sex||"m",side:"a",face:-1.57,r:3.2,lvm:HUMAN,
     hp:Math.min(p.hp,d.maxHp),maxHp:d.maxHp,atk:d.atk,aspd:d.aspd,vspeed:d.speed*0.42,
-    range:7+d.rng,guard:d.guard,guardVar:0,dodge:d.dodge,crit:d.crit,cool:.3+i*.15,anim:null,color:"#4FC3D9",
+    range:7+d.rng,guard:d.guard,guardVar:0,armor:d.armor,dodge:d.dodge,crit:d.crit,cool:.3+i*.15,anim:null,color:"#4FC3D9",
     style:d.style,dmgType:d.dmg,broken:[],wid:p.gear.rh,
     fall:d.fall,fallBase:d.fallBase,splash:d.splash,
     /* 활 — 빗나감·폭발·멀티샷은 스킬이 얹습니다 */
@@ -3827,13 +3897,14 @@ function makeFighter(p,i,n){
   const fb=p.foodBuff;
   if(fb){
     p.foodBuff=null;
-    u.atk+=fb.atk||0;u.guard+=fb.guard||0;u.dodge+=fb.dodge||0;u.crit+=fb.crit||0;u.range+=fb.range||0;
+    u.atk+=fb.atk||0;u.guard+=fb.guard||0;u.armor+=fb.armor||0;u.dodge+=fb.dodge||0;u.crit+=fb.crit||0;u.range+=fb.range||0;
     if(fb.aspdM)u.aspd*=fb.aspdM;
     if(fb.vspeedM)u.vspeed*=fb.vspeedM;
     if(fb.miss){u.drunkMiss=(u.drunkMiss||0)+fb.miss;u.miss=(u.miss||0)+fb.miss}
   }
   u.dodge=Math.min(60,u.dodge||0);      // 아무리 쌓아도 다 피하지는 못한다
   u.crit=Math.min(80,u.crit||0);
+  u.armor=Math.max(0,Math.min(ARMOR_MAX,u.armor||0));
   u.hp=Math.min(u.hp,u.maxHp);
   const rh=ITEMS[p.gear.rh];
   if(rh&&rh.ammo){        // 총알은 그 사람이 이고 온 것만 씁니다. 떨어지면 배낭/맨손으로 갑니다
@@ -3923,7 +3994,7 @@ function makeEnemy(key,i,day){
   const soft=G.mode==="tutorial"?1:0;
   const u={key,name:E.n,side:"e",face:1.57,r:E.r,lvm:E.lvm,boss:!!E.boss,exp:E.exp,dmgType:E.dmg,
     hp:Math.round(E.hp*hs),maxHp:Math.round(E.hp*hs),atk:Math.max(1,+(E.atk*as).toFixed(1)-soft),
-    aspd:E.aspd,vspeed:E.speed,range:E.range,guard:0,cool:1+i*.5,color:E.c,wig:i*1.3,
+    aspd:E.aspd,vspeed:E.speed,range:E.range,guard:0,armor:E.armor||0,cool:1+i*.5,color:E.c,wig:i*1.3,
     dodge:E.dodge||0,backstep:!!E.backstep};
   const sp=reachSpot(s[0],s[1],u.r,u.lvm);   /* 대원 쪽과 이어진 자리에만 세웁니다 */
   u.x=sp.x;u.y=sp.y;
@@ -4248,6 +4319,7 @@ function hurt(t,amt,c,type,src){
         B.fx.push({x:t.x,y:t.y,t:"파손",c:"#C87878",life:1.1,off:0});
         sfx("파손");
         t.guard=Math.max(0,t.guard-(w.it.guard||0));
+        t.armor=Math.max(0,(t.armor||0)-(w.it.armor||0));   /* 부서진 것이 주던 방어율도 같이 빠집니다 */
         t.broken.push(w.slot);
         t.wearing=t.wearing.filter(x=>x!==w);
         if(w.slot==="lh")t.hasS=false;
@@ -4256,6 +4328,9 @@ function hurt(t,amt,c,type,src){
   }
   /* 항체(생명공학과) — 좀비 계열에게 물리기 전에 먼저 덜어냅니다 */
   if(t.zombCut&&src&&ZOMB_KIN.has(src.key))amt*=1-t.zombCut;
+  /* 피해 = 공격력 × (1 − 방어율%) − 피해감소. 비율을 먼저 걷고 정해진 값을 뺍니다 */
+  const ar=Math.max(0,Math.min(ARMOR_MAX,t.armor||0));
+  if(ar)amt*=1-ar/100;
   let cut=t.guard||0;
   for(let i=0;i<(t.guardVar||0);i++)if(Math.random()<0.5)cut++;   // 흔들리는 방어
   amt=Math.max(1,amt-cut);
@@ -4756,21 +4831,62 @@ function drawAlly(u){
   ctx.fillText(u.name,x,y+botY);
 }
 /* 기절 표시 — 머리 위에서 별 셋이 납작한 원을 그리며 돕니다. 뒤로 가는 별은 작고 흐립니다 */
+/* ── 기절 이펙트 (2026-09-21) ──
+   머리 위에 **눕힌 고리가 빙글빙글 돌고**, 그 고리를 따라 **별 셋이 깜빡이며** 돕니다.
+   고리를 한 번에 그리면 완벽한 타원이라 아무리 돌려도 멈춘 것처럼 보입니다. 그래서
+   조각 STUN_SEG 개로 끊어 그리고 **도는 쪽 앞머리를 가장 밝게**, 뒤로 갈수록 흐리게 칠합니다 —
+   혜성 꼬리처럼 밝은 데가 돌아서 도는 방향과 빠르기가 눈에 보입니다.
+   별은 타원을 도는 깊이감(z)으로 앞쪽에서 크고 진하게, 뒤쪽에서 작고 흐리게 그리고,
+   그 위에 저마다 다른 박자의 깜빡임을 얹습니다. 아주 꺼지지는 않게 바닥을 둡니다. */
+const STUN_SPIN=5.5;          /* 고리가 도는 빠르기(라디안/초) */
+const STUN_SEG=18;            /* 고리를 끊어 그리는 조각 수 */
+const STUN_STARS=3;
+const STUN_COL="#F7D84A";
 function drawStunStars(cx,cy,r){
-  const t=performance.now()/1000*5.5, rx=r*1.35, ry=r*.42;
-  for(let i=0;i<3;i++){
-    const a=t+i*Math.PI*2/3, z=Math.sin(a);
-    const x=cx+Math.cos(a)*rx, y=cy+z*ry, s=r*(.58+.16*z);
-    ctx.save();ctx.translate(x,y);ctx.rotate(t*1.4+i);
-    ctx.globalAlpha=.65+.35*z;
+  const now=performance.now()/1000, a0=now*STUN_SPIN, rx=r*1.55, ry=r*.52;
+  /* 고리를 조금 기울여 흔듭니다 — 눕힌 타원이 제자리에서 도는 티를 더 냅니다 */
+  const tilt=Math.sin(now*1.7)*0.11;
+  /* 별 셋의 자리를 먼저 잡습니다. z<0 이 저 뒤(머리 너머), z>0 이 이쪽입니다.
+     **별은 고리를 따라 돕니다**(a0 가 곧 고리의 각도). 별이 고리만큼 크면 셋이 한 덩어리로 보여
+     도는 것이 안 읽히므로, 별은 고리 지름의 1/4쯤으로 작게 두고 고리를 넓게 잡았습니다 */
+  const stars=[];
+  for(let i=0;i<STUN_STARS;i++){
+    const a=a0+i*Math.PI*2/STUN_STARS, z=Math.sin(a);
+    stars.push({z, x:cx+Math.cos(a)*rx, y:cy+z*ry, s:r*(.40+.13*z),
+      /* 깜빡임 — 별마다 박자가 다릅니다. 아주 꺼지지는 않게 바닥을 둡니다 */
+      al:Math.max(.22,(.65+.35*z)*(0.55+0.45*Math.sin(now*(6.5+i*2.1)+i*2.3))),
+      rot:a0*0.26+i});
+  }
+  const star=st=>{
+    ctx.save();ctx.translate(st.x,st.y);ctx.rotate(st.rot);
+    ctx.globalAlpha=st.al;
     ctx.beginPath();
-    for(let k=0;k<10;k++){const rr=k%2?s*.45:s, q=k*Math.PI/5-Math.PI/2;
+    for(let k=0;k<10;k++){const rr=k%2?st.s*.45:st.s, q=k*Math.PI/5-Math.PI/2;
       k?ctx.lineTo(Math.cos(q)*rr,Math.sin(q)*rr):ctx.moveTo(Math.cos(q)*rr,Math.sin(q)*rr)}
     ctx.closePath();
-    ctx.fillStyle="#F7D84A";ctx.fill();
+    ctx.fillStyle=STUN_COL;ctx.fill();
     ctx.strokeStyle="rgba(90,60,0,.8)";ctx.lineWidth=.8;ctx.stroke();
     ctx.restore();
+  };
+  /* 저 뒤로 돌아간 별 → 고리 → 이쪽으로 나온 별 차례로 그려 깊이가 살아납니다 */
+  for(const st of stars)if(st.z<0)star(st);
+  ctx.save();
+  ctx.lineWidth=Math.max(1,r*.12);
+  ctx.lineCap="round";
+  ctx.strokeStyle=STUN_COL;
+  /* 밝은 앞머리는 별과 겹치지 않게 반 칸 비켜 둡니다 — 큰 별에 가려 안 보이면 도는 티가 안 납니다 */
+  const head=a0+Math.PI/STUN_STARS;
+  for(let i=0;i<STUN_SEG;i++){
+    const p=i/STUN_SEG;                          /* 앞머리에서 얼마나 뒤로 처졌는지 */
+    const s0=head-p*Math.PI*2, s1=s0-Math.PI*2/STUN_SEG*0.85;
+    const f=1-p;
+    ctx.globalAlpha=0.08+0.5*f*f;
+    ctx.beginPath();
+    ctx.ellipse(cx,cy,rx,ry,tilt,s1,s0);
+    ctx.stroke();
   }
+  ctx.restore();
+  for(const st of stars)if(st.z>=0)star(st);
 }
 /* 몬스터 그림·도형은 옆모습(머리가 오른쪽)이다. face 를 그대로 rotate 하면
    왼쪽이나 아래를 향할 때 배가 하늘로 가서 뒤집힌 꼴이 된다.
@@ -4917,36 +5033,34 @@ function drawFoe(f){
       if(f.flash>0)ctx.filter="brightness(0) invert(1)";
       ctx.drawImage(spd,-Wd/2,-Ht/2,Wd,Ht);
       ctx.restore();
-      if(f.boss){                                  /* 새끼는 이름표도 막대도 달지 않습니다 */
-        ctx.fillStyle="rgba(242,215,78,.9)";ctx.font="800 9px system-ui";ctx.textAlign="center";
-        ctx.fillText("BOSS",x,y-r-12);
-        bar(f,x,y-r-6,"#F25C5C",r);
+    }else{
+      ctx.save();ctx.translate(x,y);faceFoe(ctx,f.face);
+      ctx.strokeStyle=col;ctx.lineWidth=2.1;ctx.lineCap="round";
+      for(let i=0;i<8;i++){                       // 긴 다리 여덟 개
+        const side=i<4?1:-1,k=i%4;
+        const a=(0.45+k*0.62)*side+Math.sin(f.wig*2.2+i*1.3)*0.11;
+        const kx=Math.cos(a)*r*1.45,ky=Math.sin(a)*r*1.45;
+        const ex=Math.cos(a)*r*2.5,ey=Math.sin(a)*r*2.5;
+        ctx.beginPath();ctx.moveTo(0,0);
+        ctx.lineTo(kx-Math.abs(Math.sin(a))*r*0.4,ky);ctx.lineTo(ex,ey);ctx.stroke();
       }
-      return;
-    }
-    ctx.save();ctx.translate(x,y);faceFoe(ctx,f.face);
-    ctx.strokeStyle=col;ctx.lineWidth=2.1;ctx.lineCap="round";
-    for(let i=0;i<8;i++){                       // 긴 다리 여덟 개
-      const side=i<4?1:-1,k=i%4;
-      const a=(0.45+k*0.62)*side+Math.sin(f.wig*2.2+i*1.3)*0.11;
-      const kx=Math.cos(a)*r*1.45,ky=Math.sin(a)*r*1.45;
-      const ex=Math.cos(a)*r*2.5,ey=Math.sin(a)*r*2.5;
-      ctx.beginPath();ctx.moveTo(0,0);
-      ctx.lineTo(kx-Math.abs(Math.sin(a))*r*0.4,ky);ctx.lineTo(ex,ey);ctx.stroke();
-    }
-    if(f.strike>0){          // 뿜을 때 배를 들어올리고 앞을 낮춘다
-      const e=Math.sin((1-Math.max(0,f.strike)/.24)*Math.PI);
-      ctx.save();ctx.rotate(-e*0.28);
-      ctx.beginPath();ctx.ellipse(-r*1.0-e*r*0.3,0,r*0.5,r*0.42,0,0,7);
-      ctx.fillStyle="rgba(238,238,252,.9)";ctx.fill();   // 방적돌기에 맺힌 실
+      if(f.strike>0){          // 뿜을 때 배를 들어올리고 앞을 낮춘다
+        const e=Math.sin((1-Math.max(0,f.strike)/.24)*Math.PI);
+        ctx.save();ctx.rotate(-e*0.28);
+        ctx.beginPath();ctx.ellipse(-r*1.0-e*r*0.3,0,r*0.5,r*0.42,0,0,7);
+        ctx.fillStyle="rgba(238,238,252,.9)";ctx.fill();   // 방적돌기에 맺힌 실
+        ctx.restore();
+      }
+      ctx.beginPath();ctx.ellipse(-r*.55,0,r*1.05,r*.9,0,0,7);ctx.fillStyle=col;ctx.fill();
+      ctx.beginPath();ctx.arc(r*.55,0,r*.55,0,7);
+      ctx.fillStyle=f.flash>0?"#fff":"#B79BEA";ctx.fill();
+      ctx.fillStyle="#2A2A30";
+      for(const e of [-.28,-.1,.1,.28]){ctx.beginPath();ctx.arc(r*.85,e*r,r*.1,0,7);ctx.fill()}
       ctx.restore();
     }
-    ctx.beginPath();ctx.ellipse(-r*.55,0,r*1.05,r*.9,0,0,7);ctx.fillStyle=col;ctx.fill();
-    ctx.beginPath();ctx.arc(r*.55,0,r*.55,0,7);
-    ctx.fillStyle=f.flash>0?"#fff":"#B79BEA";ctx.fill();
-    ctx.fillStyle="#2A2A30";
-    for(const e of [-.28,-.1,.1,.28]){ctx.beginPath();ctx.arc(r*.85,e*r,r*.1,0,7);ctx.fill()}
-    ctx.restore();
+    /* BOSS 딱지는 어미만 답니다. **체력 막대는 새끼도** 답니다 — 예전에는 여기서 바로
+       돌아서느라(return) 아래 공통 자리를 건너뛰었고, 새끼에게는 막대가 없었습니다.
+       이제 그림 경로도 아래로 내려가 다른 적과 같은 자리에 막대를 답니다 (2026-09-21) */
     if(f.boss){ctx.fillStyle="rgba(242,215,78,.9)";ctx.font="800 9px system-ui";
       ctx.textAlign="center";ctx.fillText("BOSS",x,y-r-12)}
   }else if(f.key==="zombie"&&sprite("zombie")){
@@ -5264,7 +5378,7 @@ function togglePause(){
 /* ═══════════ 뒤로가기 (안드로이드 하드웨어 버튼 · Esc) ═══════════
    게이트 전투 중이면 일시정지 토글, 캠퍼스에서는 방 → 건물 → 캠퍼스 순으로 한 단계 올라간다.
    최상위 화면(캠퍼스·타이틀)에서는 한 번 더 누르면 종료. 그 밖(게이트 진행)은 무시. */
-const BACK_FAC_SCENES=["office","shop","admissions","union","market","clinic","tower","arcade","dept","soon","study"];
+const BACK_FAC_SCENES=["office","shop","admissions","union","market","clinic","tower","arcade","dept","soon","study","grad"];
 let backExitArm=0;
 function appExit(){
   try{
@@ -6348,7 +6462,7 @@ function compareLine(p,id){
   const a=derive(p),b=derive(ghost),out=[];
   /* gearLine 과 같은 어순. 회피·치명은 %로 적습니다 —
      이 둘이 빠져 있어서 트레이닝 바지·운동화처럼 회피만 붙는 물건은 "수치는 그대로" 로 보였습니다. */
-  for(const f of [["atk","공격력"],["guard","피해감소"],["dodge","회피","%"],["crit","치명","%"],
+  for(const f of [["atk","공격력"],["guard","피해감소"],["armor","방어율","%"],["dodge","회피","%"],["crit","치명","%"],
                   ["aspd","공속"],["speed","이동"],["maxHp","체력"]]){
     if(a[f[0]]===b[f[0]])continue;
     const u=f[2]||"";
@@ -6362,7 +6476,7 @@ function compareLine(p,id){
 }
 function gearLine(p){
   const d=derive(p);
-  return `<div class="gearline">공격력 <b>${d.atk}</b> · 피해감소 <b>${d.guard}</b> ·${d.dodge?` 회피 <b>${d.dodge}%</b> ·`:""}${d.crit?` 치명 <b>${d.crit}%</b> ·`:""}
+  return `<div class="gearline">공격력 <b>${d.atk}</b> · 피해감소 <b>${d.guard}</b> ·${d.armor?` 방어율 <b>${d.armor}%</b> ·`:""}${d.dodge?` 회피 <b>${d.dodge}%</b> ·`:""}${d.crit?` 치명 <b>${d.crit}%</b> ·`:""}
     공속 <b>${d.aspd}</b> · 이동 <b>${d.speed}</b> · 체력 <b>${d.maxHp}</b></div>`;
 }
 /* 마우스를 올렸을 때 뜨는 글 — 이름 (구분) / 능력치 */
@@ -6571,7 +6685,7 @@ function allocScreen(p,title,note,after){
         <span class="vl">${v}</span>
         <button class="ghost" data-dn="${s.k}" ${sp?"":"disabled"}>−</button>
         <button data-up="${s.k}" ${on&&p.points>0?"":"disabled"}>+</button></div>`}).join("")}</div>
-    <div class="derived">최대 체력 <b>${d.maxHp}</b> · 공격력 <b>${d.atk}</b> · 공격속도 <b>${d.aspd}</b> · 이동 <b>${d.speed}</b> · 치명타 <b>${d.crit}%</b></div>
+    <div class="derived">최대 체력 <b>${d.maxHp}</b> · 공격력 <b>${d.atk}</b> · 공격속도 <b>${d.aspd}</b> · 이동 <b>${d.speed}</b> · 치명타 <b>${d.crit}%</b>${d.armor?` · 방어율 <b>${d.armor}%</b>`:""}</div>
     <div class="bar"><span class="tag">남은 포인트 <b>${p.points}</b></span>
     <button id="ok" ${p.points>0?"disabled":""}>확정</button></div>`;
   el.querySelectorAll("[data-up]").forEach(b=>b.onclick=()=>{
@@ -7217,7 +7331,13 @@ const gunSfx=u=>(u.gun&&GUN_SFX[u.gun.type])||"총기";
 const SFX_ART={
   "베기":   ["sfx/slash1.m4a"],
   "찌르기": ["sfx/thrust1.m4a","sfx/thrust2.m4a","sfx/thrust3.m4a"],
-  "타격":   ["sfx/blunt1.m4a"],
+  /* 받아 온 blunt1.m4a 한 파일에 때리는 소리가 **둘** 들어 있어 잘라 두 개로 만들었습니다 (2026-09-21).
+     0.00~0.38초 / 0.71~0.90초. 자른 뒤 둘 다 최고치를 0.99 로 맞췄습니다 —
+     뒤엣것이 원래 4dB 작아, 번갈아 나오면 한 대 걸러 한 대가 맥없이 들립니다.
+     맞추면서 낮아진 몫은 아래 SFX 의 sv 로 돌려놓았습니다(1.0 → 1.6).
+     원본 blunt1.m4a 는 지웠습니다 — 한 번 휘두르는데 두 번 때리는 소리가 날 까닭이 없습니다.
+     이 PC 에 소리 변환기가 없어 브라우저에서 풀어 자른 뒤 wav 로 굳혔습니다(둘 합쳐 55KB). */
+  "타격":   ["sfx/blunt1.wav","sfx/blunt2.wav"],
   "관통":   ["sfx/pierce1.m4a"],
   "깨물기": ["sfx/bite1.m4a","sfx/bite2.m4a","sfx/bite3.m4a"],
   "폭발":   ["sfx/blast1.m4a","sfx/blast2.m4a"],
@@ -7288,7 +7408,9 @@ const SFX={
   "베기":   {sv:0.9,pri:2,gap:70,dur:.26,f:(t,o,r)=>{nz(t,o,{f0:1900*r,f1:480*r,dur:.22,v:.5,q:1.2})}},
   "찌르기": {sv:0.8,pri:2,gap:70,dur:.16,f:(t,o,r)=>{nz(t,o,{f0:800*r,f1:3400*r,dur:.09,v:.32,q:2.4});
                                               osc(t,o,{type:"triangle",f0:620*r,f1:1600*r,dur:.09,v:.16})}},
-  "타격":   {sv:1.0,pri:2,gap:70,dur:.3, f:(t,o,r)=>{osc(t,o,{type:"sine",f0:190*r,f1:55*r,dur:.24,v:.75});
+  /* sv 1.6 — 녹음을 쓸 때만 먹는 값입니다(합성음은 f 안의 v 로 셉니다).
+     자르면서 0.99 로 낮춘 만큼을 되돌려, 자르기 전 원본(최고치 1.605) 때와 같은 크기로 울립니다 */
+  "타격":   {sv:1.6,pri:2,gap:70,dur:.3, f:(t,o,r)=>{osc(t,o,{type:"sine",f0:190*r,f1:55*r,dur:.24,v:.75});
                                               nz(t,o,{f0:2600*r,f1:700*r,dur:.045,v:.3,q:.8})}},
   "관통":   {sv:0.8,pri:2,gap:70,dur:.2, f:(t,o,r)=>{osc(t,o,{type:"sawtooth",f0:2200*r,f1:520*r,dur:.14,v:.2});
                                               nz(t,o,{f0:3000*r,f1:1400*r,dur:.07,v:.22,q:3})}},
@@ -8067,7 +8189,10 @@ function render(){
     return;
   }
   if(S==="talk"){
-    const id=G.talkFor,np=NPCS[id],ls=np.first,last=G.talkLine>=ls.length-1;
+    /* first 가 함수면 그 자리에서 불러 씁니다 — 그때 있는 사람·레벨을 대사에 넣는 곳이 있습니다(대학원) */
+    const id=G.talkFor,np=NPCS[id];
+    const ls=typeof np.first==="function"?np.first():np.first;
+    const last=G.talkLine>=ls.length-1;
     el.innerHTML=logo+`
       <div class="bar"><span class="tag">${np.role}</span><span class="tag">${G.talkLine+1} / ${ls.length}</span></div>
       <div class="card">${sayBlock(ls[G.talkLine],id)}</div>
@@ -8582,6 +8707,58 @@ function render(){
       r.inParty=G.roster.filter(x=>x.inParty&&!away(x)).length<squadMax();
       logAdd(r,"학습실 수업 중단");render()});
     document.getElementById("bk").onclick=()=>{G.scene="campus";render()};
+    return;
+  }
+  /* ── 대학원 ──
+     맨 위에 게이트별 조사 진도(밝혀낸 장소 / 전체), 그 아래 대원마다 받아 갈 수 있는 점수.
+     점수를 누르면 레벨업 때와 **같은 배분 화면**(allocScreen)이 뜹니다 — 새로 만들지 않았습니다. */
+  if(S==="grad"){
+    const gates=gradGates(), pool=gradPlaces();
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">사범대학 · 대학원</span>
+        <span class="tag">밝혀낸 장소 <b>${pool}</b>곳</span></div>
+      ${npcBar("grad")}
+      <div class="card"><h2>게이트 조사</h2>
+      <p>한 장소에서 <b>나올 만한 것을 하나도 남김없이</b> 손에 넣어 보면 그 장소가 한 곳으로 셉니다.
+      밝혀낸 장소의 수가 곧 여기서 나눠 줄 수 있는 스탯 점수입니다.</p>
+      ${gates.map(x=>`<div class="bar" style="margin-top:7px"><span class="tag">${x.g.n}</span>
+        <span class="tag"${x.done>=x.all?' style="color:var(--ok)"':""}><b>${x.done}</b> / ${x.all}곳</span></div>`).join("")}
+      </div>
+      <div class="card"><h2>스탯 배분</h2>
+      <p>한 사람이 여기서 받을 수 있는 것은 <b>제 레벨까지</b>입니다 —
+      Lv ${Math.max(1,...G.roster.map(r=>r.lvl))}인 사람은 ${Math.max(1,...G.roster.map(r=>r.lvl))}점이 끝입니다.
+      레벨이 오르면 그만큼 더 받아 갈 수 있습니다.</p>
+      ${rosterOrder().map(r=>{
+        const left=gradLeft(r), cap=Math.min(pool,r.lvl), ri=G.roster.indexOf(r);
+        return `<div class="app" style="margin-top:9px${left?";border-left-color:var(--mark)":""}">
+          ${faceTag(r)}<div class="hd"><b>${r.name}</b><span>${majorName(r)} · Lv ${r.lvl}</span></div>
+          <div class="bar" style="margin-top:9px">
+            <span class="tag">받아 간 점수 ${r.gradTaken||0} / ${cap}</span>
+            <button data-grad="${ri}" ${left?"":"disabled"}>미분배 ${left}</button></div></div>`}).join("")}
+      </div>
+      <div class="bar"><span class="tag"></span><button class="ghost" id="bk">캠퍼스로</button></div>`;
+    el.querySelectorAll("[data-grad]").forEach(b=>b.onclick=()=>{
+      const r=G.roster[+b.dataset.grad];
+      if(!r)return;
+      const n=gradLeft(r);
+      if(n<=0)return;
+      /* 받아 가는 순간 장부에 적고 점수로 바꿉니다. 다 쓰지 않고 화면을 벗어나도
+         점수는 그 사람에게 남아 다음 레벨업 화면에서 이어 씁니다 — 사라지지 않습니다 */
+      r.gradTaken=(r.gradTaken||0)+n;
+      r.points+=n;
+      logAdd(r,`대학원 스탯 ${n}점`);
+      G.gradWho=G.roster.indexOf(r);
+      G.scene="gradalloc";render();
+    });
+    document.getElementById("bk").onclick=()=>{G.scene="campus";render()};
+    return;
+  }
+  if(S==="gradalloc"){
+    const r=G.roster[G.gradWho];
+    if(!r){G.scene="grad";render();return}
+    allocScreen(r,`${r.name} · Lv ${r.lvl}`,
+      `대학원이 분석한 것을 몸으로 옮깁니다. 포인트 ${r.points}점.`,
+      ()=>{G.scene="grad";render()});
     return;
   }
   if(S==="clinic"){
