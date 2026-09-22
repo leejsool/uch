@@ -7253,7 +7253,7 @@ function hvEnd(why){
   if(r)r.style.display="none";if(k)k.style.display="none";
   setTimeout(()=>{if(G.scene==="harvestgame"&&AR&&AR.kind==="harvest"){
     G.scene="harvestend";render();
-    popup(`점수 ${AR.score}`,hvPouchMsg(AR.score),"확인");
+    popup(`점수 ${AR.score}`,hvPouchMsg(AR.score),'확인<small class="key">J</small>');
     hvEndAt=Date.now();
   }},why==="caught"?1100:700);
 }
