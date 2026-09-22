@@ -292,6 +292,12 @@
   .pin.lock{color:rgba(255,255,255,.7)}
   .pin:active{transform:scale(.96)}
   .pin.gate{border-radius:999px;animation:pinglow 2.2s ease-in-out infinite}
+  /* 아직 안 해 본 추수로 가는 길 — 지도 이름표 · 건물 안 게임장 · 오락실의 추수 */
+  .pin.new{color:#FFE27A;animation:pinnew 1.4s ease-in-out infinite}
+  @keyframes pinnew{0%,100%{transform:scale(1);text-shadow:0 1px 3px rgba(0,0,0,.75),0 0 4px rgba(255,210,80,.35)}
+    50%{transform:scale(1.1);text-shadow:0 1px 3px rgba(0,0,0,.75),0 0 10px rgba(255,220,100,1),0 0 20px rgba(255,190,60,.85)}}
+  .fac.new{border-color:#F2D74E;animation:facnew 1.4s ease-in-out infinite}
+  @keyframes facnew{0%,100%{box-shadow:0 0 0 0 rgba(242,215,78,0)}50%{box-shadow:0 0 14px 2px rgba(242,215,78,.7)}}
   @keyframes pinglow{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.45)}
     60%{box-shadow:0 0 0 8px rgba(255,255,255,0)}}
   /* 그림 조각 — art 표에 이름을 적으면 이 자리에 들어갑니다 */
@@ -404,6 +410,36 @@
   .npcbar .line span{font-size:12px;color:var(--dim);line-height:1.5}
   #acv{cursor:crosshair;user-select:none;-webkit-user-select:none;touch-action:none}
   #jump{touch-action:manipulation;user-select:none}
+  #hvWrap{position:relative;touch-action:none;user-select:none;-webkit-user-select:none}
+  #hvWrap canvas{cursor:default}
+  .hvpad{display:flex;align-items:center;gap:12px;margin-top:8px;min-height:120px}
+  .hvzone{flex:1;align-self:stretch;border:1px dashed var(--line);border-radius:6px;opacity:.6}
+  .hvbtns{display:flex;align-items:flex-end;gap:12px;padding-right:4px}
+  .hvbtn{position:relative;overflow:hidden;width:76px;height:76px;border-radius:50%;padding:0;font-size:15px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px solid var(--mark);
+    touch-action:none;user-select:none;-webkit-user-select:none}
+  .hvbtn+.hvbtn{margin-bottom:34px}
+  .hvbtn small{font-size:10px;color:var(--dim);font-weight:600;position:relative}
+  .hvbtn i{position:absolute;left:0;right:0;bottom:0;height:0;background:rgba(0,0,0,.6);pointer-events:none}
+  .hvbtn.off{border-color:var(--line)}
+  .hvbtn.ready{animation:hvGlow 1.1s ease-in-out infinite}
+  .hvbtn.ready.pop{animation:hvPop .5s ease-out,hvGlow 1.1s ease-in-out .5s infinite}
+  @keyframes hvGlow{0%,100%{box-shadow:0 0 6px 1px rgba(242,215,78,.45),inset 0 0 8px rgba(242,215,78,.25)}
+    50%{box-shadow:0 0 18px 5px rgba(242,215,78,.85),inset 0 0 14px rgba(242,215,78,.5)}}
+  @keyframes hvPop{0%{transform:scale(1);background:rgba(255,240,170,.9);box-shadow:0 0 0 0 rgba(255,236,140,.95)}
+    40%{transform:scale(1.16);background:rgba(255,240,170,.45)}
+    100%{transform:scale(1);background:transparent;box-shadow:0 0 0 22px rgba(255,236,140,0)}}
+  .hvrec{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+  .hvrec td{padding:4px 6px;border-top:1px solid var(--line)}
+  .hvrec td:first-child{width:28px;color:var(--dim);text-align:right}
+  .hvrec td.sc{font-weight:800;text-align:right}
+  .hvrec td.dt{color:var(--dim);font-size:11.5px;text-align:right}
+  .hvrec tr.me td{color:var(--mark);background:rgba(242,215,78,.08)}
+  button small.key{font-size:10px;color:var(--dim);font-weight:600;margin-left:5px}
+  #hvRing{position:absolute;width:96px;height:96px;margin:-48px 0 0 -48px;border-radius:50%;pointer-events:none;
+    border:2px solid rgba(255,255,255,.35);background:rgba(255,255,255,.06);display:none}
+  #hvKnob{position:absolute;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;pointer-events:none;
+    background:rgba(255,255,255,.55);display:none}
   canvas{width:100%;display:block;background:#12101A;border:1px solid var(--line);border-radius:4px;touch-action:manipulation}
   #feed{font-size:12px;color:var(--dim);line-height:1.7;min-height:56px}
   #feed div:last-child{color:var(--ink)}
@@ -2863,9 +2899,9 @@ const FACILITIES=[
      logAdd(v,"자원 입학");
      claimFace(v);G.roster.push(v);G.recruited++;G.freeRecruit=v;
    }},
-  {id:"arcade",ic:"🕹",n:"게임장",d:"거미 잡기 · 별 줍기 · 좀비 헌터",
+  {id:"arcade",ic:"🕹",n:"게임장",d:"거미 잡기 · 별 줍기 · 좀비 헌터 · 추수",
    cond:g=>g.explores>=1,prog:g=>`탐색 ${Math.min(g.explores,1)} / 1회`,
-   msg:"학생회관 지하 오락실에 전원이 들어왔습니다.<br><br>누군가 게이트 안의 것들을 본떠 만든 기계가 세 대 놓여 있습니다.<br><br>돈은 들지도 나오지도 않습니다. 남는 것은 기록뿐입니다."},
+   msg:"학생회관 지하 오락실에 전원이 들어왔습니다.<br><br>누군가 게이트 안의 것들을 본떠 만든 기계가 네 대 놓여 있습니다.<br><br>돈은 들지도 나오지도 않습니다. 남는 것은 기록뿐입니다."},
   {id:"tower",ic:"🗿",n:"메모리얼 홀",d:"돌아오지 못한 사람들의 기록",
    cond:g=>g.deaths>=1,prog:g=>`첫 사망자가 나오면 열림`,
    msg:"의학대학에 사망자를 기리는 공간을 마련했습니다.<br><br>돌아오지 못한 사람들의 기록이 여기 남습니다."},
@@ -3145,7 +3181,7 @@ function openFacility(id){
   }
   G.talkFor=id;G.talkLine=0;G.talkNext=dest;G.scene="talk";render();
 }
-const CAMPUS_SCENES=["campus","hall","office","shop","admissions","union","market","gates","soon","tower","clinic","arcade","spidergame","stargame","huntgame","spiderend","starend","huntend","dept","work","record","study","grad","gradalloc","train"];
+const CAMPUS_SCENES=["campus","hall","office","shop","admissions","union","market","gates","soon","tower","clinic","arcade","spidergame","stargame","huntgame","harvestgame","spiderend","starend","huntend","harvestend","dept","work","record","study","grad","gradalloc","train"];
 
 /* ═══════════ 그림 ═══════════
    그림은 전부 art 폴더에 둡니다. 빈 칸("")이면 지금처럼 이모지나 글자로 나옵니다.
@@ -3185,6 +3221,7 @@ const facOf=id=>FACILITIES.find(f=>f.id===id);
    쓸 수 있게 되기 전까지 무슨 건물인지 알려주지 않습니다. */
 const bldNamed=b=>b.facs===null||(b.facs&&b.facs.length>0);
 const bldLit=b=>b.facs===null||b.facs.some(id=>facOf(id).cond(G));
+const harvestNew=()=>!!G&&facOf("arcade").cond(G)&&!G.harvestPlayed&&!(G.harvestLog||[]).length;
 
 /* 얼굴 — 성별 풀에서 무작위로 하나 받습니다. 스탯은 보지 않습니다.
    풀이 비거나 이미 다 나갔으면 얼굴 없는 anon 그림으로 나옵니다. */
@@ -3859,7 +3896,7 @@ function newGame(slot){
      medOpen:false,                              /* 의예과 · 회복스프레이 */
      majSeen:[],                                 /* 해금을 이미 알린 전공(majorNote) */
      bedUsed:false,kitFrom:null,questDone:[],restOpen:null,chipSel:null,
-     store:{},loot:{},ground:[],memorial:[],sel:null,invSel:null,rowSel:null,facesUsed:[],gunSeen:{pistol:false,shotgun:false,rifle:false,arrow:false},itemSeen:{},arcadeBest:0,starBest:0,huntBest:0,
+     store:{},loot:{},ground:[],memorial:[],sel:null,invSel:null,rowSel:null,facesUsed:[],gunSeen:{pistol:false,shotgun:false,rifle:false,arrow:false},itemSeen:{},arcadeBest:0,starBest:0,huntBest:0,harvestBest:0,harvestLog:[],harvestPlayed:false,
      tips:{},shopDay:-1,shopSold:[],capFrom:null,shopStock:null,invest:0,unionOpen:false,
      workMode:"who",workOpen:null,                /* 실습동 — 인물별/분류별 · 펼친 부위 */
      beds:1,dorm:DORM_START,squad:SQUAD_START,majorCap:{},dualOpen:false,hallId:null,mapMsg:null,shopWho:0,stripMsg:null,metNpc:{},npcSay:null,npcSayFor:null,talkFor:null,talkLine:0,talkNext:null,appraisal:null,
@@ -5882,8 +5919,8 @@ function goBack(){
   if(pop){if(!pop.classList.contains("lock"))pop.remove();return}
   const S=G.scene;
   if(S==="battle"){togglePause();return}
-  if(S==="spidergame"||S==="stargame"||S==="huntgame"){arcadeStop();AR=null;G.scene="arcade";render();return}
-  if(S==="spiderend"||S==="starend"||S==="huntend"){AR=null;G.scene="arcade";render();return}
+  if(S==="spidergame"||S==="stargame"||S==="huntgame"||S==="harvestgame"){arcadeStop();AR=null;G.scene="arcade";render();return}
+  if(S==="spiderend"||S==="starend"||S==="huntend"||S==="harvestend"){AR=null;G.scene="arcade";render();return}
   if(S==="hall"||S==="gates"){G.scene="campus";render();return}
   if(BACK_FAC_SCENES.includes(S)){
     const b=BUILDINGS.find(x=>x.facs&&x.facs.includes(G.soonName));
@@ -6424,7 +6461,7 @@ let AR=null,araf=null,arlast=0,acv,actx,AW=380,AH=470;
 let huntMouse=null;
 /* 오락실은 돈이 오가지 않습니다 — 요금도 상금도 없고 남는 것은 기록뿐입니다 (2026-09-18).
    상금으로 버는 돈이 게이트에서 버는 것보다 많아져서 탐색할 이유가 없어졌습니다. */
-function arcadeStop(){if(araf)cancelAnimationFrame(araf);araf=null;huntUnhook()}
+function arcadeStop(){if(araf)cancelAnimationFrame(araf);araf=null;huntUnhook();harvestUnhook()}
 function huntUnhook(){
   if(!huntMouse)return;
   window.removeEventListener("mousemove",huntMouse);
@@ -6463,6 +6500,7 @@ function arloop(ts){
   const dt=Math.min(.05,((ts||0)-arlast)/1000);arlast=ts||0;
   if(AR.kind==="star"){if(!AR.over)starStep(dt);starPaint()}
   else if(AR.kind==="hunt"){if(!AR.over)huntStep(dt);huntPaint()}
+  else if(AR.kind==="harvest"){harvestStep(dt);harvestPaint()}
   else{if(!AR.over)arstep(dt);arpaint()}
   araf=requestAnimationFrame(arloop);
 }
@@ -6875,6 +6913,633 @@ function huntZombie(z){
     actx.fillStyle="#B79BEA";actx.fillRect(z.x-w/2,z.y-r-11,w*(z.hp/z.maxHp),5);
     actx.textAlign="center";actx.font="800 11px system-ui";actx.fillStyle="#D9C7F5";
     actx.fillText(z.hp,z.x,z.y-r-15);
+  }
+}
+
+/* ═══════════ 미니게임 · 추수 ═══════════
+   격자 논에서 농부가 쌀을 벱니다. 밟은 칸의 쌀은 저절로 베이고, 힘은 대시(J)·스윕(K) 두 가지.
+   애벌레에게 잡히거나 1분이 지나면 끝 — 벤 것이 점수입니다(황금 벼 +3 · 쌀 +1 · 거머리 −1).
+   농부는 전투 대원 그림(drawAlly), 애벌레는 전투 애벌레(drawFoe)입니다 — 도감처럼 전역 ctx·SX 를
+   잠깐 빌려 그립니다(전투 중에는 게임장에 올 수 없어 서로 밟지 않습니다).
+   움직임은 칸 단위입니다. 한 칸을 다 건너야 다음 칸을 고릅니다 — 거머리의 '몇 칸 동안' 을 세기 위해서. */
+const HV_COLS=9, HV_ROWS=10, HV_TIME=60;
+const HV_STEP=0.17;              /* 농부가 한 칸 가는 데 드는 시간(초) */
+const HV_WORM_STEP=HV_STEP*2;    /* 애벌레는 농부의 절반 빠르기 */
+const HV_DASH_STEP=0.035;        /* 대시 중 한 칸 */
+const HV_DASH_CD=5, HV_SWEEP_CD=6;
+const HV_RICE_LIFE=30;           /* 이만큼 베이지 않은 쌀은 시든다 */
+const HV_RICE_FILL=0.35;         /* 처음에 쌀이 차 있는 비율 */
+const HV_LEECH_LIFE=5;           /* 거머리는 이만큼 붙어 있다 떨어진다 */
+const HV_SLOW=[2,5];             /* 거머리를 베면 이 범위의 칸 수만큼 걸음이 절반 */
+const HV_GOLD_P=0.02;            /* 새로 돋는 쌀이 황금 벼일 확률 */
+const HV_STUN=3;
+const HV_WORM_AT=[30,50];         /* 시작하고 이 초에 애벌레가 한 마리씩 는다 */
+const HV_READY=3;                /* 시작 전 3, 2, 1 */
+const HV_READY_BEAT=0.55;        /* 숫자 하나가 떠 있는 시간(초) — 1초는 답답했습니다 */
+const HV_REC_N=10;               /* 끝 화면에 보여 줄 기록 수 */
+/* 복주머니 — 추석 이벤트 기간에만 줄 예정입니다. **지금은 주지 않고 안내만 띄웁니다.**
+   높은 문턱부터 봅니다: 85점 이상 2개, 60점 이상 1개 */
+const HV_POUCH=[{at:85,n:2,msg:"굉장해요! 추석 이벤트 때 플레이하여 85점 이상을 받으면 복주머니를 2개 드려요!"},
+                {at:60,n:1,msg:"추석 이벤트 때 플레이하여 60점 이상을 받으면 복주머니를 드려요!"}];
+/* 59점 이하 — 앞 문장은 그대로, 뒤의 요령 한 줄은 HV_TIPS 중 하나를 무작위로 */
+const HV_POUCH_LOW="잘했어요. 조금만 더 고득점을 노려 봐요!";
+const HV_TIPS=["스킬과 황금 벼를 잘 활용하세요.","스킬의 쿨타임을 잘 확인하세요.",
+  "지형 파악이 중요해요. 막다른 길로 가면 안 돼요.","욕심내지 말고 잡히지 않는 것이 중요해요.",
+  "애벌레는 농부보다 느려요.","황금 벼를 먹으면 농부가 바라보는 방향으로 애벌레를 밀어요.","60점이 넘으면 특별한 선물을 드릴게요."];
+function hvPouchMsg(sc){const t=HV_POUCH.find(p=>sc>=p.at);return t?t.msg:HV_POUCH_LOW+" "+HV_TIPS[(Math.random()*HV_TIPS.length)|0]}
+const HV_ROCKS=[9,13];           /* 바위 개수 범위 — 그중 2~4개는 꼭 서로 붙인다 */
+const HV_CATCH=0.62;             /* 애벌레와 이만큼(칸 배수) 가까워지면 잡힌다 */
+const HV_TOP=30;                 /* 캔버스 위쪽 점수·시간 줄 */
+const HV_DIRS=[[1,0],[-1,0],[0,1],[0,-1]];
+const HV_KEYDIR={KeyW:[0,-1],KeyS:[0,1],KeyA:[-1,0],KeyD:[1,0],
+  ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0]};
+/* 키 알아보기 — 자리(code)가 먼저. 어떤 키보드·입력기는 code 를 비워 보내므로(방향키↔WASD 바꾸기 모드 등)
+   그때는 찍힌 글자(영문·한글 자모)로, 그것도 없으면 keyCode 로 봅니다 */
+const HV_KEYNAME={w:"KeyW",a:"KeyA",s:"KeyS",d:"KeyD",j:"KeyJ",k:"KeyK",
+  "ㅈ":"KeyW","ㅉ":"KeyW","ㅁ":"KeyA","ㄴ":"KeyS","ㅇ":"KeyD","ㅓ":"KeyJ","ㅏ":"KeyK",
+  arrowup:"ArrowUp",arrowdown:"ArrowDown",arrowleft:"ArrowLeft",arrowright:"ArrowRight",
+  up:"ArrowUp",down:"ArrowDown",left:"ArrowLeft",right:"ArrowRight",enter:"Enter"," ":"Space"};
+const HV_KEYNUM={87:"KeyW",65:"KeyA",83:"KeyS",68:"KeyD",74:"KeyJ",75:"KeyK",
+  38:"ArrowUp",40:"ArrowDown",37:"ArrowLeft",39:"ArrowRight",13:"Enter",32:"Space"};
+function hvCode(e){
+  if(e.code)return e.code;
+  const k=(e.key||"").toLowerCase();
+  return HV_KEYNAME[k]||HV_KEYNUM[e.keyCode]||"";
+}
+const HV_ART={rice:"mini/rice.webp",rock:"mini/rock.webp"};
+const HV_IMG={};
+function hvImg(k){
+  let s=HV_IMG[k];
+  if(!s){s=new Image();s.ok=false;s.onload=()=>{s.ok=true};s.src=artUrl(HV_ART[k]);HV_IMG[k]=s}
+  return s.ok?s:null;
+}
+/* 키보드는 창 전체에서 받습니다. arcadeStop 이 뗍니다 */
+let hvKeys=null, hvUp=null, hvBlur=null, hvEndAt=0;
+function harvestUnhook(){
+  if(!hvKeys)return;
+  window.removeEventListener("keydown",hvKeys);window.removeEventListener("keyup",hvUp);
+  window.removeEventListener("blur",hvBlur);
+  hvKeys=hvUp=hvBlur=null;
+}
+const hvIn=(x,y)=>x>=0&&y>=0&&x<HV_COLS&&y<HV_ROWS;
+const hvOpen=(rock,x,y)=>hvIn(x,y)&&!rock[y*HV_COLS+x];
+function hvBfs(rock,sx,sy){
+  const C=HV_COLS,d=new Array(C*HV_ROWS).fill(-1),q=[sx+sy*C];d[q[0]]=0;
+  for(let h=0;h<q.length;h++){
+    const i=q[h],x=i%C,y=(i/C)|0;
+    for(const [dx,dy] of HV_DIRS){
+      const nx=x+dx,ny=y+dy;
+      if(!hvOpen(rock,nx,ny))continue;
+      const j=nx+ny*C;if(d[j]<0){d[j]=d[i]+1;q.push(j)}
+    }
+  }
+  return d;
+}
+/* 바위 놓기 — 붙은 무더기 하나(2~4개)를 먼저 세우고 낱개를 흩뿌립니다.
+   농부가 서는 가운데 3×3 은 비우고, 빈 칸이 전부 이어져 있을 때만 씁니다(갇힌 칸이 없게) */
+function hvMap(){
+  const C=HV_COLS,R=HV_ROWS,mx=C>>1,my=R>>1;
+  const safe=(x,y)=>Math.abs(x-mx)<=1&&Math.abs(y-my)<=1;
+  const rnd=n=>(Math.random()*n)|0;
+  for(let tries=0;tries<300;tries++){
+    const rock=new Array(C*R).fill(false);
+    const x0=rnd(C),y0=rnd(R);
+    if(safe(x0,y0))continue;
+    const pile=[[x0,y0]];rock[y0*C+x0]=true;
+    const want=2+rnd(3);
+    for(let k=0;k<40&&pile.length<want;k++){
+      const [px,py]=pile[rnd(pile.length)], [dx,dy]=HV_DIRS[rnd(4)];
+      const nx=px+dx,ny=py+dy;
+      if(!hvIn(nx,ny)||safe(nx,ny)||rock[ny*C+nx])continue;
+      rock[ny*C+nx]=true;pile.push([nx,ny]);
+    }
+    if(pile.length<2)continue;
+    const total=HV_ROCKS[0]+rnd(HV_ROCKS[1]-HV_ROCKS[0]+1);
+    let n=pile.length;
+    for(let k=0;k<200&&n<total;k++){
+      const x=rnd(C),y=rnd(R);
+      if(safe(x,y)||rock[y*C+x])continue;
+      rock[y*C+x]=true;n++;
+    }
+    const d=hvBfs(rock,mx,my);
+    if(d.every((v,i)=>rock[i]||v>=0))return rock;
+  }
+  return new Array(C*R).fill(false);
+}
+function harvestStart(){
+  harvestUnhook();
+  G.harvestPlayed=true;                      /* 지도·게임장의 강조를 끕니다 */
+  acv=document.getElementById("acv");actx=acv.getContext("2d");
+  hvImg("rice");hvImg("rock");sprite("worm");allySprite("m-front");allySprite("m-back");
+  const dpr=window.devicePixelRatio||1;
+  AW=acv.clientWidth;
+  if(AW<120)AW=380;                          /* 창이 가려져 폭이 0으로 잡힐 때 */
+  const cell=Math.floor((AW-8)/HV_COLS);
+  AH=HV_TOP+cell*HV_ROWS+6;
+  acv.width=AW*dpr;acv.height=AH*dpr;acv.style.height=AH+"px";
+  actx.setTransform(dpr,0,0,dpr,0,0);
+  const rock=hvMap(), mx=HV_COLS>>1, my=HV_ROWS>>1;
+  AR={kind:"harvest",score:0,t:HV_TIME,over:false,end:"",rock,rice:new Array(HV_COLS*HV_ROWS).fill(null),
+      cell,ox:Math.floor((AW-cell*HV_COLS)/2),oy:HV_TOP,dpr,bg:null,
+      f:{cx:mx,cy:my,tx:mx,ty:my,p:1,dur:HV_STEP,dx:0,dy:1,slowN:0,slowStep:false,dash:false},
+      u:{x:0,y:0,r:1,face:Math.PI/2,sex:"m",name:"",hp:1,maxHp:1,color:"#4FC3D9",flash:0},
+      worms:[],wormN:0,ready:HV_READY*HV_READY_BEAT,spAcc:0,leechAcc:0,sinceBite:0,dashCd:0,sweepCd:0,
+      pops:[],fx:[],pts:[],keys:[],joy:null,clock:0};
+  /* 처음 쌀 — 농부 발밑은 비워 둡니다 */
+  const open=[];
+  for(let i=0;i<rock.length;i++)if(!rock[i]&&i!==my*HV_COLS+mx)open.push(i);
+  for(let k=Math.round(open.length*HV_RICE_FILL);k>0&&open.length;k--){
+    const i=open.splice((Math.random()*open.length)|0,1)[0];
+    AR.rice[i]={age:3+Math.random()*8,gold:false,leech:0,lage:0};
+  }
+  hvAddWorm();AR.worms[0].born=1;              /* 첫 애벌레는 카운트다운 때부터 보이게 */
+  hvBind();
+  arlast=0;arloop();
+}
+/* ── 입력 ── 손가락: 짚은 자리가 조이스틱의 가운데. 버튼 위에서 시작한 터치는 버튼 몫입니다 */
+function hvBind(){
+  const wrap=document.getElementById("hvWrap");
+  const ring=document.getElementById("hvRing"), knob=document.getElementById("hvKnob");
+  const show=()=>{
+    const j=AR&&AR.joy;
+    if(!j){ring.style.display=knob.style.display="none";return}
+    const vx=j.x-j.x0,vy=j.y-j.y0,l=Math.hypot(vx,vy),k=l>38?38/l:1;
+    ring.style.display=knob.style.display="block";
+    ring.style.left=j.x0+"px";ring.style.top=j.y0+"px";
+    knob.style.left=(j.x0+vx*k)+"px";knob.style.top=(j.y0+vy*k)+"px";
+  };
+  const at=pt=>{const rc=wrap.getBoundingClientRect();return{x:pt.clientX-rc.left,y:pt.clientY-rc.top}};
+  const onBtn=t=>t&&t.closest&&t.closest(".hvbtns");
+  wrap.addEventListener("touchstart",ev=>{
+    if(!AR||AR.kind!=="harvest")return;
+    for(const t of ev.changedTouches){
+      if(onBtn(t.target)||AR.joy)continue;
+      const q=at(t);AR.joy={id:t.identifier,x0:q.x,y0:q.y,x:q.x,y:q.y};
+    }
+    if(ev.cancelable&&!onBtn(ev.target))ev.preventDefault();
+    show();
+  },{passive:false});
+  wrap.addEventListener("touchmove",ev=>{
+    if(!AR||!AR.joy)return;
+    for(const t of ev.changedTouches)if(t.identifier===AR.joy.id){const q=at(t);AR.joy.x=q.x;AR.joy.y=q.y}
+    if(ev.cancelable)ev.preventDefault();
+    show();
+  },{passive:false});
+  const tend=ev=>{
+    if(!AR||!AR.joy)return;
+    for(const t of ev.changedTouches)if(t.identifier===AR.joy.id)AR.joy=null;
+    show();
+  };
+  wrap.addEventListener("touchend",tend);wrap.addEventListener("touchcancel",tend);
+  /* 마우스도 끌면 같은 조이스틱 */
+  wrap.addEventListener("mousedown",ev=>{
+    if(!AR||AR.kind!=="harvest"||onBtn(ev.target))return;
+    const q=at(ev);AR.joy={id:"m",x0:q.x,y0:q.y,x:q.x,y:q.y};show();
+  });
+  wrap.addEventListener("mousemove",ev=>{if(AR&&AR.joy&&AR.joy.id==="m"){const q=at(ev);AR.joy.x=q.x;AR.joy.y=q.y;show()}});
+  const mend=()=>{if(AR&&AR.joy&&AR.joy.id==="m"){AR.joy=null;show()}};
+  wrap.addEventListener("mouseup",mend);wrap.addEventListener("mouseleave",mend);
+  for(const [id,fn] of [["hvDash",hvDash],["hvSweep",hvSweep]]){
+    const b=document.getElementById(id);
+    b.addEventListener("touchstart",e=>{if(e.cancelable)e.preventDefault();fn()},{passive:false});
+    b.addEventListener("mousedown",e=>{e.preventDefault();fn()});
+  }
+  /* 키는 자리(code)로 봅니다 — 한글 자판에서도 W 자리는 W 입니다 */
+  hvKeys=e=>{
+    if(G.scene!=="harvestgame"||!AR||AR.kind!=="harvest")return;
+    const c=hvCode(e);
+    if(HV_KEYDIR[c]){e.preventDefault();if(!AR.keys.includes(c))AR.keys.push(c);return}
+    if(c==="KeyJ"){e.preventDefault();if(!e.repeat)hvDash()}
+    else if(c==="KeyK"){e.preventDefault();if(!e.repeat)hvSweep()}
+  };
+  hvUp=e=>{const c=hvCode(e);if(AR&&AR.keys)AR.keys=AR.keys.filter(k=>k!==c)};
+  hvBlur=()=>{if(AR&&AR.keys)AR.keys=[]};
+  window.addEventListener("keydown",hvKeys);window.addEventListener("keyup",hvUp);
+  window.addEventListener("blur",hvBlur);
+}
+/* 지금 누르고 있는 방향 — 조이스틱이 먼저, 없으면 마지막에 누른 키. 네 방향으로만 */
+function hvInput(){
+  const j=AR.joy;
+  if(j){
+    const vx=j.x-j.x0,vy=j.y-j.y0;
+    if(Math.hypot(vx,vy)>=14)return Math.abs(vx)>Math.abs(vy)?[Math.sign(vx),0]:[0,Math.sign(vy)];
+  }
+  const k=AR.keys[AR.keys.length-1];
+  return k?HV_KEYDIR[k]:null;
+}
+const hvPx=x=>AR.ox+(x+.5)*AR.cell, hvPy=y=>AR.oy+(y+.5)*AR.cell;
+/* 한 칸 내딛기. 막혔으면 false */
+function hvStep(dx,dy,dur,slow){
+  const f=AR.f,nx=f.cx+dx,ny=f.cy+dy;
+  if(!hvOpen(AR.rock,nx,ny))return false;
+  f.tx=nx;f.ty=ny;f.p=0;f.dur=dur;f.slowStep=!!slow;
+  return true;
+}
+function hvDash(){
+  if(!AR||AR.kind!=="harvest"||AR.over||AR.ready>0||AR.dashCd>0||AR.f.dash)return;
+  const f=AR.f;
+  if(f.p<1){f.dur=HV_DASH_STEP;f.slowStep=false}     /* 걷던 칸도 그대로 이어서 내달린다 */
+  else if(!hvStep(f.dx,f.dy,HV_DASH_STEP,false))return;   /* 코앞이 막혔으면 쓰지 않은 것으로 */
+  f.dash=true;AR.dashCd=HV_DASH_CD;
+  sfx("대시");
+}
+function hvSweep(){
+  if(!AR||AR.kind!=="harvest"||AR.over||AR.ready>0||AR.sweepCd>0)return;
+  const f=AR.f, near=f.p<.5, x=near?f.cx:f.tx, y=near?f.cy:f.ty;
+  AR.sweepCd=HV_SWEEP_CD;
+  AR.fx.push({k:"sweep",x,y,life:.34,max:.34});
+  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)hvCut(x+dx,y+dy);
+  sfx("스윕");
+}
+/* 한 칸을 벱니다 */
+function hvCut(x,y){
+  if(!hvIn(x,y))return false;
+  const i=y*HV_COLS+x, r=AR.rice[i];
+  if(!r)return false;
+  AR.rice[i]=null;
+  const px=hvPx(x),py=hvPy(y);
+  if(r.leech>0){
+    AR.score-=1;AR.sinceBite=0;sfx("두둥");
+    AR.f.slowN=HV_SLOW[0]+((Math.random()*(HV_SLOW[1]-HV_SLOW[0]+1))|0);
+    AR.pops.push({x:px,y:py-6,life:.8,t:"-1",c:"#F25C5C"});
+  }else if(r.gold){
+    AR.score+=3;
+    AR.pops.push({x:px,y:py-6,life:.9,t:"+3",c:"#FFE070"});
+    AR.fx.push({k:"flash",x,y,life:.4,max:.4});
+    hvShove();
+  }else{
+    AR.score+=1;
+    AR.pops.push({x:px,y:py-6,life:.6,t:"+1",c:"#EAF7C8"});
+  }
+  const n=r.gold?14:7;
+  for(let k=0;k<n;k++){
+    const a=Math.random()*Math.PI*2,s=40+Math.random()*80;
+    AR.pts.push({x:px,y:py,vx:Math.cos(a)*s,vy:Math.sin(a)*s-60,life:.5+Math.random()*.3,
+      c:r.gold?"#FFE680":r.leech>0?"#5A3A28":"#E9C552"});
+  }
+  return true;
+}
+/* 황금 벼 — 애벌레를 전부 농부가 보는 쪽으로 끝까지 밀어붙이고 기절시킵니다 */
+function hvShove(){
+  const f=AR.f;
+  for(const w of AR.worms){
+    const near=w.p<.5, sx=near?w.cx:w.tx, sy=near?w.cy:w.ty;
+    let ex=sx,ey=sy;
+    while(hvOpen(AR.rock,ex+f.dx,ey+f.dy)){ex+=f.dx;ey+=f.dy}
+    const n=Math.abs(ex-sx)+Math.abs(ey-sy);
+    w.push={x0:hvWormX(w),y0:hvWormY(w),ex,ey,t:0,dur:Math.max(.14,n*.05)};
+    w.cx=w.tx=ex;w.cy=w.ty=ey;w.p=1;w.f.stunT=0;
+  }
+}
+const hvWormX=w=>w.push?w.push.x0+(hvPx(w.push.ex)-w.push.x0)*hvEase(w.push.t/w.push.dur):hvPx(w.cx+(w.tx-w.cx)*w.p);
+const hvWormY=w=>w.push?w.push.y0+(hvPy(w.push.ey)-w.push.y0)*hvEase(w.push.t/w.push.dur):hvPy(w.cy+(w.ty-w.cy)*w.p);
+const hvEase=k=>{k=Math.min(1,Math.max(0,k));return 1-(1-k)*(1-k)};
+/* 애벌레 하나 더 — 농부에게서 가장 먼 칸 가운데 하나 */
+function hvAddWorm(){
+  const f=AR.f,d=hvBfs(AR.rock,f.tx,f.ty);
+  const busy=new Set(AR.worms.flatMap(w=>[w.cx+w.cy*HV_COLS,w.tx+w.ty*HV_COLS]));
+  let far=0;for(const v of d)far=Math.max(far,v);
+  const pick=d.map((v,i)=>i).filter(i=>d[i]>=far-1&&!busy.has(i));
+  const i=pick[(Math.random()*pick.length)|0]??0, x=i%HV_COLS, y=(i/HV_COLS)|0;
+  AR.worms.push({cx:x,cy:y,tx:x,ty:y,p:1,born:0,push:null,
+    f:{key:"worm",x:0,y:0,r:1,face:Math.PI,surge:0,wig:Math.random()*6,flash:0,color:"#A6C94A",stunT:0}});
+  AR.fx.push({k:"ring",x,y,life:.6,max:.6});
+}
+function harvestStep(dt){
+  AR.clock+=dt;
+  AR.pops=AR.pops.filter(p=>{p.life-=dt;p.y-=26*dt;return p.life>0});
+  AR.fx=AR.fx.filter(e=>(e.life-=dt)>0);
+  AR.pts=AR.pts.filter(p=>{p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=260*dt;return p.life>0});
+  for(const w of AR.worms)w.f.wig+=dt*3;
+  if(AR.over){if(AR.u.flash>0)AR.u.flash-=dt;return}
+  if(AR.ready>0){                          /* 3, 2, 1 — 그동안은 아무것도 흐르지 않습니다 */
+    AR.ready-=dt;
+    if(AR.ready<=0)sfx("시작종");          /* 카운트가 끝나 막 시작하는 순간 */
+    return;
+  }
+  AR.t-=dt;
+  if(AR.t<=0){AR.t=0;hvEnd("time");return}
+  AR.dashCd=Math.max(0,AR.dashCd-dt);AR.sweepCd=Math.max(0,AR.sweepCd-dt);
+  while(AR.wormN<HV_WORM_AT.length&&HV_TIME-AR.t>=HV_WORM_AT[AR.wormN]){AR.wormN++;hvAddWorm()}
+  hvFarmer(dt);
+  hvGrow(dt);
+  hvWorms(dt);
+  /* 잡혔는가 — 기절했거나 밀려 가는 애벌레는 물지 못합니다 */
+  const fx=hvPx(AR.f.cx+(AR.f.tx-AR.f.cx)*AR.f.p), fy=hvPy(AR.f.cy+(AR.f.ty-AR.f.cy)*AR.f.p);
+  for(const w of AR.worms){
+    if(w.push||w.f.stunT>0||w.born<.5)continue;
+    if(Math.hypot(hvWormX(w)-fx,hvWormY(w)-fy)<AR.cell*HV_CATCH){hvEnd("caught");return}
+  }
+  /* 버튼의 남은 시간 막 */
+  const cd=(id,v,m)=>{const b=document.getElementById(id);if(!b)return;
+    const i=b.querySelector("i");if(i)i.style.height=(v/m*100)+"%";
+    const was=b.classList.contains("off");
+    b.classList.toggle("off",v>0);b.classList.toggle("ready",v<=0);
+    /* 막 다 찬 순간 한 번 번쩍 — 애니메이션을 처음부터 다시 돌리려고 class 를 뗐다 붙입니다 */
+    if(was&&v<=0){b.classList.remove("pop");void b.offsetWidth;b.classList.add("pop")}};
+  cd("hvDash",AR.dashCd,HV_DASH_CD);cd("hvSweep",AR.sweepCd,HV_SWEEP_CD);
+}
+function hvEnd(why){
+  AR.over=true;AR.end=why;AR.f.dash=false;AR.joy=null;
+  AR.best=AR.score>(G.harvestBest||0);
+  if(AR.best)G.harvestBest=AR.score;
+  const d=new Date();
+  AR.rec={s:AR.score,d:`${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}`,e:why};
+  /* 높은 점수부터 열 개만 남깁니다. 같은 점수면 먼저 낸 기록이 위 */
+  G.harvestLog=[...(G.harvestLog||[]),AR.rec].sort((a,b)=>b.s-a.s).slice(0,HV_REC_N);
+  saveGame&&saveGame();
+  if(why==="caught"){AR.u.flash=.9;sfx("실패")}else sfx("종료");
+  const r=document.getElementById("hvRing"),k=document.getElementById("hvKnob");
+  if(r)r.style.display="none";if(k)k.style.display="none";
+  setTimeout(()=>{if(G.scene==="harvestgame"&&AR&&AR.kind==="harvest"){
+    G.scene="harvestend";render();
+    popup(`점수 ${AR.score}`,hvPouchMsg(AR.score),"확인");
+    hvEndAt=Date.now();
+  }},why==="caught"?1100:700);
+}
+function hvFarmer(dt){
+  const f=AR.f;
+  if(f.p<1){
+    f.p=Math.min(1,f.p+dt/f.dur);
+    if(f.dash)AR.fx.push({k:"trail",fx:f.cx+(f.tx-f.cx)*f.p,fy:f.cy+(f.ty-f.cy)*f.p,life:.22,max:.22});
+    if(f.p>=1){
+      f.cx=f.tx;f.cy=f.ty;
+      if(f.slowStep&&f.slowN>0)f.slowN--;          /* 거머리에 물린 걸음을 하나 채웠다 */
+      if(hvCut(f.cx,f.cy)){
+        AR.swing=-(AR.swing||1);
+        AR.fx.push({k:"slash",x:f.cx,y:f.cy,a:Math.atan2(f.dy,f.dx),side:AR.swing,life:.2,max:.2});
+      }
+    }
+  }
+  if(f.p<1)return;
+  if(f.dash&&!hvStep(f.dx,f.dy,HV_DASH_STEP,false))f.dash=false;
+  if(f.dash)return;
+  const d=hvInput();
+  if(!d)return;
+  f.dx=d[0];f.dy=d[1];
+  const slow=f.slowN>0;
+  hvStep(d[0],d[1],slow?HV_STEP*2:HV_STEP,slow);
+}
+/* 쌀이 돋고 시들고, 거머리가 붙고 떨어집니다.
+   논이 빌수록 빨리 돋습니다 — 꽉 차면 초당 0.4포기, 다 비면 초당 6.4포기.
+   거머리는 오래 안 물릴수록 자주 붙습니다 — 물린 직후 초당 0.15, 1초마다 0.02씩 올라 1.5까지 */
+function hvGrow(dt){
+  const f=AR.f,N=HV_COLS*HV_ROWS;
+  let n=0,free=0;
+  for(let i=0;i<N;i++){
+    if(AR.rock[i])continue;free++;
+    const r=AR.rice[i];if(!r)continue;
+    r.age+=dt;
+    if(r.leech>0){r.leech-=dt;r.lage+=dt;if(r.leech<=0)r.leech=0}
+    if(r.age>=HV_RICE_LIFE){AR.rice[i]=null;AR.fx.push({k:"wither",x:i%HV_COLS,y:(i/HV_COLS)|0,life:.5,max:.5});continue}
+    n++;
+  }
+  const empty=1-n/free;
+  AR.spAcc+=dt*(0.4+6*empty*empty);
+  const busy=new Set([f.cx+f.cy*HV_COLS,f.tx+f.ty*HV_COLS,...AR.worms.flatMap(w=>[w.cx+w.cy*HV_COLS,w.tx+w.ty*HV_COLS])]);
+  while(AR.spAcc>=1){
+    AR.spAcc-=1;
+    const open=[];
+    for(let i=0;i<N;i++)if(!AR.rock[i]&&!AR.rice[i]&&!busy.has(i))open.push(i);
+    if(!open.length)break;
+    AR.rice[open[(Math.random()*open.length)|0]]={age:0,gold:Math.random()<HV_GOLD_P,leech:0,lage:0};
+  }
+  AR.sinceBite+=dt;
+  AR.leechAcc+=dt*Math.min(1.5,0.15+AR.sinceBite*0.02);
+  while(AR.leechAcc>=1){
+    AR.leechAcc-=1;
+    const host=[];
+    for(let i=0;i<N;i++){const r=AR.rice[i];if(r&&!r.gold&&r.leech<=0&&r.age>.4&&!busy.has(i))host.push(i)}
+    if(!host.length)break;
+    const r=AR.rice[host[(Math.random()*host.length)|0]];r.leech=HV_LEECH_LIFE;r.lage=0;
+  }
+}
+/* 애벌레 — 바위를 돌아 농부가 향하는 칸으로 가장 짧은 길을 밟습니다.
+   다른 애벌레가 차지한(또는 가려는) 칸은 비켜 가고, 달리 갈 데가 없으면 잠깐 섭니다 */
+function hvWorms(dt){
+  const f=AR.f,d=hvBfs(AR.rock,f.tx,f.ty);
+  for(const w of AR.worms){
+    w.born+=dt;
+    if(w.push){
+      w.push.t+=dt;
+      if(w.push.t>=w.push.dur){w.push=null;w.f.stunT=HV_STUN}
+      w.f.surge*=.8;continue;
+    }
+    if(w.f.stunT>0){w.f.stunT=Math.max(0,w.f.stunT-dt);w.f.surge*=.9;continue}
+    if(w.p<1){
+      w.p=Math.min(1,w.p+dt/HV_WORM_STEP);
+      w.f.surge=Math.pow(Math.sin(Math.PI*w.p),2);
+      if(w.p>=1){w.cx=w.tx;w.cy=w.ty}
+    }else w.f.surge*=.85;
+    if(w.p<1)continue;
+    const here=d[w.cx+w.cy*HV_COLS];
+    const busy=new Set(AR.worms.filter(o=>o!==w).flatMap(o=>[o.cx+o.cy*HV_COLS,o.tx+o.ty*HV_COLS]));
+    let best=null,bd=here<0?1e9:here;
+    for(const [dx,dy] of HV_DIRS.slice().sort(()=>Math.random()-.5)){
+      const nx=w.cx+dx,ny=w.cy+dy;
+      if(!hvOpen(AR.rock,nx,ny))continue;
+      const j=nx+ny*HV_COLS;
+      if(d[j]<0||d[j]>=bd||busy.has(j))continue;
+      bd=d[j];best=[dx,dy];
+    }
+    if(best){w.tx=w.cx+best[0];w.ty=w.cy+best[1];w.p=0;w.f.face=Math.atan2(best[1],best[0])}
+  }
+}
+/* 풀밭 바닥 — 한 번만 그려 두고 매 장면 통째로 붙입니다 */
+function hvBackground(){
+  const c=AR.cell,dpr=AR.dpr,C=HV_COLS,R=HV_ROWS;
+  const oc=document.createElement("canvas");oc.width=C*c*dpr;oc.height=R*c*dpr;
+  const g=oc.getContext("2d");g.scale(dpr,dpr);
+  g.fillStyle="#6A8A27";g.fillRect(0,0,C*c,R*c);
+  for(let k=0;k<C*R*26;k++){
+    const x=Math.random()*C*c,y=Math.random()*R*c,h=3+Math.random()*6,l=Math.random();
+    g.strokeStyle=l<.5?"rgba(38,70,14,.45)":"rgba(170,205,80,.35)";g.lineWidth=1.2;
+    g.beginPath();g.moveTo(x,y);g.lineTo(x+(Math.random()-.5)*3,y-h);g.stroke();
+  }
+  g.strokeStyle="rgba(20,40,8,.18)";g.lineWidth=1;
+  for(let x=1;x<C;x++){g.beginPath();g.moveTo(x*c+.5,0);g.lineTo(x*c+.5,R*c);g.stroke()}
+  for(let y=1;y<R;y++){g.beginPath();g.moveTo(0,y*c+.5);g.lineTo(C*c,y*c+.5);g.stroke()}
+  return oc;
+}
+function harvestPaint(){
+  const c=AR.cell,ox=AR.ox,oy=AR.oy,C=HV_COLS,R=HV_ROWS,now=AR.clock;
+  actx.clearRect(0,0,AW,AH);
+  actx.fillStyle="#15121F";actx.fillRect(0,0,AW,AH);
+  if(!AR.bg)AR.bg=hvBackground();
+  actx.drawImage(AR.bg,ox,oy,C*c,R*c);
+  const rockI=hvImg("rock"),riceI=hvImg("rice");
+  for(let i=0;i<C*R;i++){
+    const x=ox+(i%C)*c,y=oy+((i/C)|0)*c;
+    if(AR.rock[i]){
+      if(rockI){
+        actx.fillStyle="rgba(20,30,6,.38)";
+        actx.beginPath();actx.ellipse(x+c/2,y+c*.8,c*.42,c*.14,0,0,7);actx.fill();
+        actx.drawImage(rockI,x-c*.04,y-c*.1,c*1.08,c*1.08);
+      }
+      else{actx.fillStyle="#7A7266";actx.beginPath();actx.arc(x+c/2,y+c/2,c*.36,0,7);actx.fill()}
+      continue;
+    }
+    const r=AR.rice[i];if(!r)continue;
+    hvRice(r,x,y,c,riceI,now);
+  }
+  for(const e of AR.fx)if(e.k!=="slash")hvFx(e,c);
+  /* 농부와 애벌레 — 아래쪽에 있는 것이 앞에 */
+  const f=AR.f,u=AR.u,S=AW/100;
+  const fpx=hvPx(f.cx+(f.tx-f.cx)*f.p), fpy=hvPy(f.cy+(f.ty-f.cy)*f.p);
+  u.face=Math.atan2(f.dy,f.dx);
+  const ents=[{y:fpy,draw:()=>{
+    u.x=fpx/S;u.y=(fpy+c*.14)/S;u.r=c*.3/S;
+    if(AR.over&&AR.end==="caught"){u.flash=(Math.floor(now*10)%2)?.1:0}
+    drawAlly(u);
+    if(f.slowN>0)hvLeech(fpx+c*.16,fpy+c*.28,c*.6,now,99,1);
+  }}];
+  for(const w of AR.worms){
+    const wx=hvWormX(w),wy=hvWormY(w);
+    ents.push({y:wy,draw:()=>{
+      w.f.x=wx/S;w.f.y=wy/S;w.f.r=c*.26/S;
+      actx.globalAlpha=Math.min(1,w.born/.5);
+      drawFoe(w.f);
+      actx.globalAlpha=1;
+    }});
+  }
+  ents.sort((a,b)=>a.y-b.y);
+  const oc=ctx,ox2=SX,oy2=SY,ob=bar;
+  ctx=actx;SX=SY=S;bar=()=>{};
+  try{for(const e of ents)e.draw()}finally{ctx=oc;SX=ox2;SY=oy2;bar=ob}
+  for(const e of AR.fx)if(e.k==="slash")hvFx(e,c);
+  /* 낟알 */
+  for(const p of AR.pts){actx.globalAlpha=Math.min(1,p.life*2.5);actx.fillStyle=p.c;actx.fillRect(p.x-1.5,p.y-1.5,3,3)}
+  actx.globalAlpha=1;
+  actx.textAlign="center";actx.font="900 15px system-ui";
+  for(const p of AR.pops){
+    actx.globalAlpha=Math.min(1,p.life*2.2);
+    actx.strokeStyle="rgba(0,0,0,.65)";actx.lineWidth=3;actx.strokeText(p.t,p.x,p.y);
+    actx.fillStyle=p.c;actx.fillText(p.t,p.x,p.y);
+  }
+  actx.globalAlpha=1;
+  /* 위쪽 줄 — 점수와 남은 시간 */
+  if(riceI)actx.drawImage(riceI,ox,4,22,22);
+  actx.textAlign="left";actx.font="800 16px system-ui";actx.fillStyle="#F2D74E";
+  actx.fillText(AR.score,ox+28,21);
+  const s=Math.ceil(AR.t);
+  actx.textAlign="right";actx.fillStyle=AR.t<15?"#F25C5C":"#C9C2D8";
+  actx.fillText(`${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`,ox+C*c,21);
+  if(AR.ready>0){
+    /* 3, 2, 1 — 숫자마다 크게 튀어나왔다 줄어듭니다 */
+    const q=AR.ready/HV_READY_BEAT, n=Math.ceil(q), k=n-q;          /* 이 숫자가 뜬 지 얼마나 됐나 (0~1) */
+    actx.fillStyle="rgba(10,8,18,.45)";actx.fillRect(ox,oy,C*c,R*c);
+    actx.save();actx.translate(ox+C*c/2,oy+R*c/2);
+    const sc=1+Math.max(0,.6-k*2.4);actx.scale(sc,sc);
+    actx.globalAlpha=Math.min(1,(1-k)*3);
+    actx.textAlign="center";actx.textBaseline="middle";actx.font="900 84px system-ui";
+    actx.lineWidth=7;actx.strokeStyle="rgba(0,0,0,.7)";actx.strokeText(n,0,0);
+    actx.fillStyle="#F2D74E";actx.fillText(n,0,0);
+    actx.restore();actx.textBaseline="alphabetic";
+  }
+}
+function hvRice(r,x,y,c,img,now){
+  /* 돋을 때는 톡 솟고, 시들기 3초 전부터 깜빡입니다 */
+  const k=Math.min(1,r.age/.28), grow=k<1?k*(1.25-.25*k):1;
+  const left=HV_RICE_LIFE-r.age;
+  const al=left<3?.35+.65*Math.abs(Math.cos(r.age*(9-left*1.5))):1;
+  const cx=x+c/2,cy=y+c/2;
+  actx.save();actx.globalAlpha=al;
+  if(r.gold){
+    /* 황금 벼 — 뒤에서 빛이 부풀고, 빛살이 돌고, 반짝이가 피어오릅니다 */
+    const pulse=.75+.25*Math.sin(now*5+x);
+    actx.globalCompositeOperation="lighter";
+    const gr=actx.createRadialGradient(cx,cy,0,cx,cy,c*.75);
+    gr.addColorStop(0,`rgba(255,220,90,${.55*pulse})`);gr.addColorStop(1,"rgba(255,200,60,0)");
+    actx.fillStyle=gr;actx.fillRect(x-c*.3,y-c*.3,c*1.6,c*1.6);
+    actx.restore();actx.save();actx.globalAlpha=al;
+  }
+  actx.translate(cx,cy);actx.scale(grow,grow);
+  if(img)actx.drawImage(img,-c/2,-c/2,c,c);
+  else{actx.fillStyle="#D9B23A";actx.beginPath();actx.arc(0,0,c*.3,0,7);actx.fill()}
+  if(r.gold){
+    actx.globalCompositeOperation="lighter";
+    actx.globalAlpha=al*(.35+.15*Math.sin(now*6));
+    if(img)actx.drawImage(img,-c/2,-c/2,c,c);
+    actx.globalAlpha=al*.3;actx.fillStyle="#FFE58A";
+    for(let i=0;i<6;i++){
+      const a=now*.9+i*Math.PI/3;
+      actx.beginPath();actx.moveTo(0,0);
+      actx.lineTo(Math.cos(a-.09)*c*.8,Math.sin(a-.09)*c*.8);
+      actx.lineTo(Math.cos(a+.09)*c*.8,Math.sin(a+.09)*c*.8);actx.fill();
+    }
+    for(let i=0;i<4;i++){
+      const ph=(now*.8+i/4)%1, sx=Math.sin(i*2.7+x)*c*.3, sy=c*.25-ph*c*.7, sz=c*.07*(1-Math.abs(ph*2-1));
+      actx.globalAlpha=al*(1-ph);actx.fillStyle="#FFF6C8";
+      actx.beginPath();actx.moveTo(sx,sy-sz*2);actx.lineTo(sx+sz*.5,sy);actx.lineTo(sx,sy+sz*2);
+      actx.lineTo(sx-sz*.5,sy);actx.closePath();actx.fill();
+      actx.beginPath();actx.moveTo(sx-sz*2,sy);actx.lineTo(sx,sy+sz*.5);actx.lineTo(sx+sz*2,sy);
+      actx.lineTo(sx,sy-sz*.5);actx.closePath();actx.fill();
+    }
+  }
+  actx.restore();
+  if(r.leech>0)hvLeech(cx+c*.1,cy+c*.12,c,now+x*.01,r.leech,Math.min(1,r.lage/.2));
+}
+/* 거머리 — 검붉은 마디가 꿈틀거립니다. 떨어지기 1초 전부터 깜빡입니다 */
+function hvLeech(x,y,c,now,left,pop){
+  if(left<1&&Math.floor(now*12)%2)return;
+  const s=c*.22*pop;
+  actx.save();actx.translate(x,y);actx.rotate(-.55+Math.sin(now*5)*.18);
+  for(let i=0;i<6;i++){
+    const t=i/5, px=(t-.5)*s*2.1, py=Math.sin(now*7-i*.9)*s*.12;
+    const rr=s*(.3+.12*Math.sin(t*Math.PI));
+    actx.fillStyle=i%2?"#3A2016":"#2A140E";
+    actx.beginPath();actx.ellipse(px,py,rr*1.1,rr,0,0,7);actx.fill();
+  }
+  actx.fillStyle="rgba(200,120,90,.55)";
+  for(let i=1;i<5;i++){const px=((i/5)-.5)*s*2.1;actx.fillRect(px-s*.05,-s*.2,s*.1,s*.08)}
+  actx.strokeStyle="#6B2A1E";actx.lineWidth=Math.max(1,s*.08);
+  actx.beginPath();actx.arc(s*1.05,Math.sin(now*7)*s*.12,s*.18,0,7);actx.stroke();
+  actx.restore();
+}
+function hvFx(e,c){
+  const k=1-e.life/e.max;
+  if(e.k==="sweep"){
+    /* 스윕 — 3×3 이 번쩍이고 낫자루가 한 바퀴 돕니다 */
+    const cx=hvPx(e.x),cy=hvPy(e.y);
+    actx.fillStyle=`rgba(255,245,200,${.22*(1-k)})`;actx.fillRect(cx-c*1.5,cy-c*1.5,c*3,c*3);
+    actx.strokeStyle=`rgba(255,248,215,${.9*(1-k)})`;actx.lineCap="round";
+    const a0=-Math.PI/2+k*Math.PI*2;
+    for(let i=0;i<5;i++){
+      actx.lineWidth=(6-i)*1.4;actx.globalAlpha=(1-i/5)*(1-k*.6);
+      actx.beginPath();actx.arc(cx,cy,c*1.25,a0-i*.22-.22,a0-i*.22);actx.stroke();
+    }
+    actx.globalAlpha=1;
+  }else if(e.k==="slash"){
+    /* 휘두르기 — 보는 쪽 앞을 반달 모양으로 한 번 긋습니다. 앞머리가 굵고 꼬리로 갈수록 가늘어집니다 */
+    const cx=hvPx(e.x),cy=hvPy(e.y)-c*.08, R=c*.62, sw=1.3;
+    const st=e.a-e.side*sw, head=st+e.side*2*sw*hvEase(k*1.3);
+    const tail=head-e.side*Math.min(1.7,Math.abs(head-st));
+    const N=14, out=[], inn=[];
+    for(let i=0;i<=N;i++){
+      const q=i/N, an=tail+(head-tail)*q, w=c*.26*q*q;
+      out.push([cx+Math.cos(an)*(R+w*.5),cy+Math.sin(an)*(R+w*.5)]);
+      inn.push([cx+Math.cos(an)*(R-w*.5),cy+Math.sin(an)*(R-w*.5)]);
+    }
+    actx.beginPath();actx.moveTo(out[0][0],out[0][1]);
+    for(const p of out)actx.lineTo(p[0],p[1]);
+    for(let i=inn.length-1;i>=0;i--)actx.lineTo(inn[i][0],inn[i][1]);
+    actx.closePath();
+    actx.globalAlpha=1-k*k;
+    actx.fillStyle="rgba(255,250,225,.92)";actx.fill();
+    actx.strokeStyle="rgba(255,215,110,.9)";actx.lineWidth=1.2;actx.stroke();
+    actx.globalAlpha=1;
+  }else if(e.k==="trail"){
+    actx.fillStyle=`rgba(240,235,210,${.35*(1-k)})`;
+    actx.beginPath();actx.arc(hvPx(e.fx),hvPy(e.fy)+c*.25,c*(.18+.12*k),0,7);actx.fill();
+  }else if(e.k==="flash"){
+    actx.strokeStyle=`rgba(255,225,110,${1-k})`;actx.lineWidth=3;
+    actx.beginPath();actx.arc(hvPx(e.x),hvPy(e.y),c*(.3+k*2.4),0,7);actx.stroke();
+  }else if(e.k==="ring"){
+    actx.strokeStyle=`rgba(166,201,74,${1-k})`;actx.lineWidth=2.5;
+    actx.beginPath();actx.arc(hvPx(e.x),hvPy(e.y),c*(.6-k*.35),0,7);actx.stroke();
+  }else if(e.k==="wither"){
+    actx.fillStyle=`rgba(120,95,50,${.5*(1-k)})`;
+    actx.beginPath();actx.arc(hvPx(e.x),hvPy(e.y),c*.3*(1-k*.5),0,7);actx.fill();
   }
 }
 
@@ -7730,7 +8395,7 @@ function bgmAllowed(){
 let bgmOff=false; try{bgmOff=localStorage.getItem(BGM_KEY)==="1"}catch(e){}
 let bgmNow="", bgmEl=null, bgmArmed=false;
 /* 오락실의 게임 화면들도 오락실(예체능대학) 안입니다 */
-const ARCADE_SCENES=["spidergame","stargame","huntgame","spiderend","starend","huntend","arcadeend"];
+const ARCADE_SCENES=["spidergame","stargame","huntgame","harvestgame","spiderend","starend","huntend","harvestend","arcadeend"];
 /* 지금 화면이 어느 건물 안인지. 아니면 null.
    G.hallId 는 지도로 나와도 남아 있으므로, 화면이 그 건물의 것인지 한 번 더 봅니다 —
    안 보면 캠퍼스 지도에서까지 마지막에 들른 건물의 곡이 흐릅니다.
@@ -7898,6 +8563,14 @@ const SFX_ART={
   "물러남": ["sfx/backstep1.m4a","sfx/backstep2.m4a"],
   "피격":   ["sfx/hurt1.m4a","sfx/hurt2.m4a","sfx/hurt3.m4a"],
   "파손":   ["sfx/break1.m4a","sfx/break2.m4a","sfx/break3.m4a"],
+  /* 미니게임 추수의 두 힘 */
+  "대시":   ["sfx/harvestDash.mp3"],
+  "스윕":   ["sfx/harvestSweep.mp3"],
+  /* 잡혔을 때 다섯 중 하나. 1·2·5 는 원본이 작아 최고치를 −6.5dB 안팎으로 올려 두었습니다 */
+  "실패":   ["sfx/harvestFail1.mp3","sfx/harvestFail2.mp3","sfx/harvestFail3.mp3","sfx/harvestFail4.mp3","sfx/harvestFail5.mp3"],
+  "종료":   ["sfx/harvestTimeUp.mp3"],
+  "시작종": ["sfx/harvestStart.mp3"],
+  "두둥":   ["sfx/harvestLeech.mp3"],
 };
 const sfxBuf=Object.create(null);   /* 풀어 둔 소리. 없거나 실패하면 null 로 남습니다 */
 let sfxPre=false;
@@ -7990,6 +8663,14 @@ const SFX={
                                               nz(t,o,{type:"lowpass",f0:1400*r,f1:400*r,dur:.07,v:.22,q:.6})}},
   "파손":   {sv:0.75,pri:5,gap:140,dur:.4,f:(t,o,r)=>{nz(t,o,{f0:3400*r,f1:900*r,dur:.12,v:.4,q:1.2});
                                               osc(t,o,{type:"square",f0:700*r,f1:180*r,dur:.22,v:.2})}},
+  /* 추수 — 녹음을 못 읽으면 베기 합성음으로 */
+  "대시":   {sv:1,pri:5,gap:200,dur:1.2,f:(t,o,r)=>SFX["베기"].f(t,o,r*.8)},
+  "스윕":   {sv:1,pri:5,gap:200,dur:1.2,f:(t,o,r)=>SFX["베기"].f(t,o,r*1.1)},
+  /* 한 판의 시작·끝·거머리 — 놓치면 안 되므로 pri 를 높게. 녹음을 못 읽으면 가까운 합성음으로 */
+  "실패":   {sv:1,pri:9,gap:500,dur:2.3,f:(t,o,r)=>SFX["쓰러짐"].f(t,o,r)},
+  "종료":   {sv:1,pri:9,gap:500,dur:2.9,f:(t,o,r)=>SFX["회복"].f(t,o,r*.8)},
+  "시작종": {sv:1,pri:9,gap:500,dur:1.7,f:(t,o,r)=>SFX["회복"].f(t,o,r)},
+  "두둥":   {sv:1,pri:8,gap:400,dur:1.6,f:(t,o,r)=>SFX["피격"].f(t,o,r*.7)},
 };
 /* 소리 하나 치기. 겹쳐서 시끄러워지지 않게 세 겹으로 막습니다.
    ① 같은 소리는 gap(ms) 안에 다시 나지 않습니다 — 여럿이 동시에 휘둘러도 한 번입니다
@@ -8241,7 +8922,7 @@ function render(){
   if(G.roster&&!G.medOpen&&medReady(G))G.medOpen=true;
   if(G.roster&&!G.fkOpen&&fkReady(G))G.fkOpen=true;
   let S=G.scene;
-  if(S!=="spidergame"&&S!=="stargame"&&S!=="huntgame")arcadeStop();
+  if(S!=="spidergame"&&S!=="stargame"&&S!=="huntgame"&&S!=="harvestgame")arcadeStop();
   if(S!=="library")libFoeStop();         /* 도감의 적 그림도 화면을 뜨면 멈춥니다 */
   if(S!=="title")titleStop();
   bgmPlay(bgmFor());
@@ -8768,7 +9449,7 @@ function render(){
       <span class="tag">골드 <b>${G.gold}</b></span></div>
       <div id="map"><img src="${artUrl(CAMPUS_ART)}" alt="캠퍼스">
       ${BUILDINGS.map(b=>{const lit=bldLit(b),x=b.box;
-        return `<button class="pin ${lit?"":"lock"} ${b.id==="gate"?"gate":""}" data-b="${b.id}"
+        return `<button class="pin ${lit?"":"lock"} ${b.id==="gate"?"gate":""} ${lit&&(b.facs||[]).includes("arcade")&&harvestNew()?"new":""}" data-b="${b.id}"
           style="left:${x[0]}%;top:${x[1]}%;width:${x[2]-x[0]}%;height:${x[3]-x[1]}%"
           >${lit?b.n:"???"}</button>`}).join("")}</div>
       ${G.mapMsg?`<div class="tag" style="color:var(--dim)">${G.mapMsg}</div>`:""}
@@ -8809,7 +9490,7 @@ function render(){
       <div class="bar"><span class="tag">${b.n}</span><span class="tag">골드 <b>${G.gold}</b></span></div>
       <div class="bldbg" ${bg}>
       ${b.facs.map(id=>{const f=facOf(id),o=f.cond(G);
-        return `<button class="fac ${o?"":"lock"}" ${o?`data-f="${id}"`:"disabled"}>
+        return `<button class="fac ${o?"":"lock"} ${o&&id==="arcade"&&harvestNew()?"new":""}" ${o?`data-f="${id}"`:"disabled"}>
           <span class="ic">${o?facIcon(id,f.ic):"🔒"}</span>
           <span class="tx"><b>${o||DEV_SHOW_UNLOCK?f.n:"잠겨 있다"}</b><span>${
             o?f.d:(DEV_SHOW_UNLOCK?`<i>${f.prog(G)}</i>`:"")}</span></span></button>`}).join("")}
@@ -9434,7 +10115,7 @@ function render(){
       <div class="bar"><span class="tag">게임장</span></div>
       ${npcBar("arcade")}
       <div class="card"><h2>지하 오락실</h2>
-      <p>누군가 게이트 안의 것들을 본떠 만든 기계가 세 대 놓여 있습니다.
+      <p>누군가 게이트 안의 것들을 본떠 만든 기계가 네 대 놓여 있습니다.
       돈은 들지도 나오지도 않습니다. 남는 것은 기록뿐입니다.</p></div>
       <button class="fac" id="g1"><span class="ic">🕷</span>
         <span class="tx"><b>거미 잡기</b><span>줄을 타고 내려오는 거미를 눌러 잡습니다 · 최고 ${G.arcadeBest}마리</span></span></button>
@@ -9442,10 +10123,13 @@ function render(){
         <span class="tx"><b>별 줍기</b><span>발판을 뛰어다니며 별을 모읍니다 · 최고 ${G.starBest||0}개</span></span></button>
       <button class="fac" id="g3"><span class="ic">🔫</span>
         <span class="tx"><b>좀비 헌터</b><span>내려오는 좀비를 쏘아 막습니다 · 최고 ${G.huntBest||0}마리</span></span></button>
+      <button class="fac ${harvestNew()?"new":""}" id="g4"><span class="ic">🌾</span>
+        <span class="tx"><b>추수</b><span>애벌레를 피해 논의 쌀을 벱니다 · 최고 ${G.harvestBest||0}점</span></span></button>
       <div class="bar"><span class="tag"></span><button class="ghost" id="bk">캠퍼스로</button></div>`;
     document.getElementById("g1").onclick=()=>{AR=null;G.scene="spidergame";render()};
     document.getElementById("g2").onclick=()=>{AR=null;G.scene="stargame";render()};
     document.getElementById("g3").onclick=()=>{AR=null;G.scene="huntgame";render()};
+    document.getElementById("g4").onclick=()=>{AR=null;G.scene="harvestgame";render()};
     document.getElementById("bk").onclick=()=>{G.scene="campus";render()};
     return;
   }
@@ -9481,6 +10165,37 @@ function render(){
       <div class="bar"><span class="tag"></span><button class="ghost" id="bk">그만둔다</button></div>`;
     huntStart();
     document.getElementById("bk").onclick=()=>{arcadeStop();AR=null;G.scene="arcade";render()};
+    return;
+  }
+  if(S==="harvestgame"){
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">추수 · 1분</span><span class="tag">최고 <b>${G.harvestBest||0}</b>점</span></div>
+      <div id="hvWrap"><canvas id="acv"></canvas>
+        <div class="hvpad"><div class="hvzone"></div>
+          <div class="hvbtns"><button class="hvbtn" id="hvDash">대시<small>J</small><i></i></button>
+            <button class="hvbtn" id="hvSweep">스윕<small>K</small><i></i></button></div></div>
+        <div id="hvRing"></div><div id="hvKnob"></div></div>
+      <div class="bar"><span class="tag"></span><button class="ghost" id="bk">그만둔다</button></div>`;
+    harvestStart();
+    document.getElementById("bk").onclick=()=>{arcadeStop();AR=null;G.scene="arcade";render()};
+    return;
+  }
+  if(S==="harvestend"){
+    /* 점수만 보여 줍니다 — 점수에 따른 보상은 나중에 붙입니다 */
+    const sc=AR?AR.score:0, best=AR&&AR.best, caught=AR&&AR.end==="caught", me=AR&&AR.rec;
+    const log=G.harvestLog||[];
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">추수</span><span class="tag">최고 <b>${G.harvestBest||0}</b>점</span></div>
+      <div class="card"><h2>${caught?"애벌레에게 잡혔다":"해가 졌다"}</h2>
+      <p>점수 <b style="color:var(--mark)">${sc}</b></p>
+      ${best?`<div class="derived" style="color:var(--ok)">최고 기록을 갱신했습니다.</div>`:""}
+      <table class="hvrec">${log.map((r,i)=>`<tr class="${r===me?"me":""}"><td>${i+1}</td>
+        <td class="sc">${r.s}점</td><td class="dt">${r.e==="caught"?"잡힘 · ":""}${r.d||""}</td></tr>`).join("")}</table></div>
+      <div class="bar"><button class="ghost" id="again">한 판 더<small class="key">J</small></button>
+        <button id="bk">게임장으로<small class="key">K</small></button></div>`;
+    hvEndAt=Date.now();
+    document.getElementById("again").onclick=()=>{AR=null;G.scene="harvestgame";render()};
+    document.getElementById("bk").onclick=()=>{AR=null;G.scene="arcade";render()};
     return;
   }
   if(S==="huntend"){
@@ -9759,6 +10474,18 @@ function render(){
   }
 }
 addEventListener("keydown",onKeyJump);
+/* 추수 끝 화면 — J 한 판 더, K 게임장으로. 막 끝난 순간 누르고 있던 키에 넘어가지 않게 0.5초 기다립니다 */
+addEventListener("keydown",e=>{
+  if(G.scene!=="harvestend"||e.repeat||Date.now()-hvEndAt<500)return;
+  const pop=document.querySelector(".pop");
+  if(pop){
+    if(["KeyJ","KeyK","Enter","Space"].includes(hvCode(e))){e.preventDefault();pop.remove();hvEndAt=Date.now()}
+    return;
+  }
+  const c=hvCode(e);
+  if(c==="KeyJ"){e.preventDefault();AR=null;G.scene="harvestgame";render()}
+  else if(c==="KeyK"){e.preventDefault();AR=null;G.scene="arcade";render()}
+});
 addEventListener("keydown",e=>{if(e.key==="Escape"){e.preventDefault();goBack()}});
 addEventListener("resize",()=>{if(G.scene==="battle")fitCanvas()});
 bootGame();
