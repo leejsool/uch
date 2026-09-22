@@ -2331,8 +2331,8 @@ const INSTANTS=[
   {k:"m_phil2", maj:"phil", up:"m_phil", n:"설득+",     br:"hp",   v:40, d:"최대 체력 +{40}",            f:u=>{u.maxHp+=40;u.hp+=40}},
   {k:"m_pe",     maj:"pe",     n:"기초 체력", br:"hp",   v:25, d:"최대 체력 +{25}",            f:u=>{u.maxHp+=25;u.hp+=25}},
   {k:"m_pe2",   maj:"pe",   up:"m_pe",   n:"기초 체력+", br:"hp",   v:45, d:"최대 체력 +{45}, 이동 +{5}%",   f:u=>{u.maxHp+=45;u.hp+=45;u.vspeed*=1.05}},
-  {k:"m_med",    maj:"nurse",  n:"응급 처치", br:"heal", v:25, d:"전투 시작마다 체력 {25} 회복", f:u=>u.hp=Math.min(u.maxHp,u.hp+25)},
-  {k:"m_med2",  maj:"nurse",up:"m_med",  n:"응급 처치+", br:"heal", v:45, d:"전투 시작마다 체력 {45} 회복", f:u=>u.hp=Math.min(u.maxHp,u.hp+45)},
+  {k:"m_med",    maj:"nurse",  n:"응급 처치", br:"heal", v:10, d:"전투 시작마다 체력 {10} 회복", f:u=>u.hp=Math.min(u.maxHp,u.hp+10)},
+  {k:"m_med2",  maj:"nurse",up:"m_med",  n:"응급 처치+", br:"heal", v:18, d:"전투 시작마다 체력 {18} 회복", f:u=>u.hp=Math.min(u.maxHp,u.hp+18)},
   {k:"m_cs",     maj:"cs",     n:"조준 보정", br:"rng",  v:3,  d:"공격 사거리 +{3}",           f:u=>u.range+=3},
   {k:"m_cs2",   maj:"cs",   up:"m_cs",   n:"조준 보정+", br:"rng",  v:5,  d:"공격 사거리 +{5}, 치명타 +{5}%", f:u=>{u.range+=5;u.crit+=5}},
   {k:"m_dance",  maj:"dance",  n:"스텝",     br:"dodge",v:12, d:"이동 +{12}%, 회피 +{9}%",      f:u=>{u.vspeed*=1.12;u.dodge+=9}},
@@ -4531,7 +4531,8 @@ function startBreath(u){
    처음 HORNET_CIRC.sec 초 동안은 대원들에게서 먼 자리에서 ∞(x=cos, y=sin2θ)를 한 바퀴 돕니다.
    곡선 위의 점을 빠르게(vspeed×HORNET_CIRC.chase) 뒤쫓으므로 처음 자리에서 곡선으로 매끄럽게 들어갑니다.
    시간이 다 되면 **그때 체력이 가장 낮은 대원**을 f.prey 로 찍어 두고 그에게 날아가 찌릅니다.
-   f.prey 가 쓰러지면 여느 적처럼 가장 가까운 대원을 노립니다(바깥 줄이 가릅니다). */
+   그 한 번을 찌르고 나면(또는 f.prey 가 쓰러지면) 여느 적처럼 가장 가까운 대원을 노립니다
+   (2026-09-23: 한 명만 집요하게 물고 늘어지지 않도록, 첫 공격 이후로는 매번 다시 고릅니다). */
 const HORNET_CIRC={sec:2,ax:14,ay:8,chase:1.8};
 function hornetCenter(f){
   const av=B.allies.filter(a=>a.hp>0), C=HORNET_CIRC;
@@ -4583,6 +4584,63 @@ function hornetStep(f,lifeA,dt){
   /* 머리는 날아가는 쪽 — 곡선의 접선 */
   f.face=Math.atan2(Math.cos(th*2)*2*C.ay,-Math.sin(th)*C.ax);
   return true;
+}
+/* ── 장수말벌 돌풍 — 체력이 HORNET_GUST.at 밑으로 떨어지면 한 판에 한 번 (2026-09-23) ──
+   날개로 돌풍을 일으켜 살아 있는 대원 전원을 저에게서 push 만큼 밀어내고 stun 초 기절시킵니다.
+   밀림은 slide 초에 걸쳐 미끄러지고, 벽에 막히면 그만큼만 밀립니다(knockBack 과 같은 규칙).
+   회피로 비킬 수 없습니다 — 바람입니다. 그동안 말벌은 제자리에서 날갯짓만 합니다(dur 초). */
+const HORNET_GUST={at:0.6,push:10,stun:0.5,slide:0.2,dur:0.45};
+function hornetGustStart(f,lifeA){
+  const G=HORNET_GUST;
+  f.gustDone=true;f.anim=null;
+  f.gust={t:0,who:lifeA.map(a=>{
+    let dx=a.x-f.x,dy=a.y-f.y,d=Math.hypot(dx,dy);
+    if(d<1e-3){const th=Math.random()*Math.PI*2;dx=Math.cos(th);dy=Math.sin(th);d=1}
+    a.stunT=Math.max(a.stunT||0,G.stun);a.anim=null;
+    return{a,ux:dx/d,uy:dy/d,left:G.push};
+  })};
+  B.shake=.35;
+  B.fx.push({x:f.x,y:f.y-f.r-2,t:"돌풍!",c:"#CFE8F2",life:1.2,off:0});
+  sfx("스윕",.7);
+  say(`${f.name}이(가) 날개를 거세게 쳐 돌풍을 일으킨다!`);
+}
+/* 돌풍이 부는 동안의 한 차례 — 끝나면 거짓을 돌려줘 여느 차례로 돌아갑니다 */
+function hornetGustStep(f,dt){
+  const G=HORNET_GUST, S=f.gust;
+  S.t+=dt;
+  const st=G.push*dt/G.slide;
+  for(const w of S.who){
+    const a=w.a;
+    if(a.hp<=0||w.left<=0)continue;
+    const m=Math.min(st,w.left);w.left-=m;
+    const nx=a.x+w.ux*m, ny=a.y+w.uy*m;
+    if(!blocked(nx,a.y,a.r,a.lvm))a.x=nx;
+    if(!blocked(a.x,ny,a.r,a.lvm))a.y=ny;
+  }
+  if(S.t>=G.dur){f.gust=null;return false}
+  return true;
+}
+/* 돌풍 그림 — 말벌에게서 옅은 바람 고리 두 겹이 push 너머까지 퍼집니다 */
+function drawGustMark(f){
+  const G=HORNET_GUST, e=Math.min(1,f.gust.t/G.dur);
+  const x=f.x*SX,y=f.y*SY;
+  ctx.save();
+  for(const k of [0,.35]){
+    const p=Math.max(0,Math.min(1,(e-k*.5)/(1-k*.5)));
+    if(p<=0)continue;
+    const R=f.r+(G.push+4)*p;
+    ctx.globalAlpha=(1-p)*.85;
+    ctx.strokeStyle="#DDF1F7";ctx.lineWidth=5*(1-p)+1;
+    ctx.beginPath();ctx.ellipse(x,y,R*SX,R*SY,0,0,7);ctx.stroke();
+  }
+  /* 바깥으로 뻗는 바람 줄기 */
+  ctx.globalAlpha=(1-e)*.7;ctx.strokeStyle="#F2FAFC";ctx.lineWidth=1.5;
+  for(let k=0;k<12;k++){
+    const th=k/12*Math.PI*2+.3, r0=f.r+2+G.push*e*.6, r1=r0+4;
+    ctx.beginPath();ctx.moveTo(x+Math.cos(th)*r0*SX,y+Math.sin(th)*r0*SY);
+    ctx.lineTo(x+Math.cos(th)*r1*SX,y+Math.sin(th)*r1*SY);ctx.stroke();
+  }
+  ctx.restore();
 }
 function fleeDen(f){
   const av=B.allies.filter(a=>a.hp>0);
@@ -5036,6 +5094,8 @@ function tick(dt){
     }
     if(f.esc){spiderEscStep(f,dt);continue}
     if(!lifeA.length)continue;
+    if(f.key==="hornet"&&!f.gustDone&&f.hp>0&&f.hp<=f.maxHp*HORNET_GUST.at)hornetGustStart(f,lifeA);
+    if(f.gust&&hornetGustStep(f,dt))continue;
     /* 물러났다 돌아오는 패턴. 한 판에 한 번만(f.fled) 쓴다. */
     const FL=(ENEMIES[f.key]||{}).flee;
     if(FL&&!f.fled&&f.hp>0&&f.hp<=f.maxHp*FL.at){
@@ -5107,6 +5167,8 @@ function tick(dt){
           if(!t.slowT)B.fx.push({x:t.x,y:t.y-3,t:"둔화",c:"#7FA8D9",life:1,off:0});
           t.slowT=Math.max(t.slowT||0,E.slow.sec);t.slowM=E.slow.mul;
         }
+        /* 장수말벌은 찍어 둔 대원을 한 번 찌르고 나면, 그 뒤로는 여느 적처럼 가장 가까운 대원을 노립니다 */
+        if(f.key==="hornet")f.prey=null;
         say(`${f.name}이(가) ${t.name}을(를) 공격했다.`)}}
   }
   separate();
@@ -5194,6 +5256,7 @@ function paintScene(){
   for(const f of B.foes)if(f.hp>0&&f.esc)drawSpiderRope(f);
   for(const f of B.foes)if(f.hp>0&&f.sw)drawCzMark(f);
   for(const f of B.foes)if(f.hp>0&&f.slam)drawSlamMark(f);
+  for(const f of B.foes)if(f.hp>0&&f.gust)drawGustMark(f);
   /* 사격 통제의 표적 — 발밑에 붉은 조준 원 */
   if(B.mark&&B.mark.hp>0&&!B.mark.away){const m=B.mark,rr=px(m.r)+4;
     ctx.strokeStyle="rgba(255,90,90,.85)";ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(px(m.x),py(m.y),rr,0,Math.PI*2);ctx.stroke();
@@ -8047,6 +8110,17 @@ function majorNote(){
    해금 안내창이 떠 있으면 그것부터 닫게 두고 다음 그리기에서 다시 봅니다. */
 function campusNotes(){
   if(document.querySelector(".pop"))return;
+  /* 학습실 — 이번 귀환의 수업으로 레벨이 오른 사람들. 한 창에 모아 한 번만 띄웁니다 */
+  if(G.studyUp&&G.studyUp.length){
+    const ups=G.studyUp;G.studyUp=[];
+    popup("📖 학습실",ups.map(u=>{
+      const r=G.roster.find(x=>x.name===u.name), n=u.lv1-u.lv0;
+      return `<div style="display:flex;align-items:center;gap:10px;margin:6px 0">${r?faceTag(r):""}<div>
+        <b>${u.name}</b> · Lv ${u.lv0} → <b style="color:var(--cy)">Lv ${u.lv1}</b><br>
+        <span style="color:var(--dim)">수업 경험치 +${u.exp} · 능력치 포인트 +${n}</span></div></div>`}).join("")
+      +`<br>학습실 수업으로 레벨이 올랐습니다.`,"확인",render);
+    return;
+  }
   if(!G.bowOpen&&(G.gateDay||{}).front>=BOW_OPEN_DAY&&G.explores>=BOW_OPEN_EXP){
     G.bowOpen=true;
     popup("소문","학생회에는 다양한 취미와 좋은 손재주를 가진 학생들이 있습니다. 그들이 기어코 활을 만들었다는 소문이 들립니다. 매점에서 팔 지도 모릅니다.");
@@ -9359,6 +9433,7 @@ function render(){
       if(tut){G.roster=[p];G.mode="campus";if(!G.announced.includes("office"))G.announced.push("office")}
       /* 학습실 — 수업을 마치고 나온 사람 · 교육비를 못 내 나온 사람 */
       G.studyDone=[];G.studyKick=null;
+      G.studyUp=[];                    /* 수업으로 레벨이 오른 사람 — 캠퍼스에 닿으면 팝업으로 알립니다(campusNotes) */
       G.bedDone=[];                    /* 이번 귀환에 다 나아 퇴원한 사람 — 캠퍼스 명단 위에 한 줄로 알립니다 */
       for(const r of G.roster){
         for(const s of SLOTS){const it=ITEMS[r.gear[s.k]];if(it&&it.kind==="inst")r.gear[s.k]=null}
@@ -9392,8 +9467,9 @@ function render(){
           else if(G.gold<cost){G.studyKick=r.name;logAdd(r,"학습실 수업 중단 · 교육비 부족")}
           else{
             G.gold-=cost;G.eduBill=(G.eduBill||0)+cost;
-            const got=Math.min(eduExpGain(r.lvl),eduRoom(r,cap));
+            const got=Math.min(eduExpGain(r.lvl),eduRoom(r,cap)), lv0=r.lvl;
             addExp(r,got);
+            if(r.lvl>lv0)G.studyUp.push({name:r.name,lv0,lv1:r.lvl,exp:got});
             logAdd(r,`학습실 수업 · 경험치 +${got}`);
             out=r.lvl>=cap;                 /* 상한에 닿았으면 마치고 나옵니다 */
             if(out)G.studyDone.push(r.name);
