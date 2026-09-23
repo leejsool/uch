@@ -879,7 +879,7 @@ const ITEMS={
      한복은 게이트1 현장 상의(앞치마·편의점 조끼) 수준, 농사 세트 셋은 반출품 중 조금 모자란 쪽에 맞췄습니다.
      농부의 작업복은 상하의 한 벌(suit) — 상의 칸에 입고 하의 칸도 같이 차지하므로, 수치도 약한 상의+하의를 합친 만큼입니다
      (후드티 −1·+6 + 청바지 −1·+4). 셋을 다 입으면 FARM_SET 보너스(derive). */
-  bokpouch:{n:"복주머니",kind:"perm",price:0,from:"추석 이벤트 · 추수 60점 이상 1개, 85점 이상 2개",
+  bokpouch:{n:"복주머니",kind:"perm",price:0,from:"추석 이벤트 · 추수 60점 이상 1개, 85점 이상 2개, 105점 이상 3개",
      /* gold — 먼저 p 확률로 세뱃돈(골드)을 굴리고, 아니면 open 중 하나. 골드는 평균 mean·표준편차 sd 의 정규분포를
         lo~hi 로 자른 것(벗어나면 다시 굴립니다). 1 밑을 잘라 내면 평균이 오르므로 mean 12 · sd 31 로 두면
         실제로 나오는 평균이 30, 표준편차 약 20, 76 이상이 약 3% 입니다. 그림은 BOK_GOLD_ICON 의 구간을 따릅니다 */
@@ -2889,6 +2889,16 @@ function matTake(id){
   for(const r of G.roster){const i=r.bag.indexOf(id);if(i>=0){r.bag.splice(i,1);return true}}
   return false;
 }
+/* ── 학생회의 여섯 번째 의뢰 · 즐거운 추석 ──
+   추석 이벤트 중 추수를 한 번이라도 하면(G.hvChuseok) 학생회장이 말을 겁니다.
+   G.chuseokQ — 0 아직 · 1 의뢰 중 · 2 마침(복주머니 CHUSEOK_Q_GIVE 개를 창고에).
+   복주머니에서 나오는 물건(세뱃돈 빼고)을 전부 손에 넣어 본 적이 있으면 학생회관에서 마칩니다.
+   이 기록(G.bokGot)을 적기 전에 연 것도 치도록, 지금 가진 것과 대원 기록에 남은 것도 셉니다. */
+const CHUSEOK_Q_GIVE=5;
+const chuseokQOpen=()=>CHUSEOK&&(G.hvChuseok||(G.harvestLog||[]).length>0);
+const bokHad=id=>(G.bokGot||[]).includes(id)||hasItem(id)
+  ||(G.roster||[]).some(r=>(r.log||[]).some(t=>t===`${ITEMS.bokpouch.n}에서 ${ITEMS[id].n}`));
+const bokAll=()=>ITEMS.bokpouch.use.open.every(([id])=>bokHad(id));
 /* 학생회 제작 활이 매점에 오르는 조건 — 정문 게이트 이틀째를 넘기고 탐색 5회 */
 const BOW_OPEN_DAY=2, BOW_OPEN_EXP=5;
 
@@ -3963,6 +3973,7 @@ function newGame(slot){
      blowKills:0,                                /* 태권도학과 — 타격·맨손으로 쓰러뜨린 수 */
      cicadaKills:0,wingQ:0,                      /* 학생회 '매미의 날개' 의뢰 */
      beetleKills:0,hornQ:0,                      /* 학생회 '딱딱한 껍질' 의뢰 */
+     hvChuseok:false,chuseokQ:0,bokGot:[],       /* 학생회 '즐거운 추석' 의뢰 · 복주머니에서 나온 것 */
      gotN:{},carrotQ:0,carrotCall:false,carrotFirst:false,   /* 번개당근 — 같은 장비를 주운 횟수 · 의뢰 · 안내 · 첫 기부 */
      shopPlaces:[],                              /* 물건을 다 모아 판매대가 열린 장소(방 id) */
      medOpen:false,                              /* 의예과 · 회복스프레이 */
@@ -6618,28 +6629,60 @@ function bokGoldIcon(n){
   return `<span class="ico" style="position:relative;display:inline-block">${ids.map((id,i)=>
     `<img src="${artUrl(ITEM_ART[id])}" alt="" style="position:absolute;left:${pos[i][0]}px;top:${pos[i][1]}px;width:36px;height:36px;object-fit:contain">`).join("")}</span>`;
 }
+/* 복주머니에서 나온 적이 있는 것 — 학생회 '즐거운 추석' 의뢰가 봅니다 */
+const bokNote=id=>{G.bokGot=G.bokGot||[];if(!G.bokGot.includes(id))G.bokGot.push(id)};
+/* 복주머니 굴리기 — {gold:n} 이나 {id} 하나. 배낭에서 열든 창고에서 열든 같습니다 */
+function pouchRoll(it){
+  const gd=it.use.gold;
+  if(gd&&Math.random()<gd.p){
+    let n;
+    do{n=Math.round(gd.mean+gd.sd*Math.sqrt(-2*Math.log(1-Math.random()))*Math.cos(2*Math.PI*Math.random()))}
+    while(n<gd.lo||n>gd.hi);
+    return {gold:n};
+  }
+  const t=it.use.open;
+  let r=Math.random()*t.reduce((a,x)=>a+x[1],0), got=t[t.length-1][0];
+  for(const e of t)if((r-=e[1])<0){got=e[0];break}
+  return {id:got};
+}
+function pouchPopup(it,o,onOk){
+  popup(it.n,o.gold?`<div class="gotitem">${bokGoldIcon(o.gold)}<span><b>${o.gold}골드</b>를 세뱃돈으로 받았습니다.</span></div>`
+    :`<div class="gotitem">${itemIcon(o.id)}<span><b>${ITEMS[o.id].n}</b>이(가) 나왔습니다.<br><small>${ITEMS[o.id].d}</small></span></div>`,
+    undefined,onOk);
+}
+/* 창고에서 바로 엽니다 — 나온 물건은 창고에, 세뱃돈은 골드로 */
+function openStorePouch(id){
+  const it=ITEMS[id];
+  if(!(G.store[id]>0)||!it||!it.use||!it.use.open)return;
+  G.store[id]--;if(G.store[id]<=0)delete G.store[id];
+  const o=pouchRoll(it);
+  if(o.gold)G.gold+=o.gold;else{G.store[o.id]=(G.store[o.id]||0)+1;markSeen(o.id);bokNote(o.id)}
+  G.rowSel=null;saveGame&&saveGame();
+  render();pouchPopup(it,o);
+}
+function bindStoreOpen(){
+  el.querySelectorAll("[data-sopen]").forEach(b=>b.onclick=()=>openStorePouch(b.dataset.sopen));
+}
+/* 게임장과 추수 끝 화면 아래의 창고 — 매점 창고와 같고, 복주머니를 맨 앞에 두어 바로 엽니다 */
+const arcadeStoreCard=()=>`<div class="card"><h2>창고</h2>${storeCells(G.roster.filter(r=>!away(r)),null)}</div>`;
+function bindArcadeStore(){
+  el.querySelectorAll("[data-hand]").forEach(b=>b.onclick=()=>{G.rowSel=null;
+    const [id,i]=b.dataset.hand.split("|");const r=G.roster[+i];
+    if(!(G.store[id]>0)||ITEMS[id].keep||!handTo(r,id))return;
+    G.store[id]--; if(G.store[id]<=0)delete G.store[id];
+    render()});
+  bindRows();bindStoreOpen();
+}
 function useItem(p,bi){
   const it=ITEMS[p.bag[bi]];
   if(!it||!it.use)return;
   /* 복주머니 — 열면 그 자리(배낭 칸)에 든 것이 놓입니다. 칸 수가 그대로라 배낭이 차 있어도 열립니다.
      세뱃돈이 나오면 주머니는 사라지고 골드만 들어옵니다(행정실 매출이 아니라 누적 수입에는 넣지 않습니다) */
   if(it.use.open){
-    const gd=it.use.gold;
-    if(gd&&Math.random()<gd.p){
-      let n;
-      do{n=Math.round(gd.mean+gd.sd*Math.sqrt(-2*Math.log(1-Math.random()))*Math.cos(2*Math.PI*Math.random()))}
-      while(n<gd.lo||n>gd.hi);
-      p.bag.splice(bi,1);G.gold+=n;
-      logAdd(p,`${it.n}에서 세뱃돈 ${n} 골드`);
-      popup(it.n,`<div class="gotitem">${bokGoldIcon(n)}<span><b>${n}골드</b>를 세뱃돈으로 받았습니다.</span></div>`);
-      return;
-    }
-    const t=it.use.open;
-    let r=Math.random()*t.reduce((a,x)=>a+x[1],0), got=t[t.length-1][0];
-    for(const e of t)if((r-=e[1])<0){got=e[0];break}
-    p.bag[bi]=got;markSeen(got);
-    logAdd(p,`${it.n}에서 ${ITEMS[got].n}`);
-    popup(it.n,`<div class="gotitem">${itemIcon(got)}<span><b>${ITEMS[got].n}</b>이(가) 나왔습니다.<br><small>${ITEMS[got].d}</small></span></div>`);
+    const o=pouchRoll(it);
+    if(o.gold){p.bag.splice(bi,1);G.gold+=o.gold;logAdd(p,`${it.n}에서 세뱃돈 ${o.gold} 골드`)}
+    else{p.bag[bi]=o.id;markSeen(o.id);bokNote(o.id);logAdd(p,`${it.n}에서 ${ITEMS[o.id].n}`)}
+    pouchPopup(it,o);
     return;
   }
   /* 배낭 확장 주머니 — 체력과 상관없이, 아직 안 늘린 사람만 */
@@ -7170,8 +7213,9 @@ const HV_READY=3;                /* 시작 전 3, 2, 1 */
 const HV_READY_BEAT=0.55;        /* 숫자 하나가 떠 있는 시간(초) — 1초는 답답했습니다 */
 const HV_REC_N=10;               /* 끝 화면에 보여 줄 기록 수 */
 /* 복주머니 — 추석 이벤트(CHUSEOK) 동안에만 줍니다(hvEnd → 창고). 이벤트가 아니면 안내만 띄웁니다.
-   높은 문턱부터 봅니다: 85점 이상 2개, 60점 이상 1개 */
-const HV_POUCH=[{at:85,n:2,msg:"굉장해요! 추석 이벤트 때 플레이하여 85점 이상을 받으면 복주머니를 2개 드려요!"},
+   높은 문턱부터 봅니다: 105점 이상 3개, 85점 이상 2개, 60점 이상 1개 */
+const HV_POUCH=[{at:105,n:3,msg:"대단해요! 추석 이벤트 때 플레이하여 105점 이상을 받으면 복주머니를 3개 드려요!"},
+                {at:85,n:2,msg:"굉장해요! 추석 이벤트 때 플레이하여 85점 이상을 받으면 복주머니를 2개 드려요!"},
                 {at:60,n:1,msg:"추석 이벤트 때 플레이하여 60점 이상을 받으면 복주머니를 드려요!"}];
 /* 59점 이하 — 앞 문장은 그대로, 뒤의 요령 한 줄은 HV_TIPS 중 하나를 무작위로 */
 const HV_POUCH_LOW="잘했어요. 조금만 더 고득점을 노려 봐요!";
@@ -7182,7 +7226,7 @@ const BOK="bokpouch";
 /* 추석 동안 받은 복주머니 — 받은 수만큼 그림을 늘어놓습니다 */
 function hvPouchGot(n){
   return `<div class="gotitem">${Array.from({length:n},()=>itemIcon(BOK)).join("")}<span>${n>=2?"굉장해요! ":""}복주머니를 <b>${n}개</b> 드려요!<br>
-    <small>창고에 넣어 두었습니다. 배낭에 옮겨 열어 보세요.</small></span></div>`;
+    <small>창고에 넣어 두었습니다. 아래 창고에서 바로 열 수 있어요.</small></span></div>`;
 }
 function hvPouchMsg(sc){const t=HV_POUCH.find(p=>sc>=p.at);return t?t.msg:HV_POUCH_LOW+" "+HV_TIPS[(Math.random()*HV_TIPS.length)|0]}
 const HV_ROCKS=[9,13];           /* 바위 개수 범위 — 그중 2~4개는 꼭 서로 붙인다 */
@@ -7267,6 +7311,7 @@ function hvMap(){
 function harvestStart(){
   harvestUnhook();
   G.harvestPlayed=true;                      /* 지도·게임장의 강조를 끕니다 */
+  if(CHUSEOK)G.hvChuseok=true;               /* 학생회 '즐거운 추석' 의뢰가 열립니다 */
   acv=document.getElementById("acv");actx=acv.getContext("2d");
   hvImg("rice");hvImg("rock");sprite("worm");allySprite("m-front");allySprite("m-back");
   const dpr=window.devicePixelRatio||1;
@@ -7918,14 +7963,16 @@ function itemCells(list){
 }
 /* 창고 칸 목록 — 매점과 출동 확인이 같이 씁니다. who 가 있으면 그 사람과 견줘 보여줍니다 */
 function storeCells(to,who){
-  const s=Object.entries(G.store).filter(([,n])=>n>0);
+  /* 여는 것(복주머니)을 맨 앞에 */
+  const opens=id=>!!(ITEMS[id].use&&ITEMS[id].use.open);
+  const s=Object.entries(G.store).filter(([,n])=>n>0).sort((a,b)=>opens(b[0])-opens(a[0]));
   if(!s.length)return `<div class="tag" style="margin-top:10px">창고가 비었습니다.</div>`;
   /* keep 이 붙은 것(당근뱃지)은 수만 보여 주고 꺼내 주지는 않습니다 */
   return itemCells(s.map(([id,n])=>({row:"hand:"+id,id,top:slotName(id),
     cnt:ITEMS[id].kind==="ammo"?ITEMS[id].qty:null,sub:`× ${n}`,
     extra:who&&!ITEMS[id].keep?compareLine(who,id):"",
     acts:ITEMS[id].keep?`<span class="tag">창고에만 쌓입니다 — 꺼낼 수 없습니다</span>`
-      :`<span class="tag">누구에게</span>
+      :`${opens(id)?`<button data-sopen="${id}">연다</button>`:""}<span class="tag">누구에게</span>
       <div class="chips">${to.map(r=>`<button class="pickb" data-hand="${id}|${G.roster.indexOf(r)}" ${(canTake(r,id)||canWearNow(r,id))?"":"disabled"}>${r.name}</button>`).join("")}</div>`})));
 }
 /* 장비 6칸 + 배낭 5칸 패널.
@@ -8333,6 +8380,7 @@ function campusNotes(){
     popup("소문","학생회에 새 퀘스트가 있습니다.");
     return;
   }
+  if(talkFree()&&!G.chuseokQ&&chuseokQOpen()&&facOf("union").cond(G)){chuseokQuest();return}
   if(talkFree()&&!G.wingQ&&(G.cicadaKills||0)>=1&&facOf("union").cond(G)){wingQuest();return}
   if(talkFree()&&!G.hornQ&&(G.beetleKills||0)>=1&&facOf("union").cond(G)){
     G.hornQ=1;markSeen(HORN);talkUse();
@@ -8444,6 +8492,27 @@ function policeMajorIntro(r){
   ],render);
   return true;
 }
+function chuseokQuest(){
+  G.chuseokQ=1;talkUse();              /* 대사가 끝나기 전에 세워 둡니다 — 다시 그려도 또 뜨지 않게 */
+  markSeen(BOK);
+  popupTalk([
+    ["union","어때? 추수 미니게임은 즐겨 봤어?"],
+    ["pc","생각보다 어려운걸."],
+    ["union","상품은 넉넉하게 준비했으니까 열심히 모아줬으면 좋겠어. 복주머니에서 얻을 수 있는 아이템을 다 모은 게 확인되면 특별히 복주머니를 더 줄게."],
+    ["pc","좋아. 조금만 더 힘내볼까?"],
+  ],render);
+}
+function chuseokHandIn(){
+  G.chuseokQ=2;
+  G.store[BOK]=(G.store[BOK]||0)+CHUSEOK_Q_GIVE;markSeen(BOK);
+  saveGame&&saveGame();
+  popupTalk([
+    ["union","아이템을 다 모았구나."],
+    ["arcade","오락실에서 살더라고."],
+    ["na",`<div class="gotitem">${itemIcon(BOK)}<span>복주머니를 <b>${CHUSEOK_Q_GIVE}개</b> 받았습니다.</span></div>`],
+    ["union","이거 받고 행복한 한가위 보내~"],
+  ],render);
+}
 function wingQuest(){
   G.wingQ=1;talkUse();               /* 대사가 끝나기 전에 세워 둡니다 — 다시 그려도 또 뜨지 않게 */
   popupTalk([
@@ -8509,6 +8578,8 @@ function carrotQuest(){
 function unionNotes(){
   if(document.querySelector(".pop"))return;
   if(!G.carrotQ&&G.carrotCall){carrotQuest();return}
+  if(!G.chuseokQ&&chuseokQOpen()){chuseokQuest();return}
+  if(G.chuseokQ===1&&bokAll()){chuseokHandIn();return}
   if(G.wingQ===1&&hasItem(WING)){wingHandIn();return}
   if(G.hornQ===1&&hasItem(HORN)){
     G.hornQ=2;takeItem(HORN);
@@ -10058,7 +10129,7 @@ function render(){
       if(!handTo(r,id))return;                     /* 못 받으면 창고에 그대로 둡니다 */
       G.store[id]--; if(G.store[id]<=0)delete G.store[id];
       render()});
-    bindInv();
+    bindInv();bindStoreOpen();
     document.getElementById("bk").onclick=()=>{G.scene="campus";render()};
     playTap();
     return;
@@ -10106,6 +10177,11 @@ function render(){
       <div class="bar"><span class="tag">학생회관</span><span class="tag">골드 <b>${G.gold}</b></span></div>
       ${npcBar("union")}
       <div class="card"><h2>부탁해 둔 것</h2></div>
+      ${questCard("chuseok",G.chuseokQ>=1,G.chuseokQ>=2,"즐거운 추석",
+        "복주머니에서 얻을 수 있는 아이템을 전부 모으기로 했습니다.",
+        `사례 · <b>${ITEMS[BOK].n}</b> ${CHUSEOK_Q_GIVE}개`,
+        G.chuseokQ>=2?`<span class="tag" style="color:var(--ok)">받았습니다</span>`
+                     :`<span class="tag">${bokAll()?"다 모았습니다":"아직입니다"}</span>`,"border-color:var(--mark)")}
       ${questCard("arm",G.armQ>=1,G.armQ>=2,"사마귀 앞발",
         "사마귀를 상대하게 되면 날카로운 앞발을 챙겨 오기로 했습니다. 가져오면 무기로 만들어 준다고 합니다.",
         `사례 · <b>${ITEMS[SCYTHE].n}</b>을(를) 매점에`,
@@ -10414,12 +10490,14 @@ function render(){
         <span class="tx"><b>좀비 헌터</b><span>내려오는 좀비를 쏘아 막습니다 · 최고 ${G.huntBest||0}마리</span></span></button>
       <button class="fac ${CHUSEOK?"gold":harvestNew()?"new":""}" id="g4"><span class="ic">🌾</span>
         <span class="tx"><b>추수${CHUSEOK?` <small style="color:#FFD35A">추석 이벤트 · 남은 ${G.hvTickets||0}회</small>`:""}</b><span>애벌레를 피해 논의 쌀을 벱니다 · 최고 ${G.harvestBest||0}점${
-          CHUSEOK?`<br>게이트 안 전투 1회당 1번 · 60점 이상 복주머니 1개, 85점 이상 2개`:""}</span></span></button>
+          CHUSEOK?`<br>게이트 안 전투 1회당 1번 · 60점 이상 복주머니 1개, 85점 이상 2개, 105점 이상 3개`:""}</span></span></button>
+      ${arcadeStoreCard()}
       <div class="bar"><span class="tag"></span><button class="ghost" id="bk">캠퍼스로</button></div>`;
     document.getElementById("g1").onclick=()=>{AR=null;G.scene="spidergame";render()};
     document.getElementById("g2").onclick=()=>{AR=null;G.scene="stargame";render()};
     document.getElementById("g3").onclick=()=>{AR=null;G.scene="huntgame";render()};
     document.getElementById("g4").onclick=hvGo;
+    bindArcadeStore();
     document.getElementById("bk").onclick=()=>{G.scene="campus";render()};
     return;
   }
@@ -10482,8 +10560,10 @@ function render(){
       <table class="hvrec">${log.map((r,i)=>`<tr class="${r===me?"me":""}"><td>${i+1}</td>
         <td class="sc">${r.s}점</td><td class="dt">${r.e==="caught"?"잡힘 · ":""}${r.d||""}</td></tr>`).join("")}</table></div>
       <div class="bar"><button class="ghost" id="again">한 판 더<small class="key">J</small></button>
-        <button id="bk">게임장으로<small class="key">K</small></button></div>`;
+        <button id="bk">게임장으로<small class="key">K</small></button></div>
+      ${arcadeStoreCard()}`;
     hvEndAt=Date.now();
+    bindArcadeStore();
     document.getElementById("again").onclick=hvGo;
     document.getElementById("bk").onclick=()=>{AR=null;G.scene="arcade";render()};
     return;
@@ -10748,7 +10828,7 @@ function render(){
       if(!(G.store[id]>0)||ITEMS[id].keep||!handTo(r,id))return;
       G.store[id]--; if(G.store[id]<=0)delete G.store[id];
       render()});
-    bindInv();bindStrip();
+    bindInv();bindStrip();bindStoreOpen();
     document.getElementById("no").onclick=()=>{G.scene="gates";render()};
     document.getElementById("yes").onclick=()=>{
       /* 들어가는 사람을 표로 굳혀 둡니다. 아무도 안 고른 판은 party() 가 앞에서부터 뽑는데,
