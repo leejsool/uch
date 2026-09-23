@@ -586,6 +586,9 @@ const LORE=[
   {k:"crystal",   on:g=>!!((g.itemSeen||{}).crystal||(g.itemSeen||{})["crystal+"]),
    d:"어둠 에너지 결정은 게이트 내의 에너지의 집약체입니다. 현장 아이템을 강화할 수 있습니다. "
     +"물론 어둠 에너지 결정도 현장 아이템입니다."},
+  /* 전공 스킬 상위(+) — 명단에 전공을 가진 사람이 한 명이라도 생기면 */
+  {k:"skill_up",  on:g=>(g.roster||[]).some(r=>majorsOf(r).length),
+   d:"전공스킬을 여러 개 습득하면 새로운 스킬을 얻을 수도 있습니다."},
   /* 대학원과 같은 조건으로 열립니다 — 시설이 문을 여는 그때 지식도 같이 열립니다 */
   {k:"grad",      on:g=>((g.gateDay||{}).front||0)>=GRAD_DAY,
    d:"사범대학의 대학원에서는 모든 아이템을 발견한 장소의 숫자만큼 추가 스텟을 얻을 수 있습니다."},
@@ -3234,7 +3237,7 @@ const CAMPUS_SCENES=["campus","hall","office","shop","admissions","union","marke
    그림은 전부 art 폴더에 둡니다. 빈 칸("")이면 지금처럼 이모지나 글자로 나옵니다.
    파일을 만들어 넣고 아래 표에 이름만 적으면 그 자리에 바로 붙습니다. */
 const ART="art/";
-const NPC_ART={office:"npc/office.webp",shop:"npc/shop.webp",adm:"npc/adm.webp",union:"npc/union.webp",clinic:"npc/clinic.webp",arcade:"",work:"npc/deptSci.webp",
+const NPC_ART={office:"npc/office.webp",shop:"npc/shop.webp",adm:"npc/adm.webp",union:"npc/union.webp",clinic:"npc/clinic.webp",arcade:"npc/arcade.webp",work:"npc/deptSci.webp",
                tower:"npc/clinic.webp",  /* 메모리얼 홀도 응급의학과 전임교수가 맡습니다 */
                grad:"npc/office.webp",   /* 대학원에 앉아 있는 것도 행정실장입니다 */
                deptArts:"npc/deptArts.webp",deptMed:"npc/deptMed.webp",deptRotc:"npc/deptRotc.webp",deptSci:"npc/deptSci.webp",deptEdu:"npc/deptEdu.webp",
