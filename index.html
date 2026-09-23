@@ -125,6 +125,10 @@
   .hpb{height:6px;background:#221C30;border-radius:3px;overflow:hidden;margin-top:6px}
   .hpb i{display:block;height:100%;background:var(--ok)}
   .hpb.low i{background:var(--bad)}
+  /* 깊은 상처 — 막대 오른쪽 끝을 원래 최대 체력 기준으로 막아 둡니다 */
+  .hpb{position:relative}
+  .hpb i.wd,.hpb.low i.wd{position:absolute;right:0;top:0;
+    background:repeating-linear-gradient(135deg,#6B2436 0 3px,#3E1622 3px 6px)}
   /* 이름표 — 막대 한 줄: 체력 ▬▬▬ 12 / 20 */
   .srow{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--dim);margin-top:5px;overflow:hidden}
   .app .hd b{white-space:nowrap}
@@ -235,6 +239,8 @@
   .mini{font-size:11px;font-weight:600;padding:5px 9px;border-radius:3px;
     border:1px solid var(--line);background:transparent;color:var(--dim);cursor:pointer;font-family:inherit;flex:0 0 auto}
   .mini:disabled{opacity:.3} .mini.bad{color:#C87878;border-color:#5A3F4A}
+  .mv.tac .mini{color:var(--dim);border-color:var(--line)}
+  .mv.tac .mini.on{color:var(--mark);border-color:var(--mark);background:#463A5F}
   .mini.dk{color:#C79BF2;border-color:#4B2A70;background:#241338}
   .mini.dk small{font-weight:400;font-size:9.5px;opacity:.6;margin-left:3px}
   button.ghost.bad{color:#C87878;border-color:#5A3F4A}
@@ -563,6 +569,11 @@ const LORE=[
   {k:"ally_flee", d:"각 전투에서 처음으로 hp가 4분의 1 이하로 떨어진 플레이어는 황급히 적에게서 도망칩니다."},
   {k:"armor_calc",d:"피격시 방어율만큼 적의 데미지를 없앤 후, 피해감소만큼의 데미지를 다시 뺀 수치가 데미지가 됩니다."},
   /* ── 여기부터 해금 ── */
+  /* 깊은 상처 — 처음 생긴 순간(addWound 가 G.woundSeen 을 세웁니다) 둘 다 열립니다 */
+  {k:"wound",     on:()=>!!G.woundSeen,
+   d:"전투에서 데미지를 입으면 약간씩 '깊은 상처'가 생깁니다. 깊은 상처는 최대 hp를 깎습니다."},
+  {k:"wound_heal",on:()=>!!G.woundSeen,
+   d:"깊은 상처는 게이트에 들어가지 않고 쉬면 조금씩 낫습니다. 응급의학 실습실에서 입원하면 빠르게 낫습니다."},
   {k:"inst",      on:()=>sawItem(it=>it.kind==="inst"),
    d:"현장 아이템은 게이트 안에서만 사용할 수 있습니다. 게이트를 나오면 사라집니다."},
   {k:"gunmajor",  on:()=>sawItem(it=>it.ammo&&!it.bow),
@@ -654,6 +665,12 @@ const eduOpen=g=>EDU_MAJORS.filter(m=>m.open(g)).map(m=>m.id);
 /* 실습동은 이공계 전공을 실제로 **정한 대원**이 있어야 돌아갑니다 (열려 있기만 한 것과 다릅니다) */
 const hasSciMajor=g=>(g.roster||[]).some(r=>majorsOf(r).some(m=>SCI_IDS.includes(m)));
 const WORK_OPEN=200;    /* 실습동이 처음 열리는 데 필요한 지금 가진 골드 — 열린 뒤에는 보지 않습니다 */
+/* 개조연구실 (2026-09-24) — 이공대학. 실습동에서 무엇이든 한 번 손보면(G.modded) 열립니다.
+   앉힌 대원(r.modding)은 출동하지 못하고, 게이트 안 전투 한 번마다 다음 개조 값이 깎입니다(G.modCut).
+   전공활용 10 이면 2골드, 10 미만이면 1골드, 10 에서 5 오를 때마다 +1 (15 → 3, 20 → 4) */
+const MOD_SEATS=1, MOD_BASE=2, MOD_LOW=1, MOD_STEP=5;
+const modGain=r=>{const m=(r&&r.stats&&r.stats.maj)||10;
+  return m<10?MOD_LOW:MOD_BASE+Math.floor((m-10)/MOD_STEP)};
 const majorOf=id=>MAJORS.find(m=>m.id===id)||null;
 /* ── 복수전공 ── 전공은 최대 두 개(major · major2).
    전공을 읽는 자리는 전부 이 두 함수를 지납니다. 한 곳이라도 r.major 만 보면
@@ -1244,6 +1261,8 @@ const WORK_UP={
 };
 const workId=id=>id+"+";
 const workCost=id=>(WORK_UP[id]||{}).g||0;
+/* 개조연구실이 쌓아 둔 할인을 먹인 값. 개조 한 번에 할인을 통째로 쓰고, 남은 것은 사라집니다 */
+const workPrice=id=>Math.max(0,workCost(id)-(G.modCut||0));
 for(const [base,up] of Object.entries(WORK_UP)){
   const b=ITEMS[base], it={...b,...up,n:b.n+"+",base:base};
   delete it.g;                              /* 값은 표에만 두고 물건에는 남기지 않습니다 */
@@ -2749,6 +2768,26 @@ function worn(p){return SLOTS.map(s=>ITEMS[p.gear[s.k]]).filter(Boolean)}
 /* 농사 세트 — 셋(item.farm)을 다 입었는가. 보너스는 베기 무기를 들었을 때만 붙습니다 */
 const FARM_SET={n:"농사 세트",aspdM:1.25,crit:5,d:"밀짚모자·짚신·농부의 작업복을 모두 입으면 베기 무기의 공속 +25%, 치명 +5%"};
 const farmSet=p=>["head","top","shoes"].every(k=>{const it=ITEMS[p.gear[k]];return !!(it&&it.farm)});
+/* ── 깊은 상처 (2026-09-24) ── r.wound 만큼 최대 체력이 줄어듭니다. derive() 가 빼 주므로
+   체력 상한을 derive().maxHp 로 보는 곳(회복·전투·표시)은 전부 저절로 따라옵니다.
+   생기는 곳 — finishBattle(게이트 안 전투에서 실제로 깎인 체력 WOUND_PER 당 1)
+   낫는 곳 — 캠프파이어 휴식(WOUND_REST) · 귀환 때 출동 안 한 사람(원래 최대의 WOUND_IDLE) · 입원(WOUND_BED) */
+const WOUND_PER=10, WOUND_CAP=0.7, WOUND_REST=10, WOUND_IDLE=0.05, WOUND_BED=0.5;
+/* 원래 최대 체력(fullHp)의 70% 를 넘지 않게 — 장비를 벗어 원래 최대가 줄면 여기서 같이 눌립니다 */
+const woundCap=full=>Math.floor(full*WOUND_CAP);
+function addWound(p,n){
+  if(!(n>0))return;
+  const d=derive(p);
+  p.wound=Math.min(woundCap(d.fullHp),(p.wound||0)+n);
+  p.hp=Math.min(p.hp,derive(p).maxHp);
+  G.woundSeen=true;                    /* 도서관 지식 wound · wound_heal */
+}
+function healWound(p,n){
+  if(!(p.wound>0)||!(n>0))return 0;
+  const was=p.wound;p.wound=Math.max(0,was-n);
+  if(!p.wound)delete p.wound;
+  return was-(p.wound||0);
+}
 function derive(p){
   const s=p.stats;
   let atk=2+s.str*0.6,guard=0,armor=0,hpAdd=0,aspdM=1,spdM=1,dodge=0,critAdd=0;
@@ -2772,7 +2811,8 @@ function derive(p){
   const rh=ITEMS[p.gear.rh];
   /* 농사 세트 — 밀짚모자·짚신·농부의 작업복을 다 입고 베기 무기를 들면 */
   if(farmSet(p)&&rh&&rh.dmg===DMG.SLASH){aspdM*=FARM_SET.aspdM;critAdd+=FARM_SET.crit}
-  return{maxHp:Math.round(20+s.vit*6+hpAdd),atk:+atk.toFixed(1),
+  const fullHp=Math.round(20+s.vit*6+hpAdd), wound=Math.min(p.wound||0,woundCap(fullHp));
+  return{maxHp:Math.max(1,fullHp-wound),fullHp,wound,atk:+atk.toFixed(1),
     aspd:+((0.50+s.agi*0.05)*aspdM).toFixed(2),
     speed:Math.round((14+s.spd*3)*spdM),guard,
     armor:+Math.max(0,Math.min(ARMOR_MAX,armor)).toFixed(1),
@@ -2940,6 +2980,9 @@ const FACILITIES=[
    prog:g=>!hasSciMajor(g)?"이공계 전공 대원이 있어야 돌아갑니다"
                           :`운영비 ${Math.min(g.gold,WORK_OPEN)} / ${WORK_OPEN} 골드`,
    msg:"실습동에 전기가 들어왔습니다.<br><br>선반과 바이스는 멀쩡합니다. 가지고 나올 수 있는 장비라면 여기서 손볼 수 있습니다."},
+  {id:"mod",ic:"🔩",n:"개조연구실",d:"다음 개조를 싸게 합니다",
+   cond:g=>!!g.modded,prog:g=>"실습동에서 장비를 한 번 손보면 열림",
+   msg:"이공대학에 개조연구실이 문을 열었습니다.<br><br>연구를 맡은 대원은 게이트에 나가지 못하는 대신, 다음 개조를 더 싸게 할 방법을 찾아냅니다."},
   {id:"clinic",ic:"🏥",n:"응급의학 실습실",d:"입원 치료 · 침상 증설",
    cond:g=>!!g.woundedReturn,prog:g=>`체력 절반 이하로 돌아온 사람이 생기면 열림`,
    msg:"게이트에서 다친 채 귀환하는 사람들이 많아졌습니다.<br><br>대학에서는 응급의학 실습실을 개방하여 치료가 필요한 학생들이 사용할 수 있게 되었습니다.",
@@ -3037,7 +3080,7 @@ const FACILITIES=[
    prog:g=>`대학원 · 스탯 합 ${TRAIN_SUM} 대원 (현재 최고 ${Math.max(0,...(g.roster||[]).map(statSum))})`,
    msg:"ROTC에 수련실이 해금되었습니다."},
 ];
-const FAC_SCENE={office:"office",shop:"shop",adm:"admissions",union:"union",market:"market",clinic:"clinic",tower:"tower",arcade:"arcade",work:"work",
+const FAC_SCENE={office:"office",shop:"shop",adm:"admissions",union:"union",market:"market",clinic:"clinic",tower:"tower",arcade:"arcade",work:"work",mod:"mod",
                  deptArts:"dept",deptMed:"dept",deptRotc:"dept",deptSci:"dept",deptHum:"dept",library:"library",deptEdu:"dept",study:"study",grad:"grad",train:"train"};
 
 /* ═══════════ 시설 담당자 ═══════════
@@ -3241,7 +3284,7 @@ function openFacility(id){
   }
   G.talkFor=id;G.talkLine=0;G.talkNext=dest;G.scene="talk";render();
 }
-const CAMPUS_SCENES=["campus","hall","office","shop","admissions","union","market","gates","soon","tower","clinic","arcade","spidergame","stargame","huntgame","harvestgame","spiderend","starend","huntend","harvestend","dept","work","record","study","grad","gradalloc","train"];
+const CAMPUS_SCENES=["campus","hall","office","shop","admissions","union","market","gates","soon","tower","clinic","arcade","spidergame","stargame","huntgame","harvestgame","spiderend","starend","huntend","harvestend","dept","work","mod","record","study","grad","gradalloc","train"];
 
 /* ═══════════ 그림 ═══════════
    그림은 전부 art 폴더에 둡니다. 빈 칸("")이면 지금처럼 이모지나 글자로 나옵니다.
@@ -3269,7 +3312,7 @@ const BUILDINGS=[
   {id:"human", n:"인문사회대학", box:[17.7,23.4,38.5,27.1], facs:["deptHum","library"]},
   {id:"edu",   n:"사범대학",     box:[66.1,23.9,84.8,27.5], facs:["deptEdu","study","grad"]},
   {id:"field", n:"대운동장",     box:[44,39.62,62,42.9], facs:["union","market"]},
-  {id:"sci",   n:"이공대학",     box:[15,53.75,33,57.75], facs:["deptSci","work"]},
+  {id:"sci",   n:"이공대학",     box:[15,53.75,33,57.75], facs:["deptSci","work","mod"]},
   {id:"med",   n:"의학대학",     box:[74.7,53.2,92.8,56.8], facs:["deptMed","clinic","tower"]},
   {id:"main",  n:"본관",        box:[48,67.3,63.5,70.55], facs:["office","shop","adm"]},
   {id:"gate",  n:"정문",        box:[46,82.9,61,86.9], facs:null},
@@ -3988,7 +4031,7 @@ function newGame(slot){
   feed=[];render();
 }
 /* 입원·학습·교육 중인 사람은 게이트에 나갈 수 없습니다 */
-const away=r=>!!(r.resting||r.studying);
+const away=r=>!!(r.resting||r.studying||r.modding);
 const party=()=>{
   const av=G.roster.filter(r=>!away(r));
   const s=av.filter(r=>r.inParty);
@@ -4337,7 +4380,7 @@ const D=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 
 function makeFighter(p,i,n){
   const d=derive(p);
-  const u={ref:p,name:p.name,sex:p.sex||"m",side:"a",face:-1.57,r:3.2,lvm:HUMAN,
+  const u={ref:p,name:p.name,sex:p.sex||"m",side:"a",face:-1.57,r:3.2,lvm:HUMAN,tac:p.tac||"near",
     hp:Math.min(p.hp,d.maxHp),maxHp:d.maxHp,atk:d.atk,aspd:d.aspd,vspeed:d.speed*0.42,
     range:7+d.rng,guard:d.guard,guardVar:0,armor:d.armor,dodge:d.dodge,crit:d.crit,cool:.3+i*.15,anim:null,color:"#4FC3D9",
     style:d.style,dmgType:d.dmg,broken:[],wid:p.gear.rh,
@@ -4544,6 +4587,24 @@ function healFx(f,dt){
    그동안은 움직이지도 때리지도 않습니다 — 적은 그대로 쫓아오므로 공짜 시간이 아닙니다.
    강아지 좀비의 flee 와 달리 **무적이 아니고 회복량도 먹은 것만큼**입니다. */
 const ALLY_FLEE_AT=0.25, EAT_TIME=2, REST_TIME=1, ALLY_BACK=14, ALLY_RUN_MAX=5;
+/* ── 대원별 방침 (2026-09-24) ── 누구를 칠지만 바꿉니다. 전투 중 개입은 여전히 없습니다.
+   r.tac 에 적고(없으면 near), makeFighter 가 u.tac 으로 옮깁니다. 게이트 안 장소 고르기·출동 확인에서 바꿉니다. */
+const TACTICS=[{k:"near",n:"가까운 적"},{k:"boss",n:"보스 먼저"},{k:"weak",n:"약한 적 먼저"},{k:"guard",n:"동료 엄호"}];
+function pickTarget(u,tgts,lifeA){
+  const near=list=>list.reduce((b,o)=>D(u,o)<D(u,b)?o:b);
+  if(u.tac==="boss"){const b=tgts.filter(o=>o.boss);return near(b.length?b:tgts)}
+  /* 남은 체력이 가장 적은 것 — 같으면 가까운 것 */
+  if(u.tac==="weak")return tgts.reduce((b,o)=>o.hp<b.hp||(o.hp===b.hp&&D(u,o)<D(u,b))?o:b);
+  /* 가장 다친 동료(체력 비율)에게 가장 가까이 붙은 적. 혼자면 가까운 적 */
+  if(u.tac==="guard"){
+    const mates=lifeA.filter(a=>a!==u);
+    if(mates.length){
+      const w=mates.reduce((b,a)=>a.hp/a.maxHp<b.hp/b.maxHp?a:b);
+      return tgts.reduce((b,o)=>D(w,o)<D(w,b)?o:b);
+    }
+  }
+  return near(tgts);
+}
 /* 전투 중에 먹는 것의 회복량 — useItem 과 같은 셈입니다(kit 은 식품공학과 배율을 안 받습니다).
    기운(buff)·나눠 마시기(share)는 전투 중에 얹을 자리가 없어 회복만 봅니다. */
 function healAmount(it,max){
@@ -4933,6 +4994,7 @@ function hurt(t,amt,c,type,src){
   if(t.hitCap)amt=Math.min(amt,Math.max(1,t.maxHp*t.hitCap));   /* 내진 설계+ — 한 대의 상한 */
   const was=t.hp;
   t.hp=Math.max(0,t.hp-amt);t.flash=.18;
+  if(t.side==="a")t.lost=(t.lost||0)+(was-t.hp);   /* 깊은 상처 — 실제로 깎인 만큼만(넘친 피해는 빼고) */
   /* 변이(생명공학과) — 게이트마다 한 번, 쓰러지는 대신 일어납니다 */
   if(was>0&&t.hp<=0&&t.mutate&&t.ref){
     t.hp=Math.round(t.maxHp*t.mutate);t.mutate=0;
@@ -5163,7 +5225,7 @@ function tick(dt){
     /* 줄을 타고 사라진 것(f.away)은 노릴 수 없습니다 — 목록이 비면 그 자리에 서서 기다립니다 */
     const tgts=live.filter(o=>!o.away);
     if(!tgts.length)continue;
-    const t=tgts.reduce((b,o)=>D(u,o)<D(u,b)?o:b);
+    const t=pickTarget(u,tgts,lifeA);
     if(D(u,t)>u.range+t.r-1)moveTo(u,t.x,t.y,dt);
     else{u.face=Math.atan2(t.y-u.y,t.x-u.x);u.cool-=dt*u.aspd*(u.hasteT>0?1+u.dodgeHaste:1);
       if(u.cool<=0){
@@ -6224,9 +6286,12 @@ function finishBattle(){
     if(a.ammoN!==undefined&&a.ref&&a.ref.ammo)a.ref.ammo[a.ammoType]=Math.max(0,a.ammoN);
   const broke=[];
   const hp0=new Map();                 // 전투 전 체력 — 정산 화면에서 여기서부터 깎아 보여준다
+  const w0=new Map();                  // 전투 전 깊은 상처 — 정산 막대에서 늘어나는 것을 보여 줍니다
   for(const a of alive){
-    hp0.set(a.ref,a.ref.hp);
+    hp0.set(a.ref,a.ref.hp);w0.set(a.ref,derive(a.ref).wound);
     a.ref.hp=Math.round(a.hp);
+    /* 깊은 상처 — 게이트 안 전투에서 실제로 깎인 체력 WOUND_PER 당 1. 뒤따르는 회복(식품공학과 등)은 줄어든 최대치까지만 */
+    if(G.mode==="run")addWound(a.ref,Math.floor((a.lost||0)/WOUND_PER));
     /* 한 판을 치르는 동안 못 쓰게 된 것 — 전투 중 부서진 자리(broken)는 빼고 굴립니다.
        튜토리얼에서는 굴리지 않습니다: 그날 받은 국자·냄비뚜껑이 전부입니다 */
     if(G.mode==="run")for(const s of SLOTS){
@@ -6278,6 +6343,8 @@ function finishBattle(){
   if(G.mode==="run"){
     G.gateDay=G.gateDay||{};
     G.gateDay[G.gate]=Math.max(G.gateDay[G.gate]||0,G.day);
+    /* 개조연구실 — 게이트 안 전투 한 번마다 다음 개조 값을 깎습니다 */
+    for(const r of G.roster)if(r.modding)G.modCut=(G.modCut||0)+modGain(r);
     G.bossKilled=G.bossKilled||{};
     for(const f of B.foes)if(f.boss)G.bossKilled[f.key]=true;
     G.cicadaKills=(G.cicadaKills||0)+B.foes.filter(f=>f.key==="cicada"&&f.hp<=0).length;
@@ -6337,7 +6404,7 @@ function finishBattle(){
     const went=new Set(B.allies.map(a=>a.ref));
     for(const r of G.roster)if(!went.has(r)&&!dead.includes(r)){addExp(r,exp);mentor++}
   }
-  for(const r of results)r.hp0=hp0.has(r.p)?hp0.get(r.p):r.p.hp;
+  for(const r of results){r.hp0=hp0.has(r.p)?hp0.get(r.p):r.p.hp;r.w0=w0.has(r.p)?w0.get(r.p):undefined}
   G.lastGain={exp,results,dead,broke,ammoGot,mentor,
               boss:(B.foes.find(f=>f.boss)||{}).name||null,found:found.length,relic:relic.length};
   G.scene="reward";render();
@@ -6602,7 +6669,7 @@ function workTargets(){
 function workUse(i){
   const t=workTargets()[i];
   if(!t)return false;
-  const cost=workCost(t.id), nid=workId(t.id);
+  const cost=workPrice(t.id), nid=workId(t.id);
   if(G.gold<cost)return false;
   if(t.w==="store"){
     G.store[t.id]--; if(G.store[t.id]<=0)delete G.store[t.id];
@@ -6613,6 +6680,8 @@ function workUse(i){
     if(!ok){toast(GEAR_LOW);return false}
   }
   G.gold-=cost;markSeen(nid);
+  G.modCut=0;                                  /* 할인은 한 번에 다 씁니다 — 남아도 넘어가지 않습니다 */
+  G.modded=true;                               /* 개조연구실 해금 */
   toast(`${ITEMS[t.id].n} → ${ITEMS[nid].n}`);
   return true;
 }
@@ -7847,15 +7916,20 @@ function expBar(p){
   return `<div class="barwrap"><div class="expb"><i style="width:${p.lvl>=MAX_LV?100:Math.min(100,p.exp/n*100)}%"></i></div>
     <div class="tag" style="margin-top:4px">Lv ${p.lvl} · 경험치 ${p.exp}${p.lvl<MAX_LV?` / ${n}`:""}</div></div>`;
 }
+/* 체력 막대의 폭은 원래 최대 체력(fullHp) 기준 — 깊은 상처 몫은 오른쪽 끝에 따로 칠합니다.
+   붉어지는(low) 기준은 지금 최대 체력(maxHp) 대비입니다 */
+const woundBar=(w,full,w0)=>w>0||w0>0
+  ?`<i class="wd" ${w0!=null&&w0!==w?`data-anim data-from="${w0/full*100}" data-to="${w/full*100}"`:""}
+      style="width:${(w0!=null?w0:w)/full*100}%"></i>`:"";
 function hpLine(p){
-  const m=derive(p).maxHp,pct=Math.max(0,p.hp/m*100);
-  return `<div class="barwrap"><div class="hpb ${pct<35?"low":""}"><i style="width:${pct}%"></i></div>
+  const d=derive(p),m=d.maxHp,pct=Math.max(0,p.hp/d.fullHp*100);
+  return `<div class="barwrap"><div class="hpb ${p.hp/m<.35?"low":""}"><i style="width:${pct}%"></i>${woundBar(d.wound,d.fullHp)}</div>
     <div class="tag" style="margin-top:4px">체력 ${Math.round(p.hp)} / ${m}</div></div>`;
 }
 /* 게이트 안 파티 이름표 — 이름 줄 아래에 체력·경험치를 한 줄씩 */
 function barRows(p){
-  const m=derive(p).maxHp,hp=Math.max(0,p.hp/m*100),n=nextExp(p.lvl);
-  return `<div class="srow"><span>체력</span><div class="hpb ${hp<35?"low":""}"><i style="width:${hp}%"></i></div>
+  const d=derive(p),m=d.maxHp,hp=Math.max(0,p.hp/d.fullHp*100),n=nextExp(p.lvl);
+  return `<div class="srow"><span>체력</span><div class="hpb ${p.hp/m<.35?"low":""}"><i style="width:${hp}%"></i>${woundBar(d.wound,d.fullHp)}</div>
       <span>${Math.round(p.hp)} / ${m}</span></div>
     <div class="srow"><span>경험치</span><div class="expb"><i style="width:${p.lvl>=MAX_LV?100:Math.min(100,p.exp/n*100)}%"></i></div>
       <span>${p.lvl<MAX_LV?`${p.exp} / ${n}`:p.exp}</span></div>`;
@@ -7864,13 +7938,14 @@ function barRows(p){
 /* ═══════════ 정산 화면 전용 막대 ═══════════
    전투 '전' 값에서 시작해 '후' 값으로 움직인다. 얼마나 깎이고 얼마나 자랐는지 눈에 보이게. */
 const pctOf=(e,l)=>l>=MAX_LV?100:Math.max(0,Math.min(100,e/nextExp(l)*100));
-function hpLineGain(p,hp0){
-  const m=derive(p).maxHp;
-  /* 장비가 깨져 최대 체력이 줄면 '전' 값이 새 최대치를 넘습니다 — 96/88 로 뜨지 않게 눌러 둡니다 */
+/* w0 — 전투 전 깊은 상처. 주면 상처 칸이 거기서부터 자라나는 것을 보여 줍니다 */
+function hpLineGain(p,hp0,w0){
+  const d=derive(p),m=d.maxHp,full=d.fullHp;
+  /* 장비가 깨지거나 상처가 늘어 최대 체력이 줄면 '전' 값이 새 최대치를 넘습니다 — 96/88 로 뜨지 않게 눌러 둡니다 */
   hp0=Math.min(hp0,m);
-  const a=Math.max(0,Math.min(100,hp0/m*100)), b=Math.max(0,Math.min(100,p.hp/m*100));
-  return `<div class="barwrap"><div class="hpb ${b<35?"low":""}">
-      <i data-anim style="width:${a}%" data-from="${a}" data-to="${b}"></i></div>
+  const a=Math.max(0,Math.min(100,hp0/full*100)), b=Math.max(0,Math.min(100,p.hp/full*100));
+  return `<div class="barwrap"><div class="hpb ${p.hp/m<.35?"low":""}">
+      <i data-anim style="width:${a}%" data-from="${a}" data-to="${b}"></i>${woundBar(d.wound,full,w0)}</div>
     <div class="tag" style="margin-top:4px">체력 <span data-cnt data-from="${Math.round(hp0)}"
       data-to="${Math.round(p.hp)}">${Math.round(hp0)}</span> / ${m}</div></div>`;
 }
@@ -8188,14 +8263,14 @@ function squadCards(){
     const ri=G.roster.indexOf(r), st=away(r)?"rest":t.includes(r)?"on":"off";
     return `<div class="sq ${st} ${sel===r?"open":""}" data-sq="${ri}">
       <b>${r.name}</b>${r.face?`<img src="${artUrl(r.face)}" alt="">`:'<span class="nf"></span>'}
-      <span class="st">${r.resting?"입원":r.studying?"학습중":st==="on"?"출동":"대기"}</span></div>`}).join("");
+      <span class="st">${r.resting?"입원":r.studying?"학습중":r.modding?"연구중":st==="on"?"출동":"대기"}</span></div>`}).join("");
   let more="";
   if(sel&&list.includes(sel)){
     const on=t.includes(sel), full=!on&&t.length>=squadMax();
     more=`<div class="app sqd">${faceTag(sel)}<div class="hd"><b>${sel.name}</b>
         <span>${majorName(sel)} · Lv.${sel.lvl} · ${bagName(sel)} ${sel.bag.length+ammoSlots(sel)}/${bagMax(sel)}</span></div>
       ${barRows(sel)}${statGrid(sel)}${gearLine(sel)}
-      <div class="acts">${away(sel)?`<span class="tag">${sel.resting?"입원":"학습"} 중이라 나갈 수 없습니다</span>`
+      <div class="acts">${away(sel)?`<span class="tag">${sel.resting?"입원":sel.studying?"학습":"연구"} 중이라 나갈 수 없습니다</span>`
         :`<button class="mini" data-pt="${G.roster.indexOf(sel)}" ${full?"disabled":""}>${on?"출동에서 뺀다":full?"자리가 찼습니다":"출동에 넣는다"}</button>`}</div></div>`;
   }
   return `<div class="card"><div class="cardhead"><h2>출동 명단</h2>
@@ -8213,6 +8288,14 @@ function bindStrip(){
     if(!G.roster.some(x=>x.inParty&&!away(x)))for(const x of party())x.inParty=true;
     if(!r.inParty&&G.roster.filter(x=>x.inParty&&!away(x)).length>=squadMax())return;
     r.inParty=!r.inParty;render()});
+}
+/* 대원별 방침 줄 — 게이트 안 장소 고르기와 출동 확인에 붙습니다 */
+const tacRow=r=>`<div class="mv tac">${TACTICS.map(t=>
+  `<button class="mini${(r.tac||"near")===t.k?" on":""}" data-tac="${G.roster.indexOf(r)}|${t.k}">${t.n}</button>`).join("")}</div>`;
+function bindTac(){
+  el.querySelectorAll("[data-tac]").forEach(b=>b.onclick=()=>{
+    const [i,k]=b.dataset.tac.split("|");const r=G.roster[+i];
+    if(!r)return;r.tac=k==="near"?undefined:k;render()});
 }
 const chips=()=>G.instants.length?`<div class="chips">${G.instants.map((s,i)=>
   `<button class="chip${G.chipSel===i?" on":""}" data-chip="${i}">${s.n}<span class="tip">${skillText(s)}</span></button>`
@@ -9471,7 +9554,8 @@ function render(){
       <div class="card"><h2>파티</h2>
       ${t.map((r,i)=>`<div class="app">${faceTag(r)}<div class="hd"><b>${r.name}</b>
         <span>${majorName(r)} · Lv.${r.lvl} · ${bagName(r)} ${r.bag.length+ammoSlots(r)}/${bagMax(r)}</span></div>
-        ${barRows(r)}${invPanel(r,G.roster.indexOf(r),"manage",t)}${gearLine(r)}</div>`).join("")}</div>`;
+        ${barRows(r)}${tacRow(r)}${invPanel(r,G.roster.indexOf(r),"manage",t)}${gearLine(r)}</div>`).join("")}</div>`;
+    bindTac();
     el.querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{
       const pl=G.offer[+b.dataset.p];G.here=pl;ROOM=placeRoom(pl);seePlace(pl);
       enterBattle(party(),rollEncounter(G.day,pl.risk,party().length))});
@@ -9517,7 +9601,7 @@ function render(){
       ${g.dead.length?`<div class="tag" style="margin-top:8px;color:var(--bad)">사망 · ${g.dead.map(d=>d.name).join(", ")}</div>`:""}
       ${g.results.map(r=>`<div class="app" style="margin-top:9px">
         ${faceTag(r.p)}<div class="hd"><b>${r.p.name}</b><span>${r.up?`Lv ${r.p.lvl-r.up} → Lv ${r.p.lvl}`:`Lv ${r.p.lvl}`}</span></div>
-        ${hpLineGain(r.p,r.hp0===undefined?r.p.hp:r.hp0)}${expBarGain(r)}
+        ${hpLineGain(r.p,r.hp0===undefined?r.p.hp:r.hp0,r.w0)}${expBarGain(r)}
         ${r.up?`<div class="tag" style="margin-top:6px;color:var(--mark)">레벨 상승 · 포인트 ${r.up}점</div>`:""}
       </div>`).join("")}</div>
       <div class="bar"><span class="tag"></span><button id="nx">계속</button></div>`;
@@ -9629,11 +9713,13 @@ function render(){
       if(c==="rest"){
         const rows=[];
         for(const r of t){
-          const m=derive(r).maxHp,was=r.hp;
-          r.hp=Math.min(m,r.hp+Math.round(m*(0.25+Math.random()*0.10)));
+          /* 체력 회복량은 예전 그대로(휴식 전 최대 체력 기준). 깊은 상처 WOUND_REST 를 먼저 아물리고 그 최대치까지 채웁니다 */
+          const m=derive(r).maxHp,was=r.hp,w0=derive(r).wound;
+          const healed=healWound(r,WOUND_REST);
+          r.hp=Math.min(derive(r).maxHp,r.hp+Math.round(m*(0.25+Math.random()*0.10)));
           rows.push(`<div class="app"><div class="hd"><b>${r.name}</b>
-            <span style="color:var(--ok)">체력 +${Math.round(r.hp-was)}</span></div>
-            ${hpLineGain(r,was)}</div>`);
+            <span style="color:var(--ok)">체력 +${Math.round(r.hp-was)}${healed?` · 깊은 상처 −${healed}`:""}</span></div>
+            ${hpLineGain(r,was,w0)}</div>`);
         }
         const d=popup("휴식",
           `번갈아 불을 지키며 눈을 붙였습니다.${rows.join("")}`,
@@ -9728,13 +9814,17 @@ function render(){
         const m=derive(r).maxHp;
         if(went.includes(r)&&r.hp/m<=0.5)G.woundedReturn=true;
         let rate=went.includes(r)?0.10:0.05;
+        /* 깊은 상처 — 출동하지 않은 사람은 원래 최대 체력의 WOUND_IDLE, 입원이면 WOUND_BED 만큼 아뭅니다 */
+        let wr=went.includes(r)?0:WOUND_IDLE;
         if(r.resting){
-          if(G.gold>=10){G.gold-=10;rate=0.40;G.bedBill=(G.bedBill||0)+10}
+          if(G.gold>=10){G.gold-=10;rate=0.40;wr=WOUND_BED;G.bedBill=(G.bedBill||0)+10}
           else{r.resting=false;rate=0.05;G.bedKick=r.name}
         }
-        r.hp=Math.min(m,r.hp+Math.round(m*rate));
-        /* 다 나은 사람은 저절로 퇴원합니다 — 출동 자리가 남아 있으면 명단에도 도로 올립니다 */
-        if(r.resting&&r.hp>=m){
+        if(wr)healWound(r,Math.max(1,Math.round(derive(r).fullHp*wr)));
+        r.hp=Math.min(derive(r).maxHp,r.hp+Math.round(m*rate));
+        /* 다 나은 사람은 저절로 퇴원합니다 — 깊은 상처까지 아물어야 합니다.
+           출동 자리가 남아 있으면 명단에도 도로 올립니다 */
+        if(r.resting&&r.hp>=derive(r).maxHp&&!r.wound){
           r.resting=false;
           r.inParty=G.roster.filter(x=>x.inParty&&!away(x)).length<squadMax();
           logAdd(r,"응급의학 실습실 퇴원");
@@ -9822,6 +9912,7 @@ function render(){
         /* 입원 중인 사람은 얼굴과 체력만 — 나머지는 눌러야 펼쳐집니다 */
         const open=!away(r)||G.restOpen===ri;
         const st=r.resting?'<span style="color:var(--ok)">입원</span>':r.studying?'<span style="color:var(--cy)">학습중</span>'
+          :r.modding?'<span style="color:var(--cy)">연구중</span>'
           :on?'<span style="color:var(--mark)">출동</span>':"대기";
         return `<div class="app ${away(r)?"":on?"sel":"out"}">
           ${faceTag(r)}<div class="hd"><b>${r.name}</b><span>${st} · ${majorName(r)} · Lv ${r.lvl}</span></div>
@@ -10443,11 +10534,11 @@ function render(){
        :`<div class="tag" style="margin-top:10px">지금은 내줄 것이 없습니다.</div>`}</div>`:""}
       <div class="card"><h2>대기실</h2>
       ${G.roster.filter(r=>!away(r)).map(r=>{
-        const m=derive(r).maxHp,pct=Math.round(r.hp/m*100);
+        const m=derive(r).maxHp,pct=Math.round(r.hp/m*100),fine=pct>=100&&!r.wound;   /* 깊은 상처가 있으면 눕힐 수 있습니다 */
         return `<div class="app" style="margin-top:9px">
           ${faceTag(r)}<div class="hd"><b>${r.name}</b><span>${pct}% · Lv ${r.lvl}</span></div>${hpLine(r)}
-          <div class="bar" style="margin-top:9px"><span class="tag">${pct>=100?"멀쩡합니다":""}</span>
-          <button data-bed="${G.roster.indexOf(r)}" ${free<=0||pct>=100?"disabled":""}>눕힌다</button></div></div>`}).join("")}</div>
+          <div class="bar" style="margin-top:9px"><span class="tag">${fine?"멀쩡합니다":""}</span>
+          <button data-bed="${G.roster.indexOf(r)}" ${free<=0||fine?"disabled":""}>눕힌다</button></div></div>`}).join("")}</div>
       <div class="bar"><span class="tag"></span><button class="ghost" id="bk">캠퍼스로</button></div>`;
     el.querySelectorAll("[data-bed]").forEach(b=>b.onclick=()=>{
       const r=G.roster[+b.dataset.bed];r.resting=true;r.inParty=false;
@@ -10661,9 +10752,9 @@ function render(){
     const t=workTargets().map((g,i)=>({...g,i}));
     const mode=G.workMode==="slot"?"slot":"who";
     const cell=g=>{
-      const it=ITEMS[g.id],up=ITEMS[workId(g.id)],cost=workCost(g.id);
+      const it=ITEMS[g.id],up=ITEMS[workId(g.id)],cost=workPrice(g.id),base=workCost(g.id);
       /* 칸에는 그림·이름·값만. 누르면 누구 것인지와 수치가 어떻게 바뀌는지가 펼쳐집니다 */
-      return {row:"w:"+g.i,id:g.id,top:"",sub:`<b>${cost}G</b>`,
+      return {row:"w:"+g.i,id:g.id,top:"",sub:cost<base?`<s style="opacity:.5">${base}</s> <b style="color:var(--ok)">${cost}G</b>`:`<b>${cost}G</b>`,
         extra:`<span class="tag">${g.who?`${g.who.name} · ${g.sn}`:`창고 ${g.n}개`} → ${up.n}</span>
           <div class="cmp">${upDiff(it,up)}</div>`,
         acts:`<button data-w="${g.i}" ${G.gold<cost?"disabled":""}>${cost} 골드에 손본다</button>`};
@@ -10692,7 +10783,7 @@ function render(){
           ${on?itemCells(s.list.map(cell)):""}</div>`}).join("");
     }
     el.innerHTML=logo+`
-      <div class="bar"><span class="tag">실습동</span><span class="tag">골드 <b>${G.gold}</b></span></div>
+      <div class="bar"><span class="tag">실습동${G.modCut?` · <span style="color:var(--ok)">개조 할인 ${G.modCut}골드</span>`:""}</span><span class="tag">골드 <b>${G.gold}</b></span></div>
       ${npcBar("work")}
       <div class="chips" style="margin-top:0">
         <button class="pickb ${mode==="who"?"on":""}" data-wm="who">인물별</button>
@@ -10708,6 +10799,42 @@ function render(){
        결과는 workUse 가 띄우는 알림으로 알려 줍니다 */
     el.querySelectorAll("[data-w]").forEach(b=>b.onclick=()=>{
       workUse(+b.dataset.w);G.rowSel=null;render()});
+    document.getElementById("bk").onclick=()=>{G.scene="campus";render()};
+    return;
+  }
+  /* ── 개조연구실 ── 학습실과 같은 틀. 자리는 MOD_SEATS, 돈은 들지 않습니다.
+     쌓인 할인(G.modCut)은 실습동의 다음 개조 한 번에 통째로 쓰입니다(workUse) — 남아도 넘어가지 않습니다 */
+  if(S==="mod"){
+    const inMod=G.roster.filter(r=>r.modding), cands=G.roster.filter(r=>!away(r));
+    const free=MOD_SEATS-inMod.length;
+    el.innerHTML=logo+`
+      <div class="bar"><span class="tag">이공대학 · 개조연구실</span><span class="tag">골드 <b>${G.gold}</b></span></div>
+      <div class="card"><h2>연구 성과</h2>
+      <p>다음 개조 <b style="color:var(--ok)">−${G.modCut||0}골드</b></p></div>
+      <div class="card"><h2>연구 중</h2>
+      ${inMod.length?inMod.map(r=>`<div class="app" style="border-left-color:var(--cy);margin-top:9px">
+        ${faceTag(r)}<div class="hd"><b>${r.name}</b><span>${majorName(r)} · 전공활용 ${r.stats.maj}</span></div>
+        <div class="bar" style="margin-top:9px"><span class="tag">전투 한 번마다 −${modGain(r)}골드</span>
+        <button class="ghost" data-modout="${G.roster.indexOf(r)}">그만두기</button></div></div>`).join("")
+        :`<p>연구를 맡은 사람이 없습니다.</p>`}</div>
+      <div class="card"><h2>연구 맡기기</h2>
+      ${cands.map(r=>`<div class="app" style="margin-top:9px">
+        ${faceTag(r)}<div class="hd"><b>${r.name}</b><span>${majorName(r)} · 전공활용 ${r.stats.maj}</span></div>
+        <div class="bar" style="margin-top:9px"><span class="tag">전투 한 번마다 −${modGain(r)}골드</span>
+        <button data-mod="${G.roster.indexOf(r)}" ${free<=0?"disabled":""}>${free>0?"맡긴다":"자리가 찼습니다"}</button></div></div>`).join("")
+        ||`<p>맡길 사람이 없습니다.</p>`}</div>
+      <div class="bar"><span class="tag"></span><button class="ghost" id="bk">캠퍼스로</button></div>`;
+    el.querySelectorAll("[data-mod]").forEach(b=>b.onclick=()=>{
+      const r=G.roster[+b.dataset.mod];
+      if(!r||away(r)||free<=0)return;
+      r.modding=true;r.inParty=false;
+      logAdd(r,"개조연구실 연구 시작");render()});
+    el.querySelectorAll("[data-modout]").forEach(b=>b.onclick=()=>{
+      const r=G.roster[+b.dataset.modout];
+      if(!r||!r.modding)return;
+      r.modding=false;
+      r.inParty=G.roster.filter(x=>x.inParty&&!away(x)).length<squadMax();
+      logAdd(r,"개조연구실 연구 중단");render()});
     document.getElementById("bk").onclick=()=>{G.scene="campus";render()};
     return;
   }
@@ -10813,7 +10940,7 @@ function render(){
       ${partyStrip()}
       ${t.map(r=>`<div class="app">${faceTag(r)}<div class="hd"><b>${r.name}</b>
         <span>${r.major?majorOf(r.major).n:"새내기"} · Lv ${r.lvl}</span></div>
-        ${statGrid(r)}${invPanel(r,G.roster.indexOf(r),"manage",t)}${gearLine(r)}${hpLine(r)}</div>`).join("")}
+        ${statGrid(r)}${tacRow(r)}${invPanel(r,G.roster.indexOf(r),"manage",t)}${gearLine(r)}${hpLine(r)}</div>`).join("")}
       ${t.some(r=>!r.gear.rh)?`<div class="tag" style="color:var(--bad)">맨손인 사람이 있습니다.</div>`:""}
       <div class="tag">탄약 · ${ammoLine(t)}</div>
       ${t.some(r=>{const g=ITEMS[r.gear.rh];return g&&g.ammo&&roundsOf(r,g.ammo)<10})?
@@ -10828,7 +10955,7 @@ function render(){
       if(!(G.store[id]>0)||ITEMS[id].keep||!handTo(r,id))return;
       G.store[id]--; if(G.store[id]<=0)delete G.store[id];
       render()});
-    bindInv();bindStrip();bindStoreOpen();
+    bindInv();bindStrip();bindStoreOpen();bindTac();
     document.getElementById("no").onclick=()=>{G.scene="gates";render()};
     document.getElementById("yes").onclick=()=>{
       /* 들어가는 사람을 표로 굳혀 둡니다. 아무도 안 고른 판은 party() 가 앞에서부터 뽑는데,
